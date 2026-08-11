@@ -1,0 +1,1056 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <title>Dạ Lang — User flow &amp; System map</title>
+  <style>
+    :root {
+      --ink: #071012;
+      --ink-2: #0c1719;
+      --ink-3: #122124;
+      --ivory: #f1e7d2;
+      --muted: #afa793;
+      --gold: #c89a4a;
+      --gold-soft: rgba(200, 154, 74, 0.17);
+      --gold-line: rgba(200, 154, 74, 0.29);
+      --red: #9e2c1f;
+      --red-soft: rgba(158, 44, 31, 0.16);
+      --green: #78917b;
+      --green-soft: rgba(120, 145, 123, 0.14);
+      --blue: #718b93;
+      --blue-soft: rgba(113, 139, 147, 0.14);
+      --serif: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+      --sans: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --max: 1440px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--ink);
+      color: var(--ivory);
+      font-family: var(--sans);
+      line-height: 1.5;
+    }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    a { color: inherit; }
+    :focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+
+    .page-shell { min-height: 100vh; }
+    .hero {
+      position: relative;
+      overflow: hidden;
+      border-bottom: 1px solid var(--gold-line);
+      background: #081113;
+    }
+    .hero::before,
+    .hero::after {
+      position: absolute;
+      border: 1px solid var(--gold-line);
+      border-radius: 50%;
+      content: "";
+      pointer-events: none;
+    }
+    .hero::before { width: 520px; height: 520px; top: -330px; right: -110px; }
+    .hero::after { width: 280px; height: 280px; top: -196px; right: 8px; }
+    .hero-inner {
+      position: relative;
+      z-index: 1;
+      width: min(var(--max), calc(100% - 40px));
+      margin: 0 auto;
+      padding: 66px 0 52px;
+    }
+    .kicker {
+      margin: 0 0 10px;
+      color: var(--gold);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+    }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 {
+      max-width: 920px;
+      margin-bottom: 18px;
+      font-family: var(--serif);
+      font-size: clamp(46px, 7vw, 88px);
+      font-weight: 700;
+      line-height: .96;
+      letter-spacing: -.04em;
+    }
+    .hero-copy {
+      max-width: 790px;
+      margin-bottom: 30px;
+      color: var(--muted);
+      font-size: clamp(16px, 2vw, 20px);
+    }
+    .thesis {
+      display: flex;
+      max-width: 980px;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 17px 0;
+      border-top: 1px solid var(--gold-line);
+      border-bottom: 1px solid var(--gold-line);
+    }
+    .thesis b { color: var(--gold); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
+    .thesis span { color: var(--ivory); }
+
+    .main-nav {
+      position: sticky;
+      z-index: 20;
+      top: 0;
+      border-bottom: 1px solid var(--gold-line);
+      background: rgba(7, 16, 18, .96);
+      backdrop-filter: blur(14px);
+    }
+    .main-nav, .phase-strip, .flow-board, .flow-board + .detail-bar, #state-machine { display: none !important; }
+    .main-nav-inner {
+      display: flex;
+      width: min(var(--max), calc(100% - 40px));
+      min-height: 62px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin: 0 auto;
+    }
+    .view-controls { display: flex; flex-wrap: wrap; gap: 8px; }
+    .view-button, .phase-button {
+      min-height: 38px;
+      padding: 0 13px;
+      border: 1px solid var(--gold-line);
+      border-radius: 999px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .view-button[aria-pressed="true"],
+    .phase-button[aria-current="true"] {
+      border-color: var(--gold);
+      background: var(--gold-soft);
+      color: var(--ivory);
+    }
+    .progress-label { color: var(--muted); font-size: 12px; white-space: nowrap; }
+
+    main { width: min(var(--max), calc(100% - 40px)); margin: 0 auto; }
+    section { scroll-margin-top: 82px; }
+    .section-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(250px, 440px);
+      gap: 32px;
+      align-items: end;
+      padding: 78px 0 28px;
+      border-bottom: 1px solid var(--gold-line);
+    }
+    .section-head h2 {
+      margin-bottom: 0;
+      font-family: var(--serif);
+      font-size: clamp(34px, 4vw, 54px);
+      line-height: 1;
+      letter-spacing: -.035em;
+    }
+    .section-head p { margin-bottom: 0; color: var(--muted); }
+    .section-index { display: block; margin-bottom: 7px; color: var(--gold); font-size: 11px; font-weight: 700; letter-spacing: .16em; }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px;
+      padding: 17px 0 24px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .legend span { display: inline-flex; align-items: center; gap: 8px; }
+    .legend i { width: 9px; height: 9px; border-radius: 50%; }
+    .legend .host { background: var(--red); }
+    .legend .player { background: var(--gold); }
+    .legend .system { background: var(--blue); }
+    .legend .gate { border: 1px solid var(--green); background: transparent; transform: rotate(45deg); }
+
+    .phase-strip {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(156px, 1fr));
+      overflow-x: auto;
+      border-top: 1px solid var(--gold-line);
+      border-bottom: 1px solid var(--gold-line);
+    }
+    .phase-button {
+      min-height: 72px;
+      border-width: 0 1px 0 0;
+      border-radius: 0;
+      text-align: left;
+    }
+    .phase-button:last-child { border-right: 0; }
+    .phase-button small { display: block; margin-bottom: 4px; color: var(--gold); letter-spacing: .12em; }
+
+    .flow-board { padding: 28px 0 12px; }
+    .flow-phase {
+      display: grid;
+      grid-template-columns: 130px repeat(3, minmax(0, 1fr));
+      border-bottom: 1px solid var(--gold-line);
+    }
+    .flow-phase:last-child { border-bottom: 0; }
+    .phase-label { padding: 25px 18px 24px 0; }
+    .phase-label span { color: var(--gold); font-size: 11px; font-weight: 700; letter-spacing: .13em; }
+    .phase-label strong { display: block; margin-top: 6px; font-family: var(--serif); font-size: 22px; line-height: 1.05; }
+    .lane-cell {
+      position: relative;
+      min-width: 0;
+      padding: 22px 18px 26px;
+      border-left: 1px solid var(--gold-line);
+    }
+    .lane-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 13px;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+    .lane-label::before { width: 8px; height: 8px; border-radius: 50%; content: ""; }
+    .lane-cell[data-lane="host"] .lane-label::before { background: var(--red); }
+    .lane-cell[data-lane="player"] .lane-label::before { background: var(--gold); }
+    .lane-cell[data-lane="system"] .lane-label::before { background: var(--blue); }
+    .node-list { display: grid; gap: 10px; }
+    .flow-node {
+      width: 100%;
+      min-height: 78px;
+      padding: 13px 14px;
+      border: 1px solid transparent;
+      border-left-width: 3px;
+      border-radius: 5px;
+      background: var(--ink-2);
+      color: var(--ivory);
+      text-align: left;
+      transition: background .16s ease, border-color .16s ease, transform .16s ease;
+    }
+    .flow-node:hover { transform: translateY(-1px); background: var(--ink-3); }
+    .lane-cell[data-lane="host"] .flow-node { border-left-color: var(--red); }
+    .lane-cell[data-lane="player"] .flow-node { border-left-color: var(--gold); }
+    .lane-cell[data-lane="system"] .flow-node { border-left-color: var(--blue); }
+    .flow-node strong { display: block; margin-bottom: 5px; font-size: 14px; }
+    .flow-node small { display: block; color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .flow-node.is-active { border-color: var(--gold); border-left-color: var(--gold); background: var(--gold-soft); }
+    .gate-line {
+      grid-column: 2 / -1;
+      display: flex;
+      align-items: center;
+      gap: 13px;
+      padding: 11px 18px 18px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .gate-line::before { width: 11px; height: 11px; border: 1px solid var(--green); content: ""; transform: rotate(45deg); }
+    .gate-line strong { color: var(--green); }
+    .is-hidden { display: none !important; }
+
+    .detail-bar {
+      display: grid;
+      grid-template-columns: 150px minmax(0, 1fr) minmax(220px, 340px);
+      gap: 22px;
+      align-items: start;
+      margin: 24px 0 0;
+      padding: 19px 0;
+      border-top: 1px solid var(--gold-line);
+      border-bottom: 1px solid var(--gold-line);
+    }
+    .detail-bar span { color: var(--gold); font-size: 10px; font-weight: 700; letter-spacing: .14em; }
+    .detail-bar strong { font-family: var(--serif); font-size: 21px; line-height: 1.15; }
+    .detail-bar p { margin-bottom: 0; color: var(--muted); font-size: 13px; }
+
+    .journey-note {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 17px 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .journey-note strong { color: var(--gold); letter-spacing: .09em; text-transform: uppercase; }
+    .journey-scroll {
+      overflow-x: auto;
+      border-top: 1px solid var(--gold-line);
+      border-bottom: 1px solid var(--gold-line);
+      scrollbar-color: var(--gold-line) transparent;
+    }
+    .journey-grid {
+      display: grid;
+      min-width: 1120px;
+      grid-template-columns: 140px repeat(6, minmax(160px, 1fr));
+    }
+    .diagram-corner,
+    .diagram-phase,
+    .diagram-lane-label,
+    .diagram-cell,
+    .diagram-gate-label,
+    .diagram-gate {
+      min-width: 0;
+      border-right: 1px solid var(--gold-line);
+      border-bottom: 1px solid var(--gold-line);
+    }
+    .diagram-phase:last-of-type,
+    .diagram-cell:nth-child(7n),
+    .diagram-gate:last-child { border-right: 0; }
+    .diagram-corner,
+    .diagram-lane-label,
+    .diagram-gate-label {
+      position: sticky;
+      z-index: 3;
+      left: 0;
+      background: var(--ink);
+    }
+    .diagram-corner {
+      display: flex;
+      min-height: 86px;
+      align-items: flex-end;
+      padding: 14px;
+      color: var(--muted);
+      font-size: 10px;
+      letter-spacing: .12em;
+    }
+    .diagram-phase { min-height: 86px; padding: 14px; background: rgba(200, 154, 74, .035); }
+    .diagram-phase span { color: var(--gold); font-size: 10px; font-weight: 700; letter-spacing: .12em; }
+    .diagram-phase strong { display: block; margin-top: 7px; font-family: var(--serif); font-size: 19px; line-height: 1.05; }
+    .diagram-phase small { display: block; margin-top: 5px; color: var(--muted); font-size: 10px; }
+    .diagram-lane-label {
+      display: flex;
+      min-height: 150px;
+      align-items: flex-start;
+      gap: 9px;
+      padding: 19px 14px;
+      color: var(--ivory);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .diagram-lane-label::before { width: 9px; height: 9px; flex: 0 0 auto; margin-top: 3px; border-radius: 50%; content: ""; }
+    .diagram-lane-label.host::before { background: var(--red); }
+    .diagram-lane-label.player::before { background: var(--gold); }
+    .diagram-lane-label.system::before { background: var(--blue); }
+    .diagram-cell {
+      position: relative;
+      display: flex;
+      min-height: 150px;
+      align-items: center;
+      padding: 13px;
+      background: rgba(12, 23, 25, .43);
+    }
+    .diagram-cell::after {
+      position: absolute;
+      z-index: 2;
+      top: calc(50% - 14px);
+      right: -13px;
+      display: grid;
+      width: 26px;
+      height: 28px;
+      place-items: center;
+      border: 1px solid var(--gold-line);
+      border-radius: 50%;
+      background: var(--ink);
+      color: var(--gold);
+      content: "→";
+      font-size: 13px;
+    }
+    .diagram-cell.end::after { display: none; }
+    .diagram-cell .flow-node { min-height: 100px; }
+    .diagram-cell.host .flow-node { border-left-color: var(--red); }
+    .diagram-cell.player .flow-node { border-left-color: var(--gold); }
+    .diagram-cell.system .flow-node { border-left-color: var(--blue); }
+    .diagram-cell .flow-node em { display: block; margin-top: 9px; color: var(--gold); font-size: 9px; font-style: normal; font-weight: 700; letter-spacing: .08em; }
+    .diagram-gate-label {
+      display: flex;
+      min-height: 66px;
+      align-items: center;
+      gap: 9px;
+      padding: 12px 14px;
+      color: var(--green);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .diagram-gate-label::before { width: 10px; height: 10px; border: 1px solid var(--green); content: ""; transform: rotate(45deg); }
+    .diagram-gate { display: flex; min-height: 66px; align-items: center; padding: 10px 13px; color: var(--muted); font-size: 10px; line-height: 1.35; }
+    .foundation-bar { padding: 20px 0 0; }
+    .foundation-title { display: block; margin-bottom: 12px; color: var(--gold); font-size: 10px; font-weight: 700; letter-spacing: .14em; }
+    .foundation-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; background: var(--gold-line); }
+    .foundation-item { min-height: 92px; padding: 15px; background: var(--ink); }
+    .foundation-item strong { display: block; margin-bottom: 5px; font-size: 12px; }
+    .foundation-item small { color: var(--muted); font-size: 10px; line-height: 1.4; }
+    .resolution-branches {
+      display: grid;
+      grid-template-columns: 150px 1fr 40px 1fr;
+      align-items: center;
+      margin-top: 18px;
+      border-top: 1px solid var(--gold-line);
+      border-bottom: 1px solid var(--gold-line);
+    }
+    .resolution-branches > span { padding: 14px; color: var(--gold); font-size: 10px; font-weight: 700; letter-spacing: .1em; }
+    .branch { padding: 14px; }
+    .branch strong { display: block; font-size: 12px; }
+    .branch small { color: var(--muted); font-size: 10px; }
+    .branch-arrow { color: var(--gold); text-align: center; }
+
+    .state-machine {
+      display: flex;
+      overflow-x: auto;
+      align-items: stretch;
+      padding: 30px 0 16px;
+    }
+    .state {
+      display: flex;
+      min-width: 128px;
+      align-items: center;
+      justify-content: center;
+      padding: 15px 12px;
+      border-top: 1px solid var(--gold-line);
+      border-bottom: 1px solid var(--gold-line);
+      color: var(--ivory);
+      font-size: 12px;
+      font-weight: 700;
+      text-align: center;
+    }
+    .state:first-child { border-left: 1px solid var(--gold-line); }
+    .state:last-child { border-right: 1px solid var(--gold-line); }
+    .state-arrow { display: grid; min-width: 34px; place-items: center; color: var(--gold); }
+    .machine-notes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; margin-top: 16px; background: var(--gold-line); }
+    .machine-note { padding: 18px; background: var(--ink); }
+    .machine-note strong { display: block; margin-bottom: 6px; color: var(--gold); font-size: 12px; }
+    .machine-note p { margin: 0; color: var(--muted); font-size: 12px; }
+
+    .rules-layout { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, .92fr); gap: 44px; padding: 28px 0 10px; }
+    .rules-column > h3, .system-column > h3 {
+      margin: 0 0 15px;
+      color: var(--gold);
+      font-size: 12px;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+    }
+    details { border-top: 1px solid var(--gold-line); }
+    details:last-child { border-bottom: 1px solid var(--gold-line); }
+    summary {
+      display: flex;
+      min-height: 58px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      cursor: pointer;
+      font-weight: 700;
+      list-style: none;
+    }
+    summary::-webkit-details-marker { display: none; }
+    summary::after { color: var(--gold); content: "+"; font-size: 20px; font-weight: 400; }
+    details[open] summary::after { content: "−"; }
+    .detail-content { padding: 0 0 18px; color: var(--muted); font-size: 13px; }
+    .detail-content ul { margin: 0; padding-left: 18px; }
+    .detail-content li + li { margin-top: 7px; }
+    .callout {
+      margin: 0 0 20px;
+      padding: 17px 18px;
+      border-left: 3px solid var(--red);
+      background: var(--red-soft);
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .callout strong { display: block; margin-bottom: 5px; color: var(--ivory); }
+    .preset-table, .matrix-table, .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    th, td { padding: 12px 10px; border-bottom: 1px solid var(--gold-line); text-align: left; vertical-align: top; }
+    th { color: var(--gold); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
+    td { color: var(--muted); }
+    td strong { color: var(--ivory); }
+
+    .system-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 36px; padding: 30px 0 10px; }
+    .architecture {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      align-items: stretch;
+      gap: 14px;
+      margin-bottom: 28px;
+    }
+    .architecture-layer { padding: 17px; border-top: 2px solid var(--gold); background: var(--ink-2); }
+    .architecture-layer:nth-child(2) { border-color: var(--blue); }
+    .architecture-layer:nth-child(3) { border-color: var(--green); }
+    .architecture-layer span { color: var(--muted); font-size: 10px; letter-spacing: .1em; }
+    .architecture-layer strong { display: block; margin: 6px 0 8px; }
+    .architecture-layer p { margin: 0; color: var(--muted); font-size: 12px; }
+    .requirement-list { display: grid; gap: 1px; background: var(--gold-line); }
+    .requirement {
+      display: grid;
+      grid-template-columns: 72px minmax(0, 1fr);
+      gap: 14px;
+      padding: 15px;
+      background: var(--ink);
+    }
+    .priority { color: var(--gold); font-size: 10px; font-weight: 700; letter-spacing: .12em; }
+    .requirement strong { display: block; margin-bottom: 4px; font-size: 13px; }
+    .requirement p { margin: 0; color: var(--muted); font-size: 12px; }
+    .requirement[data-priority="p1"] .priority { color: var(--green); }
+    .requirement[data-priority="later"] .priority { color: var(--blue); }
+    .scope-toggle { display: flex; align-items: center; gap: 9px; margin-bottom: 16px; color: var(--muted); font-size: 12px; }
+    .scope-toggle input { width: 17px; height: 17px; accent-color: var(--gold); }
+
+    .decision-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; margin: 30px 0 78px; background: var(--gold-line); }
+    .decision { min-height: 170px; padding: 20px; background: var(--ink); }
+    .decision span { color: var(--gold); font-size: 10px; font-weight: 700; letter-spacing: .12em; }
+    .decision h3 { margin: 9px 0 8px; font-family: var(--serif); font-size: 22px; line-height: 1.08; }
+    .decision p { margin: 0; color: var(--muted); font-size: 12px; }
+
+    footer {
+      border-top: 1px solid var(--gold-line);
+      background: #050b0d;
+    }
+    .footer-inner {
+      display: flex;
+      width: min(var(--max), calc(100% - 40px));
+      min-height: 92px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      margin: 0 auto;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .footer-inner strong { color: var(--gold); letter-spacing: .13em; }
+
+    @media (max-width: 980px) {
+      .flow-phase { grid-template-columns: 100px repeat(3, minmax(230px, 1fr)); overflow-x: auto; }
+      .section-head { grid-template-columns: 1fr; gap: 12px; }
+      .rules-layout, .system-grid { grid-template-columns: 1fr; }
+      .decision-grid { grid-template-columns: 1fr 1fr; }
+      .foundation-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 720px) {
+      .hero-inner { padding-top: 48px; }
+      .main-nav-inner { align-items: flex-start; flex-direction: column; padding: 12px 0; }
+      .progress-label { display: none; }
+      .flow-phase { display: block; padding: 20px 0; }
+      .phase-label { padding: 0 0 14px; }
+      .lane-cell { padding: 15px 0; border-left: 0; border-top: 1px solid var(--gold-line); }
+      .gate-line { display: flex; grid-column: auto; padding: 14px 0 0; }
+      .detail-bar { grid-template-columns: 1fr; gap: 8px; }
+      .machine-notes, .architecture, .decision-grid { grid-template-columns: 1fr; }
+      .phase-strip { grid-template-columns: repeat(6, 145px); }
+      .footer-inner { align-items: flex-start; flex-direction: column; justify-content: center; }
+      .journey-note { align-items: flex-start; flex-direction: column; gap: 4px; }
+      .resolution-branches { grid-template-columns: 1fr; }
+      .branch-arrow { padding: 8px; transform: rotate(90deg); }
+    }
+    @media (max-width: 420px) {
+      .hero-inner, main, .main-nav-inner, .footer-inner { width: min(100% - 28px, var(--max)); }
+      .view-button { padding-inline: 10px; }
+      .rules-layout, .system-grid { gap: 28px; }
+      .foundation-grid { grid-template-columns: 1fr; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-shell">
+    <header class="hero">
+      <div class="hero-inner">
+        <p class="kicker">Dạ Lang · MVP blueprint</p>
+        <h1>Một ván Ma Sói,<br />ba luồng đồng bộ.</h1>
+        <p class="hero-copy">Tài liệu trực quan để nhìn cùng lúc những gì Quản trò làm, Người chơi thấy và Hệ thống phải ghi nhận — từ lúc tạo phòng đến khi kết thúc ván.</p>
+        <div class="thesis"><b>Nguyên tắc lõi</b><span>App hỗ trợ ghi nhớ và giữ bí mật. Cuộc tranh luận, bỏ phiếu và dẫn chuyện vẫn diễn ra trực tiếp quanh bàn.</span></div>
+      </div>
+    </header>
+
+    <nav class="main-nav" aria-label="Bộ lọc luồng">
+      <div class="main-nav-inner">
+        <div class="view-controls" role="group" aria-label="Hiển thị theo vai trò">
+          <button class="view-button" type="button" data-view="all" aria-pressed="true">Tất cả</button>
+          <button class="view-button" type="button" data-view="host" aria-pressed="false">Quản trò</button>
+          <button class="view-button" type="button" data-view="player" aria-pressed="false">Người chơi</button>
+          <button class="view-button" type="button" data-view="system" aria-pressed="false">Hệ thống</button>
+        </div>
+        <span class="progress-label">6 chặng · 1 vòng chơi hoàn chỉnh</span>
+      </div>
+    </nav>
+
+    <main>
+      <section id="flow">
+        <div class="section-head">
+          <div><span class="section-index">01 · MASTER FLOW DIAGRAM</span><h2>Toàn bộ ván trên một sơ đồ</h2></div>
+          <p>Đọc từ trái sang phải theo phase, từ trên xuống dưới theo Quản trò, Người chơi và Hệ thống. Chạm một ô để xem chi tiết.</p>
+        </div>
+
+        <div class="legend" aria-label="Chú giải">
+          <span><i class="host"></i>Quản trò</span>
+          <span><i class="player"></i>Người chơi</span>
+          <span><i class="system"></i>Hệ thống</span>
+          <span><i class="gate"></i>Điều kiện chuyển phase</span>
+        </div>
+
+        <div class="journey-note"><strong>Một vòng chơi hoàn chỉnh</strong><span>Kéo ngang trên màn hình nhỏ để xem đủ 6 phase — mọi lane luôn hiển thị cùng lúc.</span></div>
+
+        <div class="journey-scroll" aria-label="Sơ đồ tổng quan toàn bộ user flow">
+          <div class="journey-grid">
+            <div class="diagram-corner">LANE / PHASE</div>
+            <div class="diagram-phase"><span>01 · SETUP / LOBBY</span><strong>Chọn bài &amp; tạo phòng</strong><small>Chuẩn bị ván</small></div>
+            <div class="diagram-phase"><span>02 · ROLE_REVEAL</span><strong>Chia &amp; nhận vai</strong><small>Khoảnh khắc bí mật</small></div>
+            <div class="diagram-phase"><span>03 · NIGHT</span><strong>Hành động đêm</strong><small>Checklist theo role</small></div>
+            <div class="diagram-phase"><span>04 · DAWN</span><strong>Bình minh &amp; bàn luận</strong><small>Công bố công khai</small></div>
+            <div class="diagram-phase"><span>05 · VOTING</span><strong>Biểu quyết</strong><small>Diễn ra ngoài app</small></div>
+            <div class="diagram-phase"><span>06 · RESOLUTION</span><strong>Phân giải</strong><small>Tiếp tục hoặc kết thúc</small></div>
+
+            <div class="diagram-lane-label host">Quản trò</div>
+            <div class="diagram-cell host"><button class="flow-node" type="button" data-title="Host chọn đủ bộ bài rồi tạo phòng" data-detail="Chọn 6–15 người, tăng/giảm từng role và nhìn bộ đếm tổng lá, vai có năng lực, Dân làng và phân bố phe. Chỉ khi đủ bài host mới tạo phòng và chia sẻ QR."><strong>Số người → chọn bài → tạo phòng</strong><small>Bộ đếm báo đủ, thiếu hoặc dư lá</small><em>PRIMARY: Tạo phòng với bộ bài đã chọn</em></button></div>
+            <div class="diagram-cell host"><button class="flow-node" type="button" data-title="Host bắt đầu chia vai" data-detail="Host thấy mapping toàn bộ vai và tình trạng player đã xem. Không thể reroll bí mật sau khi bắt đầu."><strong>Bắt đầu ván</strong><small>Thấy mapping vai + readiness</small><em>PRIMARY: Bắt đầu đêm</em></button></div>
+            <div class="diagram-cell host"><button class="flow-node" type="button" data-title="Host chạy checklist đêm" data-detail="Gọi lần lượt từng role, nhận tín hiệu ngoài đời, chọn target, confirm và undo nếu bấm nhầm."><strong>Checklist → target → confirm</strong><small>Sói, Bảo vệ, Tiên tri, Phù thủy…</small><em>PRIMARY: Hoàn tất đêm</em></button></div>
+            <div class="diagram-cell host"><button class="flow-node" type="button" data-title="Host review và công bố bình minh" data-detail="Kiểm tra outcome dạng draft, sửa theo house rule, xác nhận trạng thái sống/chết rồi mở thảo luận."><strong>Review outcome → công bố</strong><small>Human override trước khi commit</small><em>PRIMARY: Mở biểu quyết</em></button></div>
+            <div class="diagram-cell host"><button class="flow-node" type="button" data-title="Host ghi kết quả vote" data-detail="Nhóm bỏ phiếu trực tiếp. Host chọn người bị loại, nhập tổng số phiếu và xử lý hòa theo rule đã chốt."><strong>Đếm &amp; ghi kết quả</strong><small>Chỉ lưu vote summary</small><em>PRIMARY: Khóa biểu quyết</em></button></div>
+            <div class="diagram-cell host end"><button class="flow-node" type="button" data-title="Host phân giải vòng" data-detail="Xử lý người bị loại và trigger khi chết, chọn reveal, xác nhận đề xuất phe thắng hoặc chuyển sang đêm mới."><strong>Resolve → check thắng</strong><small>Reveal theo RuleSet, xử lý trigger</small><em>PRIMARY: Đêm mới / End game</em></button></div>
+
+            <div class="diagram-lane-label player">Người chơi</div>
+            <div class="diagram-cell player"><button class="flow-node" type="button" data-title="Player gia nhập" data-detail="Quét QR hoặc nhập room code và nickname; không cần tài khoản. Thiết bị nhận participant token riêng."><strong>Quét QR / nhập mã</strong><small>Nickname → lobby → sẵn sàng</small></button></div>
+            <div class="diagram-cell player"><button class="flow-node" type="button" data-title="Player xem vai riêng tư" data-detail="Card úp mặc định; nhấn giữ để xem vai, phe, năng lực và điều kiện thắng; mất focus thì tự úp."><strong>Nhấn giữ xem vai</strong><small>Xác nhận đã nhớ → úp máy</small></button></div>
+            <div class="diagram-cell player"><button class="flow-node" type="button" data-title="Player hành động ngoài đời" data-detail="MVP chưa chọn target trên điện thoại. Player nghe quản trò, mở mắt/chỉ tay và chỉ thấy phase hoặc note cá nhân."><strong>Úp máy, nghe quản trò</strong><small>Target bằng tín hiệu ngoài đời</small></button></div>
+            <div class="diagram-cell player"><button class="flow-node" type="button" data-title="Player thảo luận trực tiếp" data-detail="Nhìn nhau và tranh luận quanh bàn. Điện thoại chỉ hiện phase, alive/dead và ghi chú riêng hợp lệ."><strong>Tranh luận quanh bàn</strong><small>App lùi xuống, nhóm bạn là trung tâm</small></button></div>
+            <div class="diagram-cell player"><button class="flow-node" type="button" data-title="Player bỏ phiếu trực tiếp" data-detail="Giơ tay hoặc chỉ người theo cách nhóm thống nhất. Không có in-app vote trong MVP."><strong>Bỏ phiếu ngoài app</strong><small>Không cầm điện thoại</small></button></div>
+            <div class="diagram-cell player end"><button class="flow-node" type="button" data-title="Player nhận trạng thái mới" data-detail="Nhận alive/dead/spectator. Role chỉ lộ theo house rule; tất cả role mở sau khi host kết thúc game."><strong>Sống / chết / spectator</strong><small>Post-game reveal khi ENDED</small></button></div>
+
+            <div class="diagram-lane-label system">Hệ thống</div>
+            <div class="diagram-cell system"><button class="flow-node" type="button" data-title="System validate deck rồi tạo room" data-detail="Trước khi sinh room code, server kiểm tra tổng role bằng số người, có ít nhất một Sói và RuleSet hợp lệ; sau đó tạo QR, token và presence realtime."><strong>Validate deck → room + token</strong><small>Server state: SETUP → LOBBY</small></button></div>
+            <div class="diagram-cell system"><button class="flow-node" type="button" data-title="System phân vai phía server" data-detail="Shuffle phía server, tạo RoleAssignment scoped; mỗi player token chỉ đọc được vai của chính mình."><strong>Random + scoped access</strong><small>Ghi roleSeenAt và acknowledgment</small></button></div>
+            <div class="diagram-cell system"><button class="flow-node" type="button" data-title="System validate và autosave" data-detail="Kiểm tra phase, target, resource, version và idempotency; append GameEvent và tạo undo event."><strong>Validate → append event</strong><small>Autosave sau mỗi action</small></button></div>
+            <div class="diagram-cell system"><button class="flow-node" type="button" data-title="System resolve dạng draft" data-detail="Rule engine tính outcome dự kiến cho host. Chỉ sau confirm mới commit và broadcast phần thông tin công khai."><strong>Draft resolve → broadcast</strong><small>Giữ kín nguyên nhân và target</small></button></div>
+            <div class="diagram-cell system"><button class="flow-node" type="button" data-title="System lưu vote summary" data-detail="Lưu nominee, totalVotes, tie/skip và host confirmer; MVP không lưu ballot của từng người."><strong>VoteResult summary</strong><small>Không có ballot cá nhân</small></button></div>
+            <div class="diagram-cell system end"><button class="flow-node" type="button" data-title="System snapshot và đề xuất winner" data-detail="Đề xuất điều kiện thắng, chờ host confirm, chốt round version và snapshot để reconnect về đúng state."><strong>Suggest winner → snapshot</strong><small>NIGHT mới hoặc ENDED</small></button></div>
+
+            <div class="diagram-gate-label">Gate</div>
+            <div class="diagram-gate">6–15 ghế · tổng role khớp · lobby khóa</div>
+            <div class="diagram-gate">Tất cả đã nhớ vai hoặc host override có log</div>
+            <div class="diagram-gate">Mọi role đã xong hoặc được chủ động skip</div>
+            <div class="diagram-gate">Outcome đã confirm · thảo luận kết thúc</div>
+            <div class="diagram-gate">Không hòa hoặc tie đã xử lý theo rule</div>
+            <div class="diagram-gate">Host xác nhận winner hoặc tạo round mới</div>
+          </div>
+        </div>
+
+        <div class="resolution-branches" aria-label="Hai nhánh sau khi phân giải">
+          <span>SAU PHÂN GIẢI</span>
+          <div class="branch"><strong>Chưa có phe thắng → tăng round → NIGHT 02</strong><small>Lặp lại phase 03 đến phase 06</small></div>
+          <div class="branch-arrow">hoặc</div>
+          <div class="branch"><strong>Đã có phe thắng → ENDED</strong><small>Reveal toàn bộ role + timeline sau ván</small></div>
+        </div>
+
+        <div class="foundation-bar">
+          <span class="foundation-title">NỀN TẢNG HỆ THỐNG CHẠY XUYÊN SUỐT MỌI PHASE</span>
+          <div class="foundation-grid">
+            <div class="foundation-item"><strong>Server source of truth</strong><small>Client không tự giữ state quan trọng</small></div>
+            <div class="foundation-item"><strong>Participant token</strong><small>Room code không phải identity</small></div>
+            <div class="foundation-item"><strong>Privacy scope</strong><small>Player chỉ đọc vai của chính mình</small></div>
+            <div class="foundation-item"><strong>Event log + version</strong><small>Autosave, undo, idempotency</small></div>
+            <div class="foundation-item"><strong>RuleSet đã khóa</strong><small>Reveal, tie, ability variants</small></div>
+          </div>
+        </div>
+
+        <div class="detail-bar" aria-live="polite">
+          <span>CHI TIẾT Ô ĐANG CHỌN</span>
+          <strong id="master-detail-title">Chạm vào một ô trong sơ đồ</strong>
+          <p id="master-detail-copy">Mục tiêu, quyền riêng tư và dữ liệu liên quan sẽ hiện tại đây.</p>
+        </div>
+
+        <div class="phase-strip" role="navigation" aria-label="Chuyển nhanh đến phase">
+          <button class="phase-button" type="button" data-phase-target="phase-setup" aria-current="true"><small>01</small>Tạo phòng</button>
+          <button class="phase-button" type="button" data-phase-target="phase-role"><small>02</small>Nhận vai</button>
+          <button class="phase-button" type="button" data-phase-target="phase-night"><small>03</small>Ban đêm</button>
+          <button class="phase-button" type="button" data-phase-target="phase-dawn"><small>04</small>Bình minh</button>
+          <button class="phase-button" type="button" data-phase-target="phase-vote"><small>05</small>Biểu quyết</button>
+          <button class="phase-button" type="button" data-phase-target="phase-resolve"><small>06</small>Phân giải</button>
+        </div>
+
+        <div class="flow-board">
+          <article class="flow-phase" id="phase-setup">
+            <div class="phase-label"><span>PHASE 01</span><strong>Tạo &amp;<br />vào phòng</strong></div>
+            <div class="lane-cell" data-lane="host">
+              <div class="lane-label">Quản trò</div>
+              <div class="node-list">
+                <button class="flow-node" type="button" data-title="Tạo phòng" data-detail="Chọn 6–15 người, preset Classic hoặc Toàn vai đặc biệt. Hệ thống chỉ cho bắt đầu khi số vai khớp số ghế."><strong>Tạo phòng</strong><small>Chọn số người, mode và bộ vai</small></button>
+                <button class="flow-node" type="button" data-title="Khóa lobby" data-detail="Host kiểm tra đủ người, xử lý nickname trùng hoặc mất kết nối, sau đó khóa danh sách trước khi chia vai."><strong>Khóa lobby</strong><small>Kiểm tra đủ người và sẵn sàng</small></button>
+              </div>
+            </div>
+            <div class="lane-cell" data-lane="player">
+              <div class="lane-label">Người chơi</div>
+              <div class="node-list">
+                <button class="flow-node" type="button" data-title="Gia nhập phòng" data-detail="Người chơi quét QR hoặc nhập mã phòng, nhập nickname và nhận participant token riêng trên thiết bị."><strong>Quét QR / nhập mã</strong><small>Nickname, không cần tài khoản</small></button>
+                <button class="flow-node" type="button" data-title="Chờ trong lobby" data-detail="Chỉ thấy danh sách công khai và trạng thái sẵn sàng; chưa ai nhận hoặc nhìn thấy vai ở bước này."><strong>Chờ host bắt đầu</strong><small>Thấy ai đã vào phòng</small></button>
+              </div>
+            </div>
+            <div class="lane-cell" data-lane="system">
+              <div class="lane-label">Hệ thống</div>
+              <div class="node-list">
+                <button class="flow-node" type="button" data-title="Tạo room state" data-detail="Sinh room code ngắn, invite URL/QR, host recovery token, thời gian hết hạn và trạng thái LOBBY."><strong>Tạo room + token</strong><small>Room code không phải identity token</small></button>
+                <button class="flow-node" type="button" data-title="Đồng bộ presence" data-detail="Subscription realtime cập nhật join, leave, reconnect và sẵn sàng; server kiểm tra capacity và nickname."><strong>Đồng bộ realtime</strong><small>Presence, capacity, reconnect</small></button>
+              </div>
+            </div>
+            <div class="gate-line"><strong>Gate:</strong> đủ 6–15 ghế · tổng role = số người · lobby đã khóa</div>
+          </article>
+
+          <article class="flow-phase" id="phase-role">
+            <div class="phase-label"><span>PHASE 02</span><strong>Chia &amp;<br />nhận vai</strong></div>
+            <div class="lane-cell" data-lane="host">
+              <div class="lane-label">Quản trò</div>
+              <div class="node-list">
+                <button class="flow-node" type="button" data-title="Chia vai một lần" data-detail="Host bấm bắt đầu. Sau thời điểm này không có nút reroll bí mật; nếu cần chia lại phải hủy ván và để lại event log."><strong>Bắt đầu ván</strong><small>Nhìn mapping vai và tình trạng đã xem</small></button>
+              </div>
+            </div>
+            <div class="lane-cell" data-lane="player">
+              <div class="lane-label">Người chơi</div>
+              <div class="node-list">
+                <button class="flow-node" type="button" data-title="Reveal riêng tư" data-detail="Card luôn úp mặc định. Người chơi nhấn giữ để xem vai, phe, năng lực và điều kiện thắng; thả tay hoặc rời app thì card tự úp."><strong>Nhấn giữ để xem vai</strong><small>Card tự úp khi mất focus</small></button>
+                <button class="flow-node" type="button" data-title="Xác nhận đã nhớ vai" data-detail="Người chơi xác nhận đã nhớ, sau đó đặt điện thoại xuống. App không cần giữ mắt người chơi trên màn hình."><strong>Xác nhận đã nhớ</strong><small>Trở về màn hình chờ</small></button>
+              </div>
+            </div>
+            <div class="lane-cell" data-lane="system">
+              <div class="lane-label">Hệ thống</div>
+              <div class="node-list">
+                <button class="flow-node" type="button" data-title="Phân vai phía server" data-detail="Server shuffle và gán đúng một RoleAssignment cho mỗi participant. Client player chỉ được quyền đọc assignment của chính token đó."><strong>Random server-side</strong><small>Mỗi token chỉ đọc được vai của mình</small></button>
+                <button class="flow-node" type="button" data-title="Ghi acknowledgment" data-detail="Lưu roleSeenAt và trạng thái acknowledged để host biết ai chưa xem vai mà không biết họ đã nhìn bao lâu."><strong>Ghi nhận đã xem</strong><small>Không lưu thao tác reveal nhạy cảm</small></button>
+              </div>
+            </div>
+            <div class="gate-line"><strong>Gate:</strong> tất cả đã xác nhận vai hoặc host dùng override có ghi log</div>
+          </article>
+
+          <article class="flow-phase" id="phase-night">
+            <div class="phase-label"><span>PHASE 03</span><strong>Ban<br />đêm</strong></div>
+            <div class="lane-cell" data-lane="host">
+              <div class="lane-label">Quản trò</div>
+              <div class="node-list">
+                <button class="flow-node" type="button" data-title="Đi theo checklist" data-detail="Hệ thống lần lượt gọi các role có hành động. Host đánh dấu xong/bỏ qua nên không sót lượt và vẫn có thể kể chuyện bằng lời."><strong>Gọi từng role</strong><small>Sói → Tiên tri → Bảo vệ → Phù thủy…</small></button>
+                <button class="flow-node" type="button" data-title="Ghi mục tiêu" data-detail="Host chọn target thủ công theo tín hiệu ngoài đời. Action nguy hiểm cần confirm; thao tác mới nhất luôn undo được."><strong>Chọn target &amp; xác nhận</strong><small>Undo khi bấm nhầm</small></button>
+              </div>
+            </div>
+            <div class="lane-cell" data-lane="player">
+              <div class="lane-label">Người chơi</div>
+              <div class="node-list">
+                <button class="flow-node" type="button" data-title="Chơi bằng tín hiệu ngoài đời" data-detail="Trong MVP, người chơi không chọn target trên điện thoại. Họ mở mắt/chỉ tay theo lời quản trò để giữ trải nghiệm cùng bàn."><strong>Điện thoại úp xuống</strong><small>Nghe quản trò, hành động ngoài đời</small></button>
+                <button class="flow-node" type="button" data-title="Xem trạng thái cá nhân" data-detail="Nếu cần, player chỉ thấy lời nhắc ngắn như 'đang chờ' hoặc ghi nhớ riêng của vai; không thấy hành động của người khác."><strong>Chỉ thấy phase hiện tại</strong><small>Không lộ target hay role khác</small></button>
+              </div>
+            </div>
+            <div class="lane-cell" data-lane="system">
+              <div class="lane-label">Hệ thống</div>
+              <div class="node-list">
+                <button class="flow-node" type="button" data-title="Validate action" data-detail="Kiểm tra đúng phase, đúng role, target còn sống, resource còn dùng được và request version chưa cũ."><strong>Validate + idempotency</strong><small>Chặn double tap và ghi đè hai tab</small></button>
+                <button class="flow-node" type="button" data-title="Append event" data-detail="Mọi action được thêm vào GameEvent timeline và autosave. Không sửa lịch sử; undo tạo một event đảo ngược."><strong>Autosave event log</strong><small>Action, target, actor, version, timestamp</small></button>
+              </div>
+            </div>
+            <div class="gate-line"><strong>Gate:</strong> mọi role trong checklist đã xong hoặc được host chủ động bỏ qua</div>
+          </article>
+
+          <article class="flow-phase" id="phase-dawn">
+            <div class="phase-label"><span>PHASE 04</span><strong>Bình minh<br />&amp; thảo luận</strong></div>
+            <div class="lane-cell" data-lane="host">
+              <div class="lane-label">Quản trò</div>
+              <div class="node-list">
+                <button class="flow-node" type="button" data-title="Review kết quả đêm" data-detail="App tổng hợp nạn nhân, bảo vệ, cứu/độc và đề xuất outcome. Host kiểm tra, sửa theo house rule rồi mới công bố."><strong>Kiểm tra outcome</strong><small>Human override trước khi commit</small></button>
+                <button class="flow-node" type="button" data-title="Dẫn chuyện bình minh" data-detail="Host công bố thông tin công khai, có thể bật timer và đọc gợi ý dẫn chuyện. Không công bố role kín ngoài rule đã chọn."><strong>Công bố &amp; mở thảo luận</strong><small>Timer là P1, không chặn flow</small></button>
+              </div>
+            </div>
+            <div class="lane-cell" data-lane="player">
+              <div class="lane-label">Người chơi</div>
+              <div class="node-list">
+                <button class="flow-node" type="button" data-title="Thảo luận trực tiếp" data-detail="Người chơi nhìn nhau, tranh luận và dùng thông tin cá nhân. Màn hình chỉ hiện phase, alive/dead và ghi chú riêng hợp lệ."><strong>Tranh luận quanh bàn</strong><small>App lùi xuống, nhóm bạn là trung tâm</small></button>
+              </div>
+            </div>
+            <div class="lane-cell" data-lane="system">
+              <div class="lane-label">Hệ thống</div>
+              <div class="node-list">
+                <button class="flow-node" type="button" data-title="Tính outcome dự kiến" data-detail="Rule engine tính tác động theo RuleSet nhưng không tự commit. Kết quả nhạy cảm chỉ hiển thị cho host ở trạng thái review."><strong>Resolve dạng draft</strong><small>Host là người xác nhận cuối</small></button>
+                <button class="flow-node" type="button" data-title="Broadcast public state" data-detail="Sau confirm, hệ thống cập nhật alive/dead và chỉ phát thông tin công khai cho player. Chi tiết action đêm vẫn kín."><strong>Commit &amp; broadcast</strong><small>Công khai outcome, giữ kín nguyên nhân</small></button>
+              </div>
+            </div>
+            <div class="gate-line"><strong>Gate:</strong> host kết thúc thảo luận và nhóm sẵn sàng bỏ phiếu ngoài đời</div>
+          </article>
+
+          <article class="flow-phase" id="phase-vote">
+            <div class="phase-label"><span>PHASE 05</span><strong>Biểu<br />quyết</strong></div>
+            <div class="lane-cell" data-lane="host">
+              <div class="lane-label">Quản trò</div>
+              <div class="node-list">
+                <button class="flow-node" type="button" data-title="Ghi kết quả biểu quyết" data-detail="Host đếm phiếu ngoài đời rồi chọn người bị loại và số phiếu. MVP không cần thu từng lá phiếu điện tử."><strong>Chọn người bị loại</strong><small>Ghi số phiếu, khóa và confirm</small></button>
+              </div>
+            </div>
+            <div class="lane-cell" data-lane="player">
+              <div class="lane-label">Người chơi</div>
+              <div class="node-list">
+                <button class="flow-node" type="button" data-title="Bỏ phiếu ngoài đời" data-detail="Giơ tay, chỉ người hoặc dùng cách nhóm thống nhất. Không cần cầm điện thoại và không có vote online trong MVP."><strong>Bỏ phiếu trực tiếp</strong><small>Không vote trên điện thoại trong MVP</small></button>
+              </div>
+            </div>
+            <div class="lane-cell" data-lane="system">
+              <div class="lane-label">Hệ thống</div>
+              <div class="node-list">
+                <button class="flow-node" type="button" data-title="Lưu vote summary" data-detail="Lưu kết quả tổng hợp: nominee, totalVotes, tie/skip và người host xác nhận. Không lưu phiếu cá nhân ở MVP."><strong>Ghi VoteResult</strong><small>Summary, không phải ballot cá nhân</small></button>
+              </div>
+            </div>
+            <div class="gate-line"><strong>Gate:</strong> không hòa phiếu hoặc host xử lý tie theo house rule đã chốt</div>
+          </article>
+
+          <article class="flow-phase" id="phase-resolve">
+            <div class="phase-label"><span>PHASE 06</span><strong>Phân giải<br />&amp; tiếp tục</strong></div>
+            <div class="lane-cell" data-lane="host">
+              <div class="lane-label">Quản trò</div>
+              <div class="node-list">
+                <button class="flow-node" type="button" data-title="Resolve người rời làng" data-detail="Host xác nhận eliminated, xử lý trigger khi chết, chọn có lật vai hay không và kiểm tra đề xuất điều kiện thắng."><strong>Xử lý người bị loại</strong><small>Trigger vai → check thắng → đêm mới</small></button>
+                <button class="flow-node" type="button" data-title="Kết thúc hoặc sang vòng mới" data-detail="Nếu chưa có phe thắng, tăng round và chuyển Night. Nếu kết thúc, host mở post-game reveal và timeline."><strong>End game / Đêm tiếp theo</strong><small>Host giữ quyền quyết định cuối</small></button>
+              </div>
+            </div>
+            <div class="lane-cell" data-lane="player">
+              <div class="lane-label">Người chơi</div>
+              <div class="node-list">
+                <button class="flow-node" type="button" data-title="Nhận trạng thái sống/chết" data-detail="Người bị loại chuyển sang spectator hạn chế. Vai chỉ lộ theo RuleSet; toàn bộ role được mở khi host kết thúc game."><strong>Nhận trạng thái mới</strong><small>Sống, chết hoặc spectator</small></button>
+              </div>
+            </div>
+            <div class="lane-cell" data-lane="system">
+              <div class="lane-label">Hệ thống</div>
+              <div class="node-list">
+                <button class="flow-node" type="button" data-title="Kiểm tra điều kiện thắng" data-detail="Engine đề xuất winner dựa trên số Sói, Dân và role đặc biệt; host xác nhận để hỗ trợ house rule và tranh chấp ngoài app."><strong>Suggest winner</strong><small>Không tự kết thúc trước khi host confirm</small></button>
+                <button class="flow-node" type="button" data-title="Đóng vòng và lưu timeline" data-detail="Chốt round version, snapshot trạng thái và tạo phase tiếp theo. Khi game ended, cho phép post-game reveal đầy đủ."><strong>Snapshot + next phase</strong><small>Reconnect luôn về đúng state</small></button>
+              </div>
+            </div>
+            <div class="gate-line"><strong>Gate:</strong> host xác nhận phe thắng hoặc khởi tạo Đêm kế tiếp</div>
+          </article>
+        </div>
+
+        <div class="detail-bar" aria-live="polite">
+          <span>ĐANG XEM</span>
+          <strong id="detail-title">Chọn một bước trong flow</strong>
+          <p id="detail-copy">Chi tiết về mục tiêu, quyền riêng tư và dữ liệu liên quan sẽ xuất hiện tại đây.</p>
+        </div>
+      </section>
+
+      <section id="state-machine">
+        <div class="section-head">
+          <div><span class="section-index">02 · STATE MACHINE</span><h2>Phase là xương sống của ván</h2></div>
+          <p>Mọi mutation phải biết ván đang ở phase nào. Player không thể đọc hay ghi dữ liệu ngoài quyền của phase hiện tại.</p>
+        </div>
+        <div class="state-machine" aria-label="Chuỗi trạng thái của game">
+          <div class="state">LOBBY</div><div class="state-arrow">→</div>
+          <div class="state">ROLE_REVEAL</div><div class="state-arrow">→</div>
+          <div class="state">NIGHT</div><div class="state-arrow">→</div>
+          <div class="state">DAWN_REVIEW</div><div class="state-arrow">→</div>
+          <div class="state">DISCUSSION</div><div class="state-arrow">→</div>
+          <div class="state">VOTING</div><div class="state-arrow">→</div>
+          <div class="state">RESOLUTION</div><div class="state-arrow">→</div>
+          <div class="state">NIGHT / ENDED</div>
+        </div>
+        <div class="machine-notes">
+          <div class="machine-note"><strong>Mỗi transition có guard</strong><p>Đúng phase, đủ checklist, đúng version và host còn quyền điều khiển.</p></div>
+          <div class="machine-note"><strong>Mỗi action là một event</strong><p>Append-only timeline giúp autosave, undo, audit và phục hồi sau refresh.</p></div>
+          <div class="machine-note"><strong>Server là source of truth</strong><p>Client hiển thị state được phép thấy, không tự giữ kết quả quan trọng.</p></div>
+        </div>
+      </section>
+
+      <section id="rules">
+        <div class="section-head">
+          <div><span class="section-index">02 · GAME RULES</span><h2>Rule rõ trước khi chia vai</h2></div>
+          <p>Ma Sói có nhiều biến thể. MVP cần một default dễ chơi và khóa các house rule quan trọng trong lúc setup.</p>
+        </div>
+        <div class="rules-layout">
+          <div class="rules-column">
+            <h3>Default rule set đề xuất</h3>
+            <div class="callout"><strong>Không có một bộ luật “chuẩn duy nhất”.</strong>Các lựa chọn như lật vai khi chết, Bảo vệ liên tiếp hay Phù thủy dùng hai bình cùng đêm phải được chốt trước khi bắt đầu.</div>
+            <details open>
+              <summary>Thắng, chết và thông tin công khai</summary>
+              <div class="detail-content"><ul>
+                <li>Dân làng thắng khi không còn Ma Sói sống.</li>
+                <li>Ma Sói thắng khi số Sói sống bằng hoặc nhiều hơn số người phe Dân còn sống.</li>
+                <li>Role trung lập có điều kiện thắng riêng; MVP đầu nên chưa bật mặc định.</li>
+                <li>Mặc định không lật role khi chết để giữ suy luận; host có thể bật “Reveal on death”.</li>
+              </ul></div>
+            </details>
+            <details>
+              <summary>Thứ tự hành động ban đêm</summary>
+              <div class="detail-content"><ul>
+                <li>Đầu game: role có setup đặc biệt trước, nếu có.</li>
+                <li>Mỗi đêm: Ma Sói → Bảo vệ → Tiên tri → Phù thủy → role mở rộng.</li>
+                <li>Thứ tự chính xác được lưu trong RoleDefinition để checklist tự sinh.</li>
+                <li>Outcome chỉ commit sau màn Dawn Review của host.</li>
+              </ul></div>
+            </details>
+            <details>
+              <summary>House rule cần khóa trong setup</summary>
+              <div class="detail-content"><ul>
+                <li>Bảo vệ có được bảo vệ cùng một người hai đêm liên tiếp?</li>
+                <li>Phù thủy có được dùng cả hai bình trong cùng một đêm?</li>
+                <li>Phù thủy có biết nạn nhân của Sói sau khi dùng bình cứu?</li>
+                <li>Thợ săn có được bắn nếu chết bởi độc?</li>
+                <li>Hòa phiếu: bỏ qua, vote lại hay host quyết định?</li>
+                <li>Người chết có lộ role và có được tiếp tục nói?</li>
+              </ul></div>
+            </details>
+            <details>
+              <summary>10 role và action archetype</summary>
+              <div class="detail-content"><ul>
+                <li><strong>Không có năng lực:</strong> chỉ Dân làng.</li>
+                <li><strong>Chọn mục tiêu:</strong> Ma Sói, Sói con, Sói trắng.</li>
+                <li><strong>Điều tra:</strong> Tiên tri xem phe, không xem role cụ thể.</li>
+                <li><strong>Bảo vệ:</strong> Bảo vệ ngăn một kill hợp lệ.</li>
+                <li><strong>Cứu / giết:</strong> Phù thủy có resource hữu hạn.</li>
+                <li><strong>Khi chết:</strong> Thợ săn chọn một người kéo theo.</li>
+                <li><strong>Năng lực bị động / trigger:</strong> Kẻ ngốc và Già làng vẫn được tính là role có năng lực.</li>
+              </ul></div>
+            </details>
+          </div>
+
+          <div class="rules-column">
+            <h3>Preset khởi đầu để playtest</h3>
+            <table class="preset-table">
+              <thead><tr><th>Số người</th><th>Sói</th><th>Vai đặc biệt</th><th>Còn lại</th></tr></thead>
+              <tbody>
+                <tr><td><strong>6–7</strong></td><td>2</td><td>Tiên tri, Bảo vệ</td><td>Dân làng</td></tr>
+                <tr><td><strong>8–9</strong></td><td>2</td><td>Tiên tri, Bảo vệ, Phù thủy, Thợ săn</td><td>Dân làng</td></tr>
+                <tr><td><strong>10–12</strong></td><td>3</td><td>4 core special + Kẻ ngốc</td><td>Dân làng</td></tr>
+                <tr><td><strong>13–15</strong></td><td>4</td><td>5–6 vai đặc biệt</td><td>Dân làng</td></tr>
+              </tbody>
+            </table>
+            <div class="callout" style="margin-top:20px"><strong>Preset chỉ là điểm bắt đầu.</strong>Balance cần được kiểm chứng bằng playtest; hệ thống nên cảnh báo chứ không cấm host tùy chỉnh.</div>
+            <h3 style="margin-top:28px">Ranh giới MVP</h3>
+            <table class="matrix-table">
+              <thead><tr><th>Hành vi</th><th>MVP</th><th>Ai thao tác</th></tr></thead>
+              <tbody>
+                <tr><td>Nhận vai riêng</td><td><strong>Có</strong></td><td>Player trên máy mình</td></tr>
+                <tr><td>Chọn target ban đêm</td><td><strong>Ghi thủ công</strong></td><td>Host sau tín hiệu ngoài đời</td></tr>
+                <tr><td>Bỏ phiếu</td><td><strong>Ngoài app</strong></td><td>Nhóm; host ghi kết quả</td></tr>
+                <tr><td>Tính outcome</td><td><strong>Draft</strong></td><td>System gợi ý, host confirm</td></tr>
+                <tr><td>Xác định phe thắng</td><td><strong>Gợi ý</strong></td><td>Host xác nhận</td></tr>
+                <tr><td>Chat / matchmaking</td><td>Không</td><td>Phase sau</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="system">
+        <div class="section-head">
+          <div><span class="section-index">03 · SYSTEM NEEDS</span><h2>Hệ thống phải giữ được niềm tin</h2></div>
+          <p>Chất lượng MVP không nằm ở số role, mà ở việc không lộ vai, không mất state và không bỏ sót lượt.</p>
+        </div>
+        <div class="system-grid">
+          <div class="system-column">
+            <h3>Kiến trúc tối thiểu</h3>
+            <div class="architecture">
+              <div class="architecture-layer"><span>CLIENT</span><strong>Host + Player PWA</strong><p>Mobile UI, local participant token, privacy shield và reconnect.</p></div>
+              <div class="architecture-layer"><span>REALTIME</span><strong>Room subscriptions</strong><p>Presence, phase, public state và scoped private state.</p></div>
+              <div class="architecture-layer"><span>SERVER</span><strong>Authoritative game state</strong><p>Role assignment, validation, timeline, snapshot và access control.</p></div>
+            </div>
+            <h3>Data model chính</h3>
+            <table class="data-table">
+              <thead><tr><th>Entity</th><th>Dữ liệu chính</th><th>Ai đọc</th></tr></thead>
+              <tbody>
+                <tr><td><strong>Room</strong></td><td>code, hostId, status, capacity, expiresAt</td><td>Host + player trong phòng</td></tr>
+                <tr><td><strong>Participant</strong></td><td>nickname, seat, presence, alive</td><td>Thông tin công khai có scope</td></tr>
+                <tr><td><strong>RoleAssignment</strong></td><td>participantId, roleId, faction</td><td>Host + chính player đó</td></tr>
+                <tr><td><strong>Game</strong></td><td>phase, round, version, ruleSetId</td><td>Host + public subset cho player</td></tr>
+                <tr><td><strong>GameEvent</strong></td><td>type, actor, target, payload, timestamp</td><td>Host; player nhận event công khai</td></tr>
+                <tr><td><strong>RuleSet</strong></td><td>role order, reveal, tie, ability variants</td><td>Mọi người trước khi bắt đầu</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="system-column">
+            <h3>Backlog theo mức ưu tiên</h3>
+            <label class="scope-toggle"><input id="mvp-only" type="checkbox" /> Chỉ hiện P0 bắt buộc</label>
+            <div class="requirement-list">
+              <div class="requirement" data-priority="p0"><span class="priority">P0</span><div><strong>Room + realtime lobby</strong><p>Create/join, code, QR, presence, lock, kick và reconnect.</p></div></div>
+              <div class="requirement" data-priority="p0"><span class="priority">P0</span><div><strong>Server-side role assignment</strong><p>Random một lần, scoped read và không reroll âm thầm.</p></div></div>
+              <div class="requirement" data-priority="p0"><span class="priority">P0</span><div><strong>Privacy lifecycle</strong><p>Card úp mặc định, che khi background/resume và không cache role sai scope.</p></div></div>
+              <div class="requirement" data-priority="p0"><span class="priority">P0</span><div><strong>Phase state machine</strong><p>Guard transition, night checklist và trạng thái sống/chết.</p></div></div>
+              <div class="requirement" data-priority="p0"><span class="priority">P0</span><div><strong>Event log + autosave + undo</strong><p>Append-only events, version check, restore đúng state sau refresh.</p></div></div>
+              <div class="requirement" data-priority="p0"><span class="priority">P0</span><div><strong>Host override có audit</strong><p>Sửa target, outcome và house rule conflict mà không làm mất lịch sử.</p></div></div>
+              <div class="requirement" data-priority="p1"><span class="priority">P1</span><div><strong>Timer, sound và haptic</strong><p>Tăng nhịp dẫn game nhưng không được chặn core loop.</p></div></div>
+              <div class="requirement" data-priority="p1"><span class="priority">P1</span><div><strong>Host handover + PWA install</strong><p>Recovery code và add-to-home-screen sau khi P0 ổn định.</p></div></div>
+              <div class="requirement" data-priority="later"><span class="priority">SAU MVP</span><div><strong>Player action / in-app vote</strong><p>Chỉ làm khi playtest chứng minh điện thoại không làm mất trải nghiệm offline.</p></div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="decisions">
+        <div class="section-head">
+          <div><span class="section-index">04 · PRODUCT GUARDRAILS</span><h2>Năm quyết định để không trượt scope</h2></div>
+          <p>Mỗi feature mới nên được kiểm tra với các nguyên tắc này trước khi đưa vào sprint.</p>
+        </div>
+        <div class="decision-grid">
+          <article class="decision"><span>01</span><h3>Không thay quản trò</h3><p>System nhắc, tính draft và ghi log; con người vẫn kể chuyện và xác nhận.</p></article>
+          <article class="decision"><span>02</span><h3>Không kéo mắt vào màn hình</h3><p>Player chỉ mở máy ở khoảnh khắc cần thiết: join, xem vai và xem trạng thái cá nhân.</p></article>
+          <article class="decision"><span>03</span><h3>Privacy trước content</h3><p>Một lỗi lộ role nghiêm trọng hơn việc thiếu thêm một vai đặc biệt.</p></article>
+          <article class="decision"><span>04</span><h3>Event trước automation</h3><p>Ghi lại chính xác và undo đáng tin cậy trước khi cố tự động hóa mọi rule.</p></article>
+          <article class="decision"><span>05</span><h3>6–15 người, 10 role</h3><p>Giữ một phạm vi đủ sâu để playtest, thay vì mở rộng mini mode hoặc role builder.</p></article>
+          <article class="decision"><span>GATE</span><h3>Beta ngoài đời</h3><p>Chỉ tăng scope sau 5 ván liên tiếp không lộ role, không mất state và không sót lượt.</p></article>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="footer-inner"><strong>DẠ LANG · MVP</strong><span>North star: mọi người nhìn nhau nhiều hơn nhìn điện thoại.</span></div>
+    </footer>
+  </div>
+
+  <script>
+    (function () {
+      const viewButtons = Array.from(document.querySelectorAll('.view-button'));
+      const laneCells = Array.from(document.querySelectorAll('.lane-cell'));
+      const phaseButtons = Array.from(document.querySelectorAll('.phase-button'));
+      const nodes = Array.from(document.querySelectorAll('.flow-node'));
+      const detailTitle = document.getElementById('master-detail-title') || document.getElementById('detail-title');
+      const detailCopy = document.getElementById('master-detail-copy') || document.getElementById('detail-copy');
+      const mvpOnly = document.getElementById('mvp-only');
+
+      viewButtons.forEach(function (button) {
+        button.addEventListener('click', function () {
+          const selectedView = button.dataset.view;
+          viewButtons.forEach(function (item) {
+            item.setAttribute('aria-pressed', String(item === button));
+          });
+          laneCells.forEach(function (cell) {
+            cell.classList.toggle('is-hidden', selectedView !== 'all' && cell.dataset.lane !== selectedView);
+          });
+        });
+      });
+
+      phaseButtons.forEach(function (button) {
+        button.addEventListener('click', function () {
+          const target = document.getElementById(button.dataset.phaseTarget);
+          phaseButtons.forEach(function (item) { item.removeAttribute('aria-current'); });
+          button.setAttribute('aria-current', 'true');
+          if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+      });
+
+      nodes.forEach(function (node) {
+        node.addEventListener('click', function () {
+          nodes.forEach(function (item) { item.classList.remove('is-active'); });
+          node.classList.add('is-active');
+          detailTitle.textContent = node.dataset.title || '';
+          detailCopy.textContent = node.dataset.detail || '';
+          document.querySelector('.detail-bar').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+      });
+
+      mvpOnly.addEventListener('change', function () {
+        document.querySelectorAll('.requirement').forEach(function (item) {
+          item.classList.toggle('is-hidden', mvpOnly.checked && item.dataset.priority !== 'p0');
+        });
+      });
+    }());
+  </script>
+</body>
+</html>

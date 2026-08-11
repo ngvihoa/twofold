@@ -1,0 +1,40 @@
+{
+  "version": 4,
+  "canvas": { "width": 1024, "height": 1536 },
+  "sharedLayers": {
+    "background": "/assets/cards/layers/shared/00-background-lacquer-v1.png",
+    "backgroundThumb": "/assets/cards/layers/shared/00-background-lacquer-thumb-v1.png",
+    "ornaments": "/assets/cards/layers/shared/10-ornaments-halo-v1.png",
+    "ornamentsThumb": "/assets/cards/layers/shared/10-ornaments-halo-thumb-v1.png",
+    "frame": "/assets/cards/layers/shared/60-frame-overlay-v2.png",
+    "frameThumb": "/assets/cards/layers/shared/60-frame-overlay-thumb-v2.png"
+  },
+  "roles": [
+    {
+      "id": "tien-tri",
+      "name": "Tiên Tri",
+      "faction": "Dân làng",
+      "hasAbility": true,
+      "status": "master-ready",
+      "layers": {
+        "environment": "/assets/cards/layers/roles/tien-tri/20-environment-v2.png",
+        "environmentThumb": "/assets/cards/layers/roles/tien-tri/20-environment-thumb-v2.png",
+        "subject": "/assets/cards/layers/roles/tien-tri/30-subject-v1.png",
+        "subjectThumb": "/assets/cards/layers/roles/tien-tri/30-subject-thumb-v1.png",
+        "focus": "/assets/cards/layers/roles/tien-tri/40-focus-orb-v1.png",
+        "focusThumb": "/assets/cards/layers/roles/tien-tri/40-focus-orb-thumb-v1.png",
+        "foreground": "/assets/cards/layers/roles/tien-tri/50-foreground-foil-v1.png",
+        "foregroundThumb": "/assets/cards/layers/roles/tien-tri/50-foreground-foil-thumb-v1.png"
+      }
+    },
+    { "id": "dan-lang", "name": "Dân Làng", "faction": "Dân làng", "hasAbility": false, "status": "card-ready", "layers": { "subject": "/assets/cards/layers/roles/dan-lang/30-subject-v1.png", "subjectThumb": "/assets/cards/layers/roles/dan-lang/30-subject-thumb-v1.png" } },
+    { "id": "ma-soi", "name": "Ma Sói", "faction": "Sói", "hasAbility": true, "status": "card-ready", "layers": { "subject": "/assets/cards/layers/roles/ma-soi/30-subject-v1.png", "subjectThumb": "/assets/cards/layers/roles/ma-soi/30-subject-thumb-v1.png" } },
+    { "id": "bao-ve", "name": "Bảo Vệ", "faction": "Dân làng", "hasAbility": true, "status": "card-ready", "layers": { "subject": "/assets/cards/layers/roles/bao-ve/30-subject-v1.png", "subjectThumb": "/assets/cards/layers/roles/bao-ve/30-subject-thumb-v1.png" } },
+    { "id": "phu-thuy", "name": "Phù Thủy", "faction": "Dân làng", "hasAbility": true, "status": "card-ready", "layers": { "subject": "/assets/cards/layers/roles/phu-thuy/30-subject-v1.png", "subjectThumb": "/assets/cards/layers/roles/phu-thuy/30-subject-thumb-v1.png" } },
+    { "id": "tho-san", "name": "Thợ Săn", "faction": "Dân làng", "hasAbility": true, "status": "card-ready", "layers": { "subject": "/assets/cards/layers/roles/tho-san/30-subject-v1.png", "subjectThumb": "/assets/cards/layers/roles/tho-san/30-subject-thumb-v1.png" } },
+    { "id": "ke-ngoc", "name": "Kẻ Ngốc", "faction": "Dân làng", "hasAbility": true, "status": "card-ready", "layers": { "subject": "/assets/cards/layers/roles/ke-ngoc/30-subject-v1.png", "subjectThumb": "/assets/cards/layers/roles/ke-ngoc/30-subject-thumb-v1.png" } },
+    { "id": "gia-lang", "name": "Già Làng", "faction": "Dân làng", "hasAbility": true, "status": "card-ready", "layers": { "subject": "/assets/cards/layers/roles/gia-lang/30-subject-v1.png", "subjectThumb": "/assets/cards/layers/roles/gia-lang/30-subject-thumb-v1.png" } },
+    { "id": "soi-con", "name": "Sói Con", "faction": "Sói", "hasAbility": true, "status": "card-ready", "layers": { "subject": "/assets/cards/layers/roles/soi-con/30-subject-v1.png", "subjectThumb": "/assets/cards/layers/roles/soi-con/30-subject-thumb-v1.png" } },
+    { "id": "soi-trang", "name": "Sói Trắng", "faction": "Sói", "hasAbility": true, "status": "card-ready", "layers": { "subject": "/assets/cards/layers/roles/soi-trang/30-subject-v1.png", "subjectThumb": "/assets/cards/layers/roles/soi-trang/30-subject-thumb-v1.png" } }
+  ]
+}
