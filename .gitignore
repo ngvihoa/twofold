@@ -1,2 +1,41 @@
+# Hệ điều hành / editor
 .DS_Store
-app/audits/
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Biến môi trường và bí mật
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# JavaScript / TypeScript
+node_modules/
+.next/
+dist/
+build/
+coverage/
+.turbo/
+.vite/
+
+# Log và file tạm
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.cache/
+tmp/
+temp/
+
+# Công cụ deploy
+.vercel/
+.netlify/
+
+# File cục bộ của Codex; deliverable chính nằm ở root repo
+work/
+outputs/
