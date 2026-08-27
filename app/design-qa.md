@@ -1,4 +1,4 @@
-# Design QA — Dạ Lang mobile prototype
+# Design QA — Ma Sói mobile prototype
 
 ## Evidence
 
@@ -32,7 +32,7 @@ A policy restriction prevented placing the source and implementation capture tog
   - Follow-up: tighten `object-position` and crop after user review if a more cinematic reveal is preferred.
 
 - [P3] Display type is an approximation
-  - Location: `DẠ LANG`, `TIÊN TRI`, and large screen headings.
+  - Location: `MA SÓI`, `TIÊN TRI`, and large screen headings.
   - Evidence: the implementation uses Iowan/Bodoni/Noto/Georgia fallbacks instead of an exact identified source font.
   - Impact: hierarchy and Vietnamese diacritics remain correct; some stroke contrast differs from the mock.
   - Follow-up: select and bundle a dedicated Vietnamese display serif in the next polish pass.

@@ -249,7 +249,7 @@ function HomeScreen({ flow }: { flow: FlowControls }) {
         <div className="home-spacer" />
         <section className="home-intro">
           <p className="eyebrow">TRÒ CHƠI SUY LUẬN TẠI BÀN</p>
-          <h1>DẠ LANG</h1>
+          <h1>MA SÓI</h1>
           <p className="home-tagline">Không cần mang bài.<br />Chỉ cần đừng tin ai.</p>
         </section>
         <div className="home-actions">
@@ -583,7 +583,7 @@ function RoleReveal({ roleId = "seer" }: { roleId?: RoleId }) {
               aria-hidden={!revealed}
               aria-label="Úp lá bài"
             >
-              <div className="role-meta"><span>Dạ Lang</span><b>Ván 1</b></div>
+              <div className="role-meta"><span>Ma Sói</span><b>Ván 1</b></div>
               <LayeredRoleArt roleId={roleId} />
               <section className="role-copy">
                 <h2>{role.name.toUpperCase()}</h2>
@@ -862,13 +862,13 @@ const homeScreen: FlowScreen = { id: "home", render: (flow) => <HomeScreen flow=
 const createRoomScreen: FlowScreen = {
   id: "create-room",
   headerHeight: 58,
-  header: (flow) => <AppHeader flow={flow} eyebrow="DẠ LANG" title="Tạo phòng" />,
+  header: (flow) => <AppHeader flow={flow} eyebrow="MA SÓI" title="Tạo phòng" />,
   render: (flow) => <CreateRoom flow={flow} />,
 };
 const joinRoomScreen: FlowScreen = {
   id: "join-room",
   headerHeight: 58,
-  header: (flow) => <AppHeader flow={flow} eyebrow="DẠ LANG" title="Vào phòng" />,
+  header: (flow) => <AppHeader flow={flow} eyebrow="MA SÓI" title="Vào phòng" />,
   render: (flow) => <JoinRoom flow={flow} />,
 };
 function makeHostLobbyScreen(roomId: string): FlowScreen {
