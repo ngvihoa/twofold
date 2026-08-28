@@ -1,11 +1,5 @@
 import { createGame, dispatch, privateView, publicView, ROLE_DEFS } from "./engine.mjs?rev=council-hidden-voters-v1";
 
-const VARIANTS = {
-  A: "Bàn đối đầu",
-  B: "Phòng điều khiển",
-  C: "Tập trung quyết định",
-};
-
 const ROLE_ART = {
   villager: "../../assets/game/wwo-reference/dan-lang.png",
   wolf: "../../assets/game/wwo-reference/ma-soi-thuong.png",
@@ -71,8 +65,6 @@ const MOVE_META = {
 };
 
 const app = document.querySelector("#app");
-let variant = new URLSearchParams(location.search).get("variant")?.toUpperCase() || "A";
-if (!VARIANTS[variant]) variant = "A";
 let state = createGame("codex-web-01");
 let seat = "A";
 let handVisible = true;
@@ -86,9 +78,6 @@ let botTimer = null;
 let interaction = null;
 let lastMove = null;
 let moveTimer = null;
-let phaseTitleKey = "";
-let phaseTitleStartedAt = 0;
-let phaseTitleTimer = null;
 let resolutionTimer = null;
 
 const otherSeat = (value) => value === "A" ? "B" : "A";
@@ -330,11 +319,9 @@ function boardMarkup(boardSeat, label) {
 }
 
 function revealedLaneMarkup(boardSeat) {
-  if (state.phase.startsWith("setup-")) return "";
-  const cards = publicView(state).board[boardSeat].filter((card) => card.role !== "?");
-  return `<section class="revealed-lane lane-${boardSeat.toLowerCase()}">
-    <span class="lane-label">${boardSeat === seat ? "ROLE CỦA BẠN ĐÃ LỘ" : "ROLE BOT ĐÃ LỘ"}</span>
-    <div class="revealed-cards">${cards.length ? cards.map((card) => cardMarkup(card, boardSeat === seat)).join("") : `<span class="empty-lane">Chưa có role công khai</span>`}</div>
+  const cards = state.phase.startsWith("setup-") ? [] : publicView(state).board[boardSeat].filter((card) => card.role !== "?");
+  return `<section class="revealed-lane lane-${boardSeat.toLowerCase()}" aria-label="Role ${boardSeat} đã lộ">
+    <div class="revealed-cards">${cards.map((card) => `<div class="revealed-slot" style="grid-column:${Number(card.id.slice(1))}">${cardMarkup(card, boardSeat === seat)}</div>`).join("")}</div>
   </section>`;
 }
 
@@ -468,54 +455,23 @@ function roundTitle() {
   return PHASE_LABEL[state.phase];
 }
 
-function roundRuleHint() {
-  if (state.phase.startsWith("setup-")) return "Sắp xếp đội hình trước khi khai cuộc";
-  if (state.round < 3) return `Vòng ${state.round}/2 mở màn · chưa được treo cổ`;
-  if (state.phase === "council") return "Hành động phụ · chọn đúng 3 role Dân còn sống";
-  return "Từ Vòng 3 · Hội đồng không tiêu lượt chính";
-}
-
-function syncPhaseTitle() {
-  const key = `${state.round}:${state.phase}`;
-  if (key === phaseTitleKey) return;
-  phaseTitleKey = key;
-  phaseTitleStartedAt = performance.now();
-  clearTimeout(phaseTitleTimer);
-  phaseTitleTimer = setTimeout(render, 3400);
-}
-
-function phaseTitleMarkup(light) {
-  const elapsed = Math.min(3400, performance.now() - phaseTitleStartedAt);
-  const flying = elapsed < 3300;
-  return `<div class="table-seal ${light} ${flying ? "phase-flying" : "phase-docked"}" style="--phase-elapsed:-${Math.round(elapsed)}ms"><span class="arena-phase">${roundTitle()}</span><p>${roundRuleHint()}</p></div>`;
-}
-
 function arenaMarkup() {
-  const light = state.phase.includes("night") || state.phase.includes("dusk") ? "night" : "day";
+  const view = publicView(state);
+  const hasRevealedCards = [...view.board.A, ...view.board.B].some((card) => card.role !== "?");
   return `<section class="arena">
     ${boardMarkup(otherSeat(seat), "Đối thủ")}
-    <div class="center-table">
-      ${revealedLaneMarkup(otherSeat(seat))}
-      <div class="table-core">${phaseTitleMarkup(light)}<div class="table-action-stack">${battlefieldActionMarkup()}${moveReplayMarkup()}</div></div>
-      ${revealedLaneMarkup(seat)}
-    </div>
+    <div class="center-table ${hasRevealedCards ? "" : "center-empty"}">${revealedLaneMarkup(otherSeat(seat))}${revealedLaneMarkup(seat)}</div>
+    <section class="command-dock"><div class="table-action-stack">${battlefieldActionMarkup()}${moveReplayMarkup()}</div></section>
     ${boardMarkup(seat, "Tay của bạn")}
   </section>`;
 }
 
 function render() {
-  syncPhaseTitle();
-  document.body.className = `variant-${variant.toLowerCase()}`;
-  document.querySelector("#variant-label").textContent = `${variant} — ${VARIANTS[variant]}`;
+  document.body.className = "duel-only";
   const topbar = `<header class="topbar"><div class="brand"><span class="brand-mark">TF</span>TWOFOLD</div><span class="round">Local playtest · Vòng ${state.round}</span><span class="phase-chip">${roundTitle()}</span><div class="seat-toggle"><span class="human-seat">A · BẠN</span><span class="bot-seat ${botNeedsTurn() ? "thinking" : ""}"><i></i>B · BOT</span></div><button class="reset" type="button" data-reset>Reset</button></header>`;
   const arena = arenaMarkup();
-  const control = controlMarkup();
   const history = historyMarkup();
-  const body = variant === "A"
-    ? `<div class="play-grid">${arena}<div class="side-rail">${history}</div></div>`
-    : variant === "B"
-      ? `<div class="play-grid">${arena}<div class="side-rail">${history}</div>${control}</div>`
-      : `<div class="play-grid">${control}${arena}<div class="side-rail">${history}</div></div>`;
+  const body = `<div class="play-grid">${arena}<div class="side-rail">${history}</div></div>`;
   app.innerHTML = `<div class="shell">${topbar}${body}</div>`;
   syncConditionalFields();
   scheduleBot();
@@ -599,18 +555,7 @@ function directPass() {
   if (state.phase === "night-plan") return commitDirectAction({ type: "night.submit", seat: "A", kind: "pass" });
 }
 
-function switchVariant(direction) {
-  const keys = Object.keys(VARIANTS);
-  variant = keys[(keys.indexOf(variant) + direction + keys.length) % keys.length];
-  const url = new URL(location.href);
-  url.searchParams.set("variant", variant);
-  history.replaceState({}, "", url);
-  render();
-}
-
 document.addEventListener("click", (event) => {
-  const direction = event.target.closest("[data-variant-direction]")?.dataset.variantDirection;
-  if (direction) return switchVariant(Number(direction));
   const directTarget = event.target.closest("[data-direct-target]");
   if (directTarget) return chooseDirectTarget(directTarget.dataset.directTarget);
   const directSource = event.target.closest("[data-direct-source]");
@@ -660,7 +605,6 @@ document.addEventListener("click", (event) => {
     resolutionTimer = null;
     clearTimeout(botTimer);
     botTimer = null;
-    phaseTitleKey = "";
     feedback = "Ván mới đã sẵn sàng.";
     return render();
   }
@@ -720,11 +664,6 @@ document.addEventListener("submit", (event) => {
   if (!event.target.matches("#action-form")) return;
   event.preventDefault();
   submitAction(event.target);
-});
-
-document.addEventListener("keydown", (event) => {
-  if (!["ArrowLeft", "ArrowRight"].includes(event.key) || event.target.matches("input, select, textarea, [contenteditable]")) return;
-  switchVariant(event.key === "ArrowRight" ? 1 : -1);
 });
 
 render();
