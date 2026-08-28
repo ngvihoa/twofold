@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Khám phá, lọc và chọn role Ma Sói phù hợp cho Twofold Web Alpha." />
+    <title>Role Atlas | Twofold</title>
+    <link rel="preload" href="assets/ui/role-table-hero.png" as="image" />
+    <link rel="stylesheet" href="styles.css?v=20260828-4" />
+  </head>
+  <body>
+    <a class="skip-link" href="#role-explorer">Đến danh sách role</a>
+
+    <header class="site-header" id="top">
+      <a class="brand" href="#top" aria-label="Twofold Role Atlas, về đầu trang">
+        <span class="brand-mark" aria-hidden="true">TF</span>
+        <span>ROLE ATLAS</span>
+      </a>
+      <nav class="main-nav" aria-label="Điều hướng chính">
+        <a href="#recommended">Gợi ý test</a>
+        <a href="#role-explorer">Tất cả role</a>
+        <button class="text-button" id="theme-toggle" type="button">Đổi giao diện</button>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-image" aria-hidden="true"></div>
+        <div class="hero-scrim" aria-hidden="true"></div>
+        <div class="hero-content">
+          <p class="eyebrow">Cẩm nang chọn role cho Twofold</p>
+          <h1 id="hero-title">Chọn đúng vai.<br />Tạo đúng cuộc đấu trí.</h1>
+          <p class="hero-copy">70 role chính để chọn cho Alpha. Các phe phụ được tách sang giai đoạn sau.</p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="#recommended">Xem gợi ý test</a>
+            <a class="button button-ghost" href="#role-explorer">Khám phá role chính</a>
+          </div>
+        </div>
+        <dl class="hero-stats" aria-label="Tổng quan dữ liệu">
+          <div><dt>Bộ chính</dt><dd id="stat-main">70</dd></div>
+          <div><dt>Từ vòng 6</dt><dd id="stat-round6">19</dd></div>
+          <div><dt>Chưa dùng</dt><dd id="stat-hold">3</dd></div>
+        </dl>
+      </section>
+
+      <section class="recommendation section-shell" id="recommended" aria-labelledby="recommended-title">
+        <div class="section-heading">
+          <p class="section-kicker">Bộ test hiện tại</p>
+          <h2 id="recommended-title">Gợi ý role nên test trước</h2>
+          <p>Section này hiển thị đúng các role đang được chọn. Bạn có thể chọn lại hoặc reset về bộ gợi ý 10 role ban đầu.</p>
+          <div class="suggestion-actions">
+            <a class="button button-dark" href="#role-explorer">Chọn lại role</a>
+            <button class="button suggestion-reset" id="reset-suggestion" type="button">Reset bộ gợi ý</button>
+          </div>
+        </div>
+        <div class="alpha-stack suggestion-stack" id="alpha-stack" aria-live="polite"></div>
+      </section>
+
+      <section class="explorer section-shell" id="role-explorer" aria-labelledby="explorer-title">
+        <div class="explorer-heading">
+          <div>
+            <h2 id="explorer-title">Tất cả role</h2>
+            <p>Mặc định chỉ hiện Dân Làng và Ma Sói. Dùng bộ lọc giai đoạn để xem các phe phụ.</p>
+          </div>
+          <div class="result-count" aria-live="polite"><strong id="visible-count">0</strong><span>role đang hiện</span></div>
+        </div>
+
+        <div class="filter-panel" aria-label="Bộ lọc role">
+          <label class="search-field" for="role-search">
+            <span>Tìm theo tên hoặc mô tả</span>
+            <input id="role-search" type="search" placeholder="Ví dụ: tiên tri, bảo vệ, đầu độc" autocomplete="off" />
+          </label>
+
+          <fieldset class="stage-filter">
+            <legend>Giai đoạn sử dụng</legend>
+            <div class="chip-group" id="stage-filters"></div>
+          </fieldset>
+
+          <div class="filter-row">
+            <fieldset>
+              <legend>Phe</legend>
+              <div class="chip-group" id="faction-filters"></div>
+            </fieldset>
+            <fieldset>
+              <legend>Ưu tiên</legend>
+              <div class="chip-group" id="fit-filters"></div>
+            </fieldset>
+          </div>
+
+          <div class="filter-row filter-row-secondary">
+            <fieldset>
+              <legend>Mechanic</legend>
+              <div class="chip-group" id="mechanic-filters"></div>
+            </fieldset>
+            <label class="sort-field" for="role-sort">
+              <span>Sắp xếp</span>
+              <select id="role-sort">
+                <option value="recommended">Đề xuất trước</option>
+                <option value="name">Tên A-Z</option>
+                <option value="faction">Theo phe</option>
+              </select>
+            </label>
+          </div>
+          <button class="clear-filters" id="clear-filters" type="button">Xóa bộ lọc</button>
+        </div>
+
+        <div id="loading-state" class="state-block" aria-live="polite">
+          <div class="skeleton-grid" aria-hidden="true">
+            <span></span><span></span><span></span><span></span>
+          </div>
+          <p>Đang mở kho role...</p>
+        </div>
+        <div id="error-state" class="state-block" hidden>
+          <h3>Chưa tải được dữ liệu role</h3>
+          <p>Hãy chạy trang qua local server bằng <code>npm run dev</code>.</p>
+          <button class="button button-dark" id="retry-load" type="button">Thử lại</button>
+        </div>
+        <div id="empty-state" class="state-block" hidden>
+          <h3>Không tìm thấy role phù hợp</h3>
+          <p>Thử bỏ bớt bộ lọc hoặc tìm bằng một từ ngắn hơn.</p>
+          <button class="button button-dark" id="empty-reset" type="button">Xem lại tất cả</button>
+        </div>
+        <div class="role-groups" id="role-groups"></div>
+      </section>
+    </main>
+
+    <footer class="site-footer section-shell">
+      <p><strong>Twofold Role Atlas</strong> dùng dữ liệu tham khảo từ Wiki WWO Vietnamese.</p>
+      <a href="https://wwo-vietnamese.fandom.com/vi/wiki/T%E1%BA%A5t_c%E1%BA%A3_vai_tr%C3%B2" target="_blank" rel="noreferrer">Mở trang nguồn</a>
+    </footer>
+
+    <aside class="shortlist-bar" id="shortlist-bar" aria-label="Danh sách role đã chọn" hidden>
+      <div class="shortlist-summary">
+        <span class="shortlist-count" id="shortlist-count">0</span>
+        <p><strong>role đã chọn</strong><span>Chọn rộng, loại dần</span></p>
+      </div>
+      <div class="shortlist-preview" id="shortlist-preview" aria-label="Các role đang được chọn"></div>
+      <div class="shortlist-actions">
+        <button class="text-button text-button-light" id="clear-shortlist" type="button">Bỏ tất cả</button>
+        <a class="button button-primary" href="shortlist.html">Xem danh sách</a>
+      </div>
+    </aside>
+
+    <dialog class="role-dialog" id="role-dialog" aria-labelledby="dialog-role-name">
+      <button class="dialog-close" type="button" data-close-dialog aria-label="Đóng chi tiết">Đóng</button>
+      <div id="dialog-content"></div>
+    </dialog>
+
+    <script type="module" src="app.js?v=20260828-5"></script>
+  </body>
+</html>

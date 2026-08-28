@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Xem và tinh gọn danh sách role đã chọn cho Twofold." />
+    <title>Role đã chọn | Twofold</title>
+    <link rel="stylesheet" href="styles.css?v=20260828-4" />
+  </head>
+  <body class="selection-page">
+    <a class="skip-link" href="#selected-role-groups">Đến danh sách đã chọn</a>
+
+    <header class="site-header review-header">
+      <a class="brand" href="index.html" aria-label="Quay lại Twofold Role Atlas">
+        <span class="brand-mark" aria-hidden="true">TF</span>
+        <span>ROLE ATLAS</span>
+      </a>
+      <nav class="main-nav" aria-label="Điều hướng danh sách đã chọn">
+        <a href="index.html#role-explorer">Chọn thêm role</a>
+        <button class="text-button" id="theme-toggle" type="button">Đổi giao diện</button>
+      </nav>
+    </header>
+
+    <main class="selection-main section-shell">
+      <section class="selection-intro" aria-labelledby="selection-title">
+        <p class="section-kicker">Danh sách đang cân nhắc</p>
+        <h1 id="selection-title">Role đã chọn</h1>
+        <p>Kiểm tra toàn bộ lựa chọn, loại dần các role chưa phù hợp rồi sao chép danh sách cho buổi họp.</p>
+      </section>
+
+      <section class="selection-toolbar" aria-label="Thao tác danh sách">
+        <div class="selection-total" aria-live="polite">
+          <strong id="selected-count">0</strong>
+          <span>role đang được chọn</span>
+        </div>
+        <div class="selection-actions">
+          <a class="button button-dark" href="index.html#role-explorer">Chọn thêm</a>
+          <button class="button selection-copy" id="copy-selection" type="button">Sao chép</button>
+          <button class="text-button selection-clear" id="clear-selection" type="button">Bỏ tất cả</button>
+        </div>
+        <span id="selection-feedback" role="status"></span>
+      </section>
+
+      <section id="selection-loading" class="state-block" aria-live="polite">
+        <div class="skeleton-grid" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+        <p>Đang mở danh sách...</p>
+      </section>
+
+      <section id="selection-error" class="state-block" hidden>
+        <h2>Chưa tải được dữ liệu role</h2>
+        <p>Hãy mở trang bằng local server với <code>npm run dev</code>.</p>
+        <a class="button button-dark" href="index.html">Quay lại Role Atlas</a>
+      </section>
+
+      <section id="selection-empty" class="selection-empty" hidden>
+        <p class="section-kicker">Chưa có lựa chọn</p>
+        <h2>Danh sách đang trống</h2>
+        <p>Quay lại kho role và chọn những nhân vật nhóm muốn cân nhắc.</p>
+        <a class="button button-dark" href="index.html#role-explorer">Chọn role</a>
+      </section>
+
+      <div id="selected-role-groups" class="selected-role-groups"></div>
+    </main>
+
+    <footer class="site-footer section-shell">
+      <p><strong>Twofold Role Atlas</strong> lưu lựa chọn ngay trên trình duyệt này.</p>
+      <a href="index.html">Quay lại kho role</a>
+    </footer>
+
+    <script type="module" src="shortlist.js?v=20260828-2"></script>
+  </body>
+</html>
