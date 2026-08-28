@@ -2,6 +2,8 @@
 
 Prototype này trả lời một câu hỏi: vòng chơi `Hội đồng -> Ban ngày -> Phòng thủ -> Ban đêm -> Bình minh` có tạo ra quyết định thú vị và có tự kết thúc khi hai bên điều khiển các bộ bài đối xứng hay không?
 
+Ngoại lệ mở màn: Vòng 1 bắt đầu thẳng ở Ban ngày, chưa có Hội đồng/treo cổ. Hội đồng đầu tiên xuất hiện tại bình minh Vòng 2.
+
 Đây là code throwaway. State chỉ nằm trong bộ nhớ và biến mất khi thoát.
 
 ## Chạy

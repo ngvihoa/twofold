@@ -63,14 +63,14 @@ export function createGame(seed = "twofold-01") {
   return {
     seed,
     round: 1,
-    phase: "council",
+    phase: "day-A",
     firstSeat: "A",
     players: {
       A: { board: shuffledDeck(seed, "A"), eliminationSpent: false, council: null, defense: null, lastGuardTarget: null, night: null, finalGuess: null, notes: [] },
       B: { board: shuffledDeck(seed, "B"), eliminationSpent: false, council: null, defense: null, lastGuardTarget: null, night: null, finalGuess: null, notes: [] },
     },
     result: null,
-    log: ["Ván đấu bắt đầu. Hai bên vào Hội đồng sáng Vòng 1."],
+    log: ["Ván đấu bắt đầu ở Ban ngày Vòng 1. Hội đồng chỉ mở từ Vòng 2."],
   };
 }
 
