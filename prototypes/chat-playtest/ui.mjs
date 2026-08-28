@@ -54,6 +54,21 @@ const PHASE_LABEL = {
   ended: "Kết thúc",
 };
 
+const MOVE_META = {
+  mark: ["✦", "Đánh dấu báo thù"],
+  purify: ["☀", "Thanh tẩy"],
+  shoot: ["✹", "Nổ súng"],
+  revive: ["✚", "Hồi sinh"],
+  defend: ["◈", "Đặt khiên"],
+  protect: ["◈", "Bảo kê"],
+  attack: ["◢", "Tấn công"],
+  inspect: ["◉", "Soi role"],
+  poison: ["◆", "Dùng độc"],
+  accuse: ["⚖", "Buộc tội"],
+  pass: ["—", "Bỏ lượt"],
+  final: ["?", "Đoán role cuối"],
+};
+
 const app = document.querySelector("#app");
 let variant = new URLSearchParams(location.search).get("variant")?.toUpperCase() || "A";
 if (!VARIANTS[variant]) variant = "A";
@@ -68,6 +83,8 @@ let setupOrder = {
 let draggedSetupId = null;
 let botTimer = null;
 let interaction = null;
+let lastMove = null;
+let moveTimer = null;
 
 const otherSeat = (value) => value === "A" ? "B" : "A";
 const ownPlayer = () => state.players[seat];
@@ -150,7 +167,9 @@ function runBotTurn() {
   botTimer = null;
   if (!botNeedsTurn()) return;
   try {
-    state = dispatch(state, botAction());
+    const action = botAction();
+    state = dispatch(state, action);
+    if (action.type !== "setup.submit") showMove(action, "B");
     feedback = "BOT B đã khóa hành động.";
   } catch (error) {
     feedback = `BOT lỗi: ${error.message}`;
@@ -160,7 +179,40 @@ function runBotTurn() {
 
 function scheduleBot() {
   if (!botNeedsTurn() || botTimer) return;
-  botTimer = setTimeout(runBotTurn, 1700);
+  botTimer = setTimeout(runBotTurn, 2400);
+}
+
+function moveKind(action) {
+  if (action.pass || action.kind === "pass") return "pass";
+  if (action.type === "defense.submit") return "defend";
+  if (action.type === "final.submit") return "final";
+  return action.kind || "pass";
+}
+
+function publicCardLabel(id) {
+  if (!id) return "Không có mục tiêu";
+  const card = publicView(state).board[id[0]]?.find((item) => item.id === id);
+  return card?.role && card.role !== "?" ? `${id} · ${card.role}` : id;
+}
+
+function showMove(action, actor) {
+  const kind = moveKind(action);
+  const sourceVisible = action.source && (actor === seat || publicView(state).board[actor]?.find((card) => card.id === action.source)?.role !== "?");
+  lastMove = {
+    actor,
+    kind,
+    source: sourceVisible ? action.source : null,
+    sourceLabel: sourceVisible
+      ? actor === seat && privateCard(action.source) ? `${action.source} · ${ROLE_DEFS[privateCard(action.source).role].name}` : publicCardLabel(action.source)
+      : action.source ? "Lá ẩn" : actor === "B" && kind !== "pass" ? "Lá ẩn" : "Hệ thống",
+    target: action.target || null,
+    targetLabel: publicCardLabel(action.target),
+  };
+  clearTimeout(moveTimer);
+  moveTimer = setTimeout(() => {
+    lastMove = null;
+    render();
+  }, 3800);
 }
 
 function actionForOwnCard(card) {
@@ -218,7 +270,9 @@ function cardMarkup(card, isOwn, setupIndex = -1) {
     : isRevealed
       ? `Đã lộ${card.votePower ? ` · ${card.votePower} phiếu` : ""}`
       : isOwn ? "Đang ẩn" : "Đang sống";
-  return `<article class="role-card faction-${faction} phase-${phase} ${isSetup ? "setup-card" : ""} ${directAction ? "actionable" : ""} ${targetable ? "targetable" : ""} ${selected ? "selected-card" : ""} ${card.alive ? "" : "dead"} ${isRevealed ? "revealed" : "hidden-role"} ${card.shielded ? "shielded" : ""}" ${isSetup ? `draggable="true" data-setup-card="${card.id}"` : ""} ${directAction ? `data-direct-source="${card.id}" data-direct-kind="${directAction.kind}"` : ""} ${targetable ? `data-direct-target="${card.id}"` : ""}>
+  const moveSource = lastMove?.source === card.id;
+  const moveTarget = lastMove?.target === card.id;
+  return `<article class="role-card faction-${faction} phase-${phase} ${isSetup ? "setup-card" : ""} ${directAction ? "actionable" : ""} ${targetable ? "targetable" : ""} ${selected ? "selected-card" : ""} ${moveSource ? "move-source" : ""} ${moveTarget ? "move-target" : ""} ${card.alive ? "" : "dead"} ${isRevealed ? "revealed" : "hidden-role"} ${card.shielded ? "shielded" : ""}" ${isSetup ? `draggable="true" data-setup-card="${card.id}"` : ""} ${directAction ? `data-direct-source="${card.id}" data-direct-kind="${directAction.kind}"` : ""} ${targetable ? `data-direct-target="${card.id}"` : ""}>
     <div class="card-shell">
       <header class="card-head"><strong class="role-name" title="${shownName}">${shownName}</strong><span class="phase-rune" title="Pha kỹ năng">${phaseMark}</span></header>
       <div class="art-window">
@@ -228,6 +282,8 @@ function cardMarkup(card, isOwn, setupIndex = -1) {
       </div>
       <footer class="card-foot"><span class="card-id">${card.id}</span><span class="card-status">${status}</span></footer>
     </div>
+    ${directAction && !isSetup ? `<span class="action-hint">${directAction.label}</span>` : ""}
+    ${targetable && !isSetup ? `<span class="target-hint">CHỌN MỤC TIÊU</span>` : ""}
     ${isSetup ? `<div class="setup-controls"><button type="button" data-setup-move="-1" data-setup-id="${card.id}" aria-label="Đưa ${shownName} sang trái">‹</button><strong>${setupIndex + 1}</strong><button type="button" data-setup-move="1" data-setup-id="${card.id}" aria-label="Đưa ${shownName} sang phải">›</button></div>` : ""}
     ${known && !isSetup ? `<div class="skill-tooltip"><strong>${shownName}</strong><span>${ROLE_SKILLS[roleKey]}</span>${directAction ? `<em>Nhấp để ${directAction.label.toLowerCase()}</em>` : ""}</div>` : ""}
   </article>`;
@@ -240,13 +296,37 @@ function boardMarkup(boardSeat, label) {
   const setupActive = state.phase === `setup-${seat}` && boardSeat === seat;
   const visibleCards = setupActive ? setupOrder[seat].map((id) => cards.find((card) => card.id === id)) : cards;
   const boardPosition = boardSeat === seat ? "own" : "opponent";
-  const hint = setupActive ? "Kéo thả hoặc dùng ‹ › để xếp" : boardPosition === "own" ? "Bạn thấy đủ · lá tiến lên là đã lộ" : "Chỉ lá công khai mới lật mặt";
+  const hint = setupActive ? "Kéo thả hoặc dùng ‹ › để xếp" : "Role lộ diện được đưa vào giữa bàn";
+  const slotMarkup = (card, index) => !setupActive && card.role !== "?"
+    ? `<div class="lifted-slot ${card.alive ? "" : "dead"}"><span>${card.id}</span><strong>${card.role}</strong><small>TRÊN BÀN ĐẤU</small></div>`
+    : cardMarkup(card, own, setupActive ? index : -1);
   return `<section class="board board-${boardSeat.toLowerCase()} board-${boardPosition} ${setupActive ? "board-setup" : ""}">
     <div class="board-title"><h2>${label} · Bên ${boardSeat}</h2><span>${hint}</span></div>
     ${boardSeat === seat && !handVisible
       ? `<div class="privacy"><div><p>Tay bài đang được che</p><button type="button" data-reveal-hand>Hiện bài bên ${seat}</button></div></div>`
-      : `<div class="card-row">${visibleCards.map((card, index) => cardMarkup(card, own, setupActive ? index : -1)).join("")}</div>`}
+      : `<div class="card-row">${visibleCards.map(slotMarkup).join("")}</div>`}
   </section>`;
+}
+
+function revealedLaneMarkup(boardSeat) {
+  if (state.phase.startsWith("setup-")) return "";
+  const cards = publicView(state).board[boardSeat].filter((card) => card.role !== "?");
+  return `<section class="revealed-lane lane-${boardSeat.toLowerCase()}">
+    <span class="lane-label">${boardSeat === seat ? "ROLE CỦA BẠN ĐÃ LỘ" : "ROLE BOT ĐÃ LỘ"}</span>
+    <div class="revealed-cards">${cards.length ? cards.map((card) => cardMarkup(card, boardSeat === seat)).join("") : `<span class="empty-lane">Chưa có role công khai</span>`}</div>
+  </section>`;
+}
+
+function moveReplayMarkup() {
+  if (!lastMove) return "";
+  const [icon, label] = MOVE_META[lastMove.kind] || ["◆", lastMove.kind];
+  return `<div class="move-replay move-${lastMove.actor.toLowerCase()}" aria-live="polite">
+    <span class="move-actor">${lastMove.actor === seat ? "BẠN" : "BOT B"}</span>
+    <span class="move-card">${lastMove.sourceLabel}</span>
+    <span class="move-icon">${icon}</span>
+    <span class="move-card target">${lastMove.target ? lastMove.targetLabel : label}</span>
+    <strong>${label}</strong>
+  </div>`;
 }
 
 function activeForSeat() {
@@ -360,7 +440,11 @@ function arenaMarkup() {
   const light = state.phase.includes("night") || state.phase.includes("dusk") ? "night" : "day";
   return `<section class="arena">
     ${boardMarkup(otherSeat(seat), "Đối thủ")}
-    <div class="center-table"><div class="table-seal ${light}"><span class="arena-phase">${PHASE_LABEL[state.phase]}</span><p>Vòng ${view.round} · Quyền loại bỏ A: ${view.elimination.A} · B: ${view.elimination.B}</p></div>${battlefieldActionMarkup()}</div>
+    <div class="center-table">
+      ${revealedLaneMarkup(otherSeat(seat))}
+      <div class="table-core"><div class="table-seal ${light}"><span class="arena-phase">${PHASE_LABEL[state.phase]}</span><p>Vòng ${view.round} · Quyền loại bỏ A: ${view.elimination.A} · B: ${view.elimination.B}</p></div>${moveReplayMarkup() || battlefieldActionMarkup()}</div>
+      ${revealedLaneMarkup(seat)}
+    </div>
     ${boardMarkup(seat, "Tay của bạn")}
   </section>`;
 }
@@ -417,6 +501,7 @@ function submitAction(form) {
 
   try {
     state = dispatch(state, action);
+    showMove(action, seat);
     feedback = "Lựa chọn hợp lệ và đã khóa.";
     handVisible = true;
   } catch (error) {
@@ -428,6 +513,7 @@ function submitAction(form) {
 function commitDirectAction(action) {
   try {
     state = dispatch(state, action);
+    showMove(action, "A");
     interaction = null;
     feedback = "Hành động đã khóa. BOT B đang suy nghĩ.";
   } catch (error) {
@@ -511,6 +597,8 @@ document.addEventListener("click", (event) => {
     seat = "A";
     handVisible = true;
     interaction = null;
+    lastMove = null;
+    clearTimeout(moveTimer);
     feedback = "Ván mới đã sẵn sàng.";
     return render();
   }
