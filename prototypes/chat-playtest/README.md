@@ -10,6 +10,16 @@ Prototype này trả lời một câu hỏi: vòng chơi `Hội đồng -> Ban n
 npm run prototype:chat -- --seat=A --seed=twofold-01
 ```
 
+### Bản web trực quan
+
+Khi local server đang chạy, mở:
+
+```text
+http://127.0.0.1:4173/prototypes/chat-playtest/ui.html
+```
+
+Ba bố cục thử nghiệm A/B/C nằm trên cùng route và đổi bằng thanh nổi phía dưới hoặc phím mũi tên. Toàn bộ state vẫn chỉ nằm trong bộ nhớ của tab và mất khi tải lại.
+
 `--seat=A` chỉ định tay riêng được hiển thị. Dùng `view B` nếu hai người đang thử chung một máy. Chế độ chat hiện dùng honor mode, chưa chống nhìn trộm tay đối phương.
 
 ## Bộ bài mỗi bên
