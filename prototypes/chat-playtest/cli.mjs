@@ -64,6 +64,10 @@ function parseCommand(line) {
   if (command === "council") {
     const seat = parts.shift()?.toUpperCase();
     if (parts[0]?.toLowerCase() === "pass") return { type: "council.submit", seat, pass: true };
+    if (parts[0]?.toLowerCase() === "protect") {
+      parts.shift();
+      return { type: "council.submit", seat, kind: "protect", source: parts.shift()?.toUpperCase(), target: parts.shift()?.toUpperCase() };
+    }
     const target = parts.shift()?.toUpperCase();
     const guess = roleKey(parts.shift());
     return { type: "council.submit", seat, pass: false, target, guess, voters: parts.map((item) => item.toUpperCase()) };
@@ -95,7 +99,8 @@ function helpText() {
   return [
     "council A pass",
     "council A B3 guard A1 A2 A3",
-    "day A pass | day A shoot A9 B3 | day A revive A8 A2",
+    "council A protect A7 A3",
+    "day A pass | day A shoot A9 B3 | day A revive A8 A2 | day A mark A6 B4 | day A purify A5 B4",
     "defend A pass | defend A A4",
     "night A pass | night A attack A5 B4 | night A inspect A7 B4 | night A poison A8 B4",
     "final A guard",

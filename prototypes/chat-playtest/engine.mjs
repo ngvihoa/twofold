@@ -5,11 +5,14 @@ export const ROLE_DEFS = {
   guard: { name: "Bảo vệ", faction: "village" },
   witch: { name: "Phù thủy", faction: "village" },
   shooter: { name: "Xạ thủ", faction: "village" },
+  avenger: { name: "Kẻ báo thù", faction: "village" },
+  priest: { name: "Mục sư", faction: "village" },
+  wolfguard: { name: "Sói Hộ Vệ", faction: "werewolf" },
 };
 
 const BASE_DECK = [
-  "villager", "villager", "villager", "villager",
-  "wolf", "wolf", "seer", "guard", "witch", "shooter",
+  "villager", "wolf", "wolf", "seer", "guard",
+  "witch", "shooter", "avenger", "priest", "wolfguard",
 ];
 
 const otherSeat = (seat) => seat === "A" ? "B" : "A";
@@ -55,6 +58,8 @@ function shuffledDeck(seed, seat) {
       revive: role === "witch" ? 1 : 0,
       poison: role === "witch" ? 1 : 0,
       bullet: role === "shooter" ? 1 : 0,
+      holyWater: role === "priest" ? 1 : 0,
+      rescue: role === "wolfguard" ? 1 : 0,
     },
   }));
 }
@@ -66,8 +71,8 @@ export function createGame(seed = "twofold-01") {
     phase: "day-A",
     firstSeat: "A",
     players: {
-      A: { board: shuffledDeck(seed, "A"), eliminationSpent: false, council: null, defense: null, lastGuardTarget: null, night: null, finalGuess: null, notes: [] },
-      B: { board: shuffledDeck(seed, "B"), eliminationSpent: false, council: null, defense: null, lastGuardTarget: null, night: null, finalGuess: null, notes: [] },
+      A: { board: shuffledDeck(seed, "A"), eliminationSpent: false, council: null, defense: null, lastGuardTarget: null, revengeTarget: null, night: null, finalGuess: null, notes: [] },
+      B: { board: shuffledDeck(seed, "B"), eliminationSpent: false, council: null, defense: null, lastGuardTarget: null, revengeTarget: null, night: null, finalGuess: null, notes: [] },
     },
     result: null,
     log: ["Ván đấu bắt đầu ở Ban ngày Vòng 1. Hội đồng chỉ mở từ Vòng 2."],
@@ -103,10 +108,17 @@ function reveal(card) {
 
 function eliminate(state, card, cause) {
   if (!card.alive) return;
+  const owner = state.players[card.id.slice(0, 1)];
+  const revengeTarget = card.role === "avenger" ? owner.revengeTarget : null;
+  if (card.role === "avenger") owner.revengeTarget = null;
   card.alive = false;
   card.shielded = false;
   reveal(card);
   addLog(state, `${card.id} chết do ${cause}. Role: ${ROLE_DEFS[card.role].name}.`);
+  if (revengeTarget) {
+    const target = cardById(state, revengeTarget);
+    if (target.alive) eliminate(state, target, `báo thù của ${card.id}`);
+  }
 }
 
 function checkWinner(state) {
@@ -147,8 +159,12 @@ function resolveCouncil(state) {
 
   for (const seat of ["A", "B"]) {
     const submission = state.players[seat].council;
-    if (submission.pass) {
+    if (submission.kind === "pass") {
       addLog(state, `${seat} bỏ qua Hội đồng.`);
+      continue;
+    }
+    if (submission.kind === "protect") {
+      addLog(state, `${seat} đã bí mật khóa một mục tiêu bảo kê.`);
       continue;
     }
 
@@ -160,14 +176,24 @@ function resolveCouncil(state) {
     }
     const validVotes = voters.filter((card) => card.alive && card.id.startsWith(seat) && ROLE_DEFS[card.role].faction === "village" && card.voteCooldown === 0);
     const target = cardById(state, submission.target);
-    const correct = validVotes.length >= 3 && target.alive && target.id.startsWith(otherSeat(seat)) && target.role === submission.guess;
+    const votePower = validVotes.reduce((total, card) => total + (card.role === "villager" ? 2 : 1), 0);
+    const correct = votePower >= 3 && target.alive && target.id.startsWith(otherSeat(seat)) && target.role === submission.guess;
 
     if (correct) {
-      pendingDeaths.push({ target, cause: `Hội đồng của ${seat}` });
-      addLog(state, `${seat} đạt ${validVotes.length} phiếu và buộc tội đúng ${target.id}.`);
+      const defenderSeat = otherSeat(seat);
+      const protection = state.players[defenderSeat].council;
+      if (protection.kind === "protect" && protection.target === target.id) {
+        const wolfguard = cardById(state, protection.source);
+        wolfguard.uses.rescue -= 1;
+        reveal(wolfguard);
+        addLog(state, `${seat} đạt ${votePower} phiếu và buộc tội đúng, nhưng ${wolfguard.id} lộ diện để cứu ${target.id}.`);
+      } else {
+        pendingDeaths.push({ target, cause: `Hội đồng của ${seat}` });
+        addLog(state, `${seat} đạt ${votePower} phiếu và buộc tội đúng ${target.id}.`);
+      }
     } else {
       for (const voter of validVotes) voter.voteCooldown = 1;
-      addLog(state, `${seat} buộc tội thất bại với ${validVotes.length} phiếu hợp lệ.`);
+      addLog(state, `${seat} buộc tội thất bại với ${votePower} phiếu hợp lệ.`);
     }
   }
 
@@ -183,20 +209,26 @@ function submitCouncil(state, action) {
   assertSeat(action.seat);
   if (state.players[action.seat].council) throw new Error(`${action.seat} đã khóa Hội đồng.`);
 
-  if (action.pass) {
-    state.players[action.seat].council = { pass: true };
+  if (action.pass || action.kind === "pass") {
+    state.players[action.seat].council = { kind: "pass" };
+  } else if (action.kind === "protect") {
+    const source = validateSource(state, action.seat, action.source, "wolfguard");
+    if (source.uses.rescue < 1) throw new Error("Sói Hộ Vệ đã dùng quyền bảo kê.");
+    const target = cardById(state, action.target);
+    if (!target.alive || !target.id.startsWith(action.seat)) throw new Error("Chỉ bảo kê được lá sống bên mình.");
+    state.players[action.seat].council = { kind: "protect", source: source.id, target: target.id };
   } else {
     if (state.players[action.seat].eliminationSpent) throw new Error("Quyền loại bỏ của vòng đã dùng.");
     if (!ROLE_DEFS[action.guess]) throw new Error("Role đoán không hợp lệ.");
     const target = cardById(state, action.target);
     if (!target.alive || !target.id.startsWith(otherSeat(action.seat))) throw new Error("Target Hội đồng không hợp lệ.");
-    if (action.voters.length !== 3 || new Set(action.voters).size !== 3) throw new Error("Cần đúng ba lá khác nhau bỏ phiếu.");
+    if (action.voters.length < 1 || action.voters.length > 3 || new Set(action.voters).size !== action.voters.length) throw new Error("Chọn từ một đến ba lá khác nhau bỏ phiếu.");
     for (const id of action.voters) {
       const voter = cardById(state, id);
       if (!voter.alive || !voter.id.startsWith(action.seat)) throw new Error(`${id} không thể bỏ phiếu.`);
       if (voter.voteCooldown > 0) throw new Error(`${id} đang bị khóa vote.`);
     }
-    state.players[action.seat].council = { pass: false, target: target.id, guess: action.guess, voters: action.voters.map((id) => id.toUpperCase()) };
+    state.players[action.seat].council = { kind: "accuse", target: target.id, guess: action.guess, voters: action.voters.map((id) => id.toUpperCase()) };
   }
   addLog(state, `${action.seat} đã khóa lựa chọn Hội đồng.`);
   if (state.players.A.council && state.players.B.council) resolveCouncil(state);
@@ -231,6 +263,34 @@ function submitDay(state, action) {
     source.uses.bullet -= 1;
     player.eliminationSpent = true;
     eliminate(state, target, `phát bắn từ Xạ thủ ẩn của ${action.seat}`);
+    advanceDay(state, action.seat);
+    return;
+  }
+
+  if (action.kind === "mark") {
+    const source = validateSource(state, action.seat, action.source, "avenger");
+    if (source.dayExhausted) throw new Error("Kẻ báo thù đã tham gia bỏ phiếu trong vòng này.");
+    const target = cardById(state, action.target);
+    if (!target.alive || !target.id.startsWith(otherSeat(action.seat))) throw new Error("Mục tiêu báo thù không hợp lệ.");
+    reveal(source);
+    player.revengeTarget = target.id;
+    addLog(state, `${source.id} công khai đánh dấu ${target.id}. Nếu chết trước bình minh, mục tiêu sẽ chết theo.`);
+    advanceDay(state, action.seat);
+    return;
+  }
+
+  if (action.kind === "purify") {
+    if (player.eliminationSpent) throw new Error("Quyền loại bỏ của vòng đã dùng.");
+    const source = validateSource(state, action.seat, action.source, "priest");
+    if (source.dayExhausted) throw new Error("Mục sư đã tham gia bỏ phiếu trong vòng này.");
+    if (source.uses.holyWater < 1) throw new Error("Mục sư đã dùng nước thánh.");
+    const target = cardById(state, action.target);
+    if (!target.alive || !target.id.startsWith(otherSeat(action.seat))) throw new Error("Mục tiêu thanh tẩy không hợp lệ.");
+    source.uses.holyWater -= 1;
+    player.eliminationSpent = true;
+    reveal(source);
+    if (ROLE_DEFS[target.role].faction === "werewolf") eliminate(state, target, `nước thánh của ${source.id}`);
+    else eliminate(state, source, `thanh tẩy nhầm ${target.id}`);
     advanceDay(state, action.seat);
     return;
   }
@@ -346,6 +406,10 @@ function resolveNight(state) {
     player.defense = null;
     player.night = null;
     player.eliminationSpent = false;
+    if (player.revengeTarget) {
+      addLog(state, `Dấu báo thù của ${seat} hết hiệu lực tại bình minh.`);
+      player.revengeTarget = null;
+    }
     for (const card of player.board) {
       card.shielded = false;
       card.dayExhausted = false;
@@ -411,6 +475,7 @@ export function publicView(state) {
       faction: card.revealed ? ROLE_DEFS[card.role].faction : "?",
       shielded: card.shielded,
       canVote: card.alive && card.revealed && ROLE_DEFS[card.role].faction === "village" && card.voteCooldown === 0,
+      votePower: card.alive && card.revealed && ROLE_DEFS[card.role].faction === "village" && card.voteCooldown === 0 ? (card.role === "villager" ? 2 : 1) : 0,
     }));
   }
   return {

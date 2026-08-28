@@ -13,6 +13,9 @@ const ROLE_ART = {
   guard: "../../assets/game/wwo-reference/bao-ve.png",
   witch: "../../assets/game/wwo-reference/phu-thuy.webp",
   shooter: "../../assets/game/wwo-reference/xa-thu.webp",
+  avenger: "../../assets/game/wwo-reference/ke-bao-thu.png",
+  priest: "../../assets/game/wwo-reference/muc-su.png",
+  wolfguard: "../../assets/game/wwo-reference/soi-ho-ve.webp",
 };
 
 const PHASE_LABEL = {
@@ -51,7 +54,7 @@ function cardMarkup(card, isOwn) {
     <span class="card-id">${card.id}</span>
     ${card.shielded ? `<span class="shield" title="Đang được bảo vệ">◈</span>` : ""}
     <strong class="role-name">${known ? roleName : "Chưa lộ"}</strong>
-    <span class="card-status">${card.alive ? (card.canVote ? "Có quyền vote" : "Đang sống") : "Đã chết"}</span>
+    <span class="card-status">${card.alive ? (card.votePower > 1 ? `${card.votePower} phiếu` : card.canVote ? "Có quyền vote" : "Đang sống") : "Đã chết"}</span>
   </article>`;
 }
 
@@ -81,11 +84,18 @@ function alreadyLocked() {
 }
 
 function actionKinds() {
-  if (state.phase === "council") return [["pass", "Bỏ qua"], ["accuse", "Buộc tội bằng 3 phiếu"]];
+  if (state.phase === "council") {
+    const kinds = [["pass", "Bỏ qua"], ["accuse", "Buộc tội bằng 3 phiếu"]];
+    if (sourceFor("wolfguard") && privateCard(sourceFor("wolfguard")).uses.rescue > 0) kinds.push(["protect", "Sói Hộ Vệ bảo kê"]);
+    return kinds;
+  }
   if (state.phase.startsWith("day-")) {
     const kinds = [["pass", "Bỏ lượt"]];
-    if (sourceFor("shooter")) kinds.push(["shoot", "Xạ thủ bắn"]);
+    const revealedEnemy = state.players[otherSeat(seat)].board.filter((card) => card.alive && card.revealed).length;
+    if (sourceFor("shooter") && revealedEnemy >= 2) kinds.push(["shoot", "Xạ thủ bắn"]);
     if (sourceFor("witch") && ownPlayer().board.some((card) => !card.alive)) kinds.push(["revive", "Phù thủy hồi sinh"]);
+    if (sourceFor("avenger")) kinds.push(["mark", "Kẻ báo thù đánh dấu"]);
+    if (sourceFor("priest") && privateCard(sourceFor("priest")).uses.holyWater > 0) kinds.push(["purify", "Mục sư thanh tẩy"]);
     return kinds;
   }
   if (state.phase === "dusk-defense") return [["pass", "Không đặt khiên"], ["defend", "Bảo vệ một lá"]];
@@ -106,10 +116,12 @@ function actionFields() {
   if (state.phase === "council") return `
     <label class="field conditional" data-for="accuse"><span>Mục tiêu</span><select name="target">${cardOptions(enemy)}</select></label>
     <label class="field conditional" data-for="accuse"><span>Đoán role</span><select name="guess">${roleOptions()}</select></label>
-    <fieldset class="voter-field conditional" data-for="accuse"><legend>Chọn đúng 3 lá đứng ra vote</legend><div class="voters">${own.filter((card) => card.alive).map((card) => `<label><input type="checkbox" name="voter" value="${card.id}" /> ${card.id}</label>`).join("")}</div></fieldset>`;
+    <fieldset class="voter-field conditional" data-for="accuse"><legend>Chọn tối đa 3 lá, cần tổng 3 phiếu · Dân làng = 2</legend><div class="voters">${own.filter((card) => card.alive).map((card) => `<label><input type="checkbox" name="voter" value="${card.id}" /> ${card.id}</label>`).join("")}</div></fieldset>
+    <label class="field conditional" data-for="protect"><span>Lá muốn bảo kê</span><select name="protectTarget">${cardOptions(own)}</select></label>`;
   if (state.phase.startsWith("day-")) return `
     <label class="field conditional" data-for="shoot"><span>Mục tiêu đã lộ</span><select name="shootTarget">${cardOptions(enemy.filter((card) => card.revealed))}</select></label>
-    <label class="field conditional" data-for="revive"><span>Lá muốn hồi sinh</span><select name="reviveTarget">${deadCardOptions(own)}</select></label>`;
+    <label class="field conditional" data-for="revive"><span>Lá muốn hồi sinh</span><select name="reviveTarget">${deadCardOptions(own)}</select></label>
+    <label class="field conditional" data-for="mark purify"><span>Mục tiêu bên ${otherSeat(seat)}</span><select name="dayTarget">${cardOptions(enemy)}</select></label>`;
   if (state.phase === "dusk-defense") return `<label class="field conditional" data-for="defend"><span>Vị trí đặt khiên</span><select name="defendTarget">${cardOptions(own)}</select></label>`;
   if (state.phase === "night-main") return `<label class="field conditional" data-for="attack inspect poison"><span>Mục tiêu bên ${otherSeat(seat)}</span><select name="nightTarget">${cardOptions(enemy)}</select></label>`;
   if (state.phase === "final-duel") return `<label class="field conditional" data-for="final"><span>Role dự đoán</span><select name="finalGuess">${roleOptions()}</select></label>`;
@@ -178,13 +190,17 @@ function submitAction(form) {
   const kind = data.get("kind");
   let action;
   if (state.phase === "council") action = kind === "pass"
-    ? { type: "council.submit", seat, pass: true }
-    : { type: "council.submit", seat, pass: false, target: data.get("target"), guess: data.get("guess"), voters: data.getAll("voter") };
+    ? { type: "council.submit", seat, kind }
+    : kind === "protect"
+      ? { type: "council.submit", seat, kind, source: sourceFor("wolfguard"), target: data.get("protectTarget") }
+      : { type: "council.submit", seat, kind, target: data.get("target"), guess: data.get("guess"), voters: data.getAll("voter") };
   else if (state.phase.startsWith("day-")) action = kind === "pass"
     ? { type: "day.submit", seat, kind }
     : kind === "shoot"
       ? { type: "day.submit", seat, kind, source: sourceFor("shooter"), target: data.get("shootTarget") }
-      : { type: "day.submit", seat, kind, source: sourceFor("witch"), target: data.get("reviveTarget") };
+      : kind === "revive"
+        ? { type: "day.submit", seat, kind, source: sourceFor("witch"), target: data.get("reviveTarget") }
+        : { type: "day.submit", seat, kind, source: sourceFor(kind === "mark" ? "avenger" : "priest"), target: data.get("dayTarget") };
   else if (state.phase === "dusk-defense") action = kind === "pass"
     ? { type: "defense.submit", seat, pass: true }
     : { type: "defense.submit", seat, pass: false, target: data.get("defendTarget") };
