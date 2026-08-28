@@ -44,7 +44,7 @@ button:disabled { cursor: not-allowed; opacity: .42; }
 .board-title h2 { margin: 0; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; }
 .board-title span { color: var(--muted); font-size: 10px; }
 .card-row { display: grid; grid-template-columns: repeat(10, minmax(62px, 82px)); justify-content: center; gap: 7px; min-height: 142px; padding: 14px 0; perspective: 1200px; }
-.role-card { --frame: #856d45; --frame-dark: #2e271c; --advance: 0px; position: relative; min-height: 118px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--frame) 65%, #fff 10%); border-radius: 7px; background: linear-gradient(145deg, color-mix(in srgb, var(--frame) 88%, #fff 12%), var(--frame-dark)); box-shadow: 0 4px 9px rgba(0,0,0,.48), inset 0 0 0 1px rgba(255,255,255,.12); isolation: isolate; transform: translateY(var(--advance)); transition: transform .25s ease, box-shadow .16s ease; }
+.role-card { --frame: #856d45; --frame-dark: #2e271c; --advance: 0px; position: relative; min-height: 118px; overflow: visible; border: 1px solid color-mix(in srgb, var(--frame) 65%, #fff 10%); border-radius: 7px; background: linear-gradient(145deg, color-mix(in srgb, var(--frame) 88%, #fff 12%), var(--frame-dark)); box-shadow: 0 4px 9px rgba(0,0,0,.48), inset 0 0 0 1px rgba(255,255,255,.12); isolation: isolate; transform: translateY(var(--advance)); transition: transform .25s ease, box-shadow .16s ease; }
 .role-card:hover { z-index: 3; transform: translateY(calc(var(--advance) - 3px)) rotateX(2deg); box-shadow: 0 9px 18px rgba(0,0,0,.6), inset 0 0 0 1px rgba(255,255,255,.16); }
 .role-card.faction-village { --frame: #a97c38; --frame-dark: #312619; }
 .role-card.faction-werewolf { --frame: #67507e; --frame-dark: #211a2a; }
@@ -55,6 +55,11 @@ button:disabled { cursor: not-allowed; opacity: .42; }
 .board-own .role-card.revealed { --advance: -12px; }
 .role-card.hidden-role { filter: saturate(.88); }
 .role-card.shielded { border-color: #9cb9ff; box-shadow: 0 0 0 2px #7398eb, 0 0 18px rgba(115,152,235,.38); }
+.role-card.actionable { cursor: pointer; border-color: #f0c45f; animation: action-ready 1s ease-in-out infinite alternate; }
+.role-card.targetable { cursor: crosshair; border-color: #e66c61; box-shadow: 0 0 0 2px rgba(230,108,97,.65), 0 0 22px rgba(230,86,77,.52); animation: target-ready .7s ease-in-out infinite alternate; }
+.role-card.selected-card { border-color: #76d5f2; box-shadow: 0 0 0 2px #3e9fbd, 0 0 22px rgba(78,183,215,.55); }
+@keyframes action-ready { to { box-shadow: 0 0 0 2px rgba(240,196,95,.42), 0 0 18px rgba(240,196,95,.48); } }
+@keyframes target-ready { to { box-shadow: 0 0 0 3px rgba(230,108,97,.75), 0 0 28px rgba(230,86,77,.64); } }
 .card-shell { position: absolute; inset: 3px; display: grid; grid-template-rows: 22px 1fr 18px; overflow: hidden; border: 1px solid rgba(13,10,7,.72); border-radius: 4px; background: #17191d; }
 .card-head { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 3px; padding: 3px 4px; color: #17120b; background: linear-gradient(90deg, color-mix(in srgb, var(--frame) 78%, #e8d4a8 22%), color-mix(in srgb, var(--frame) 88%, #111 12%)); border-bottom: 1px solid rgba(0,0,0,.7); }
 .role-name { overflow: hidden; font-family: Georgia, "Times New Roman", serif; font-size: 8px; font-weight: 900; line-height: 1; text-overflow: ellipsis; white-space: nowrap; text-shadow: 0 1px rgba(255,255,255,.18); }
@@ -69,6 +74,11 @@ button:disabled { cursor: not-allowed; opacity: .42; }
 .card-foot { display: grid; grid-template-columns: auto minmax(0,1fr); align-items: center; gap: 3px; padding: 2px 4px; border-top: 1px solid rgba(0,0,0,.65); background: linear-gradient(90deg, rgba(12,13,16,.96), color-mix(in srgb, var(--frame-dark) 85%, #000)); }
 .card-id { font: 900 8px/1 monospace; color: #efe1bd; }
 .card-status { overflow: hidden; color: #c7c1b5; font-size: 6px; font-weight: 800; letter-spacing: .04em; text-align: right; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.skill-tooltip { position: absolute; z-index: 30; bottom: calc(100% + 9px); left: 50%; display: grid; gap: 4px; width: 210px; padding: 10px 11px; border: 1px solid rgba(236,205,137,.35); border-radius: 8px; background: rgba(9,10,13,.97); color: #d6d3cb; box-shadow: 0 14px 38px rgba(0,0,0,.65); opacity: 0; pointer-events: none; transform: translate(-50%,6px); transition: opacity .14s ease, transform .14s ease; }
+.role-card:hover .skill-tooltip, .role-card:focus-within .skill-tooltip { opacity: 1; transform: translate(-50%,0); }
+.skill-tooltip strong { color: #f0d397; font: 900 13px Georgia, serif; }
+.skill-tooltip span { font-size: 11px; line-height: 1.4; }
+.skill-tooltip em { color: #f2c45e; font-size: 10px; font-style: normal; font-weight: 850; text-transform: uppercase; }
 .role-card.setup-card { min-height: 143px; cursor: grab; }
 .role-card.setup-card:active { cursor: grabbing; }
 .role-card.setup-card.is-dragging { opacity: .35; }
@@ -84,12 +94,24 @@ button:disabled { cursor: not-allowed; opacity: .42; }
 @keyframes bot-spin { to { transform: rotate(360deg); } }
 @keyframes bot-pulse { to { opacity: .35; } }
 
-.center-table { display: grid; place-items: center; min-height: 160px; padding: 18px; }
-.table-seal { width: min(100%, 520px); text-align: center; }
+.center-table { position: relative; display: grid; grid-template-columns: minmax(170px, .65fr) minmax(280px, 1fr); place-items: center; gap: 24px; min-height: 230px; padding: 24px; overflow: hidden; border: 1px solid rgba(255,255,255,.07); border-radius: 18px; background: radial-gradient(circle at center, rgba(137,105,56,.13) 0 18%, transparent 19%), linear-gradient(90deg, transparent 49.8%, rgba(220,193,133,.12) 50%, transparent 50.2%), linear-gradient(180deg, rgba(42,48,57,.72), rgba(16,19,24,.88)); box-shadow: inset 0 0 55px rgba(0,0,0,.48); }
+.center-table::before, .center-table::after { content: ""; position: absolute; left: 8%; width: 84%; height: 1px; background: linear-gradient(90deg, transparent, rgba(220,193,133,.16), transparent); }
+.center-table::before { top: 27%; }
+.center-table::after { bottom: 27%; }
+.table-seal { z-index: 1; width: min(100%, 330px); text-align: center; }
 .table-seal p { margin: 7px 0 0; color: var(--muted); font-size: 13px; }
-.table-seal strong { font: 900 clamp(28px, 4vw, 54px)/.95 Georgia, serif; letter-spacing: -.04em; }
-.table-seal.day strong { color: var(--day); }
-.table-seal.night strong { color: #9aace2; }
+.arena-phase { display: block; color: var(--day); font: 900 clamp(22px, 3vw, 42px)/.95 Georgia, serif; letter-spacing: -.04em; }
+.table-seal.night .arena-phase { color: #9aace2; }
+.battle-action { z-index: 2; display: grid; justify-items: start; gap: 8px; width: min(100%, 440px); padding: 18px; border: 1px solid rgba(255,255,255,.11); border-radius: 13px; background: rgba(10,12,16,.79); backdrop-filter: blur(8px); }
+.battle-action strong { font: 900 20px/1.05 Georgia, serif; }
+.battle-action p { margin: 0; color: #aeb0b5; font-size: 11px; line-height: 1.45; }
+.battle-step { color: #e2b85a !important; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
+.battle-buttons, .role-guess-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.battle-buttons button, .role-guess-grid button, .battle-pass, .battle-cancel { min-height: 34px; padding: 7px 10px; border-radius: 7px; }
+.battle-buttons button:first-child, .battle-pass { border-color: #c89d47; background: #d6ad58; color: #15120c; font-weight: 900; }
+.battle-cancel { background: transparent; color: #aeb0b5; }
+.role-guess-grid button { font-size: 10px; }
+.bot-battle { place-items: center; text-align: center; }
 
 .control-panel, .history-panel { border: 1px solid var(--line); border-radius: 14px; background: var(--panel); }
 .control-panel { padding: 18px; }
@@ -114,9 +136,10 @@ button:disabled { cursor: not-allowed; opacity: .42; }
 .privacy button { padding: 10px 14px; border-radius: 8px; }
 
 /* A: bàn cờ đối đầu, hành động nằm bên phải. */
-.variant-a .play-grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; margin-top: 16px; }
-.variant-a .arena { display: grid; gap: 14px; }
+.variant-a .play-grid { display: grid; grid-template-columns: minmax(0, 1fr) 250px; gap: 14px; margin-top: 12px; }
+.variant-a .arena { display: grid; grid-template-rows: auto minmax(230px,1fr) auto; gap: 10px; min-height: calc(100vh - 105px); }
 .variant-a .side-rail { display: grid; align-content: start; gap: 12px; }
+.variant-a .board-own { align-self: end; }
 
 /* B: phòng điều khiển, trạng thái bên trái và action chạy ngang phía dưới. */
 .variant-b .play-grid { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 14px; margin-top: 16px; }
@@ -151,6 +174,7 @@ button:disabled { cursor: not-allowed; opacity: .42; }
   .variant-a .play-grid, .variant-b .play-grid, .variant-c .play-grid { display: flex; flex-direction: column; }
   .variant-b .control-panel { position: static; }
   .variant-b .action-form { display: grid; grid-template-columns: 1fr; }
+  .center-table { grid-template-columns: 1fr; min-height: 310px; gap: 14px; }
   .card-row, .variant-c .card-row { display: flex; overflow-x: auto; padding-bottom: 6px; }
   .role-card { min-width: 70px; min-height: 110px; }
   .center-table { min-height: 105px; }

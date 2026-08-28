@@ -30,6 +30,18 @@ const ROLE_PHASE = {
   wolfguard: "day",
 };
 
+const ROLE_SKILLS = {
+  villager: "Hội đồng · Khi lộ diện, lá này đóng góp 2 phiếu.",
+  wolf: "Ban đêm · Tấn công một lá đối thủ không được khiên che.",
+  seer: "Ban đêm · Xem role thật của một lá đối thủ.",
+  guard: "Chạng vạng · Đặt khiên lên một lá đồng minh, tối đa 3 lần.",
+  witch: "Ngày hồi sinh một đồng minh · Đêm đầu độc một đối thủ.",
+  shooter: "Ban ngày · Khi đối thủ đã lộ 2 role, bắn một lá đã lộ.",
+  avenger: "Ban ngày · Đánh dấu mục tiêu; nếu chết trước bình minh, mục tiêu chết theo.",
+  priest: "Ban ngày · Thanh tẩy một lần; giết Sói nhưng tự chết nếu chọn nhầm Dân.",
+  wolfguard: "Hội đồng · Bí mật bảo kê một lá; lộ diện nếu chặn đúng án treo.",
+};
+
 const PHASE_LABEL = {
   "setup-A": "Xếp đội hình · bên A",
   "setup-B": "Xếp đội hình · bên B",
@@ -55,6 +67,7 @@ let setupOrder = {
 };
 let draggedSetupId = null;
 let botTimer = null;
+let interaction = null;
 
 const otherSeat = (value) => value === "A" ? "B" : "A";
 const ownPlayer = () => state.players[seat];
@@ -147,7 +160,43 @@ function runBotTurn() {
 
 function scheduleBot() {
   if (!botNeedsTurn() || botTimer) return;
-  botTimer = setTimeout(runBotTurn, 520);
+  botTimer = setTimeout(runBotTurn, 1700);
+}
+
+function actionForOwnCard(card) {
+  if (!card?.alive || !activeForSeat() || state.phase.startsWith("setup-")) return null;
+  if (interaction && interaction.kind !== "accuse") return null;
+  if (state.phase.startsWith("day-")) {
+    if (card.role === "avenger") return { kind: "mark", label: "Đánh dấu báo thù" };
+    if (card.role === "priest" && card.uses.holyWater > 0 && !state.players.A.eliminationSpent) return { kind: "purify", label: "Thanh tẩy" };
+    if (card.role === "shooter" && card.uses.bullet > 0 && living("B").filter((item) => item.revealed).length >= 2 && !state.players.A.eliminationSpent) return { kind: "shoot", label: "Bắn" };
+    if (card.role === "witch" && card.uses.revive > 0 && state.players.A.board.some((item) => !item.alive)) return { kind: "revive", label: "Hồi sinh" };
+  }
+  if (state.phase === "dusk-defense" && card.role === "guard" && card.uses.guard > 0) return { kind: "defend", label: "Đặt khiên" };
+  if (state.phase === "night-main") {
+    if (card.role === "wolf" && !state.players.A.eliminationSpent) return { kind: "attack", label: "Tấn công" };
+    if (card.role === "seer" && card.uses.seer > 0) return { kind: "inspect", label: "Soi role" };
+    if (card.role === "witch" && card.uses.poison > 0 && !state.players.A.eliminationSpent) return { kind: "poison", label: "Dùng độc" };
+  }
+  if (state.phase === "council" && interaction?.kind === "accuse" && card.voteCooldown === 0) return { kind: "vote", label: "Chọn làm phiếu" };
+  return null;
+}
+
+function votePower(voterIds = []) {
+  return voterIds.reduce((total, id) => {
+    const card = state.players.A.board.find((item) => item.id === id);
+    return total + (card?.role === "villager" ? 2 : ROLE_DEFS[card?.role]?.faction === "village" ? 1 : 0);
+  }, 0);
+}
+
+function directTargetIds() {
+  if (!interaction) return new Set();
+  if (["mark", "purify", "attack", "inspect", "poison"].includes(interaction.kind)) return new Set(living("B").map((card) => card.id));
+  if (interaction.kind === "shoot") return new Set(living("B").filter((card) => card.revealed).map((card) => card.id));
+  if (interaction.kind === "revive") return new Set(state.players.A.board.filter((card) => !card.alive).map((card) => card.id));
+  if (interaction.kind === "defend" || interaction.kind === "protect") return new Set(living("A").map((card) => card.id));
+  if (interaction.kind === "accuse" && votePower(interaction.voters) >= 3) return new Set(living("B").map((card) => card.id));
+  return new Set();
 }
 
 function cardMarkup(card, isOwn, setupIndex = -1) {
@@ -161,12 +210,15 @@ function cardMarkup(card, isOwn, setupIndex = -1) {
   const phase = ROLE_PHASE[roleKey] || "hidden";
   const phaseMark = phase === "day" ? "☀" : phase === "night" ? "☾" : phase === "both" ? "☀☾" : "◇";
   const shownName = known ? roleName : "Bí danh";
+  const directAction = isOwn ? actionForOwnCard(secret) : null;
+  const targetable = directTargetIds().has(card.id);
+  const selected = interaction?.source === card.id || interaction?.target === card.id || interaction?.voters?.includes(card.id);
   const status = !card.alive
     ? "Đã chết"
     : isRevealed
       ? `Đã lộ${card.votePower ? ` · ${card.votePower} phiếu` : ""}`
       : isOwn ? "Đang ẩn" : "Đang sống";
-  return `<article class="role-card faction-${faction} phase-${phase} ${isSetup ? "setup-card" : ""} ${card.alive ? "" : "dead"} ${isRevealed ? "revealed" : "hidden-role"} ${card.shielded ? "shielded" : ""}" ${isSetup ? `draggable="true" data-setup-card="${card.id}"` : ""}>
+  return `<article class="role-card faction-${faction} phase-${phase} ${isSetup ? "setup-card" : ""} ${directAction ? "actionable" : ""} ${targetable ? "targetable" : ""} ${selected ? "selected-card" : ""} ${card.alive ? "" : "dead"} ${isRevealed ? "revealed" : "hidden-role"} ${card.shielded ? "shielded" : ""}" ${isSetup ? `draggable="true" data-setup-card="${card.id}"` : ""} ${directAction ? `data-direct-source="${card.id}" data-direct-kind="${directAction.kind}"` : ""} ${targetable ? `data-direct-target="${card.id}"` : ""}>
     <div class="card-shell">
       <header class="card-head"><strong class="role-name" title="${shownName}">${shownName}</strong><span class="phase-rune" title="Pha kỹ năng">${phaseMark}</span></header>
       <div class="art-window">
@@ -177,6 +229,7 @@ function cardMarkup(card, isOwn, setupIndex = -1) {
       <footer class="card-foot"><span class="card-id">${card.id}</span><span class="card-status">${status}</span></footer>
     </div>
     ${isSetup ? `<div class="setup-controls"><button type="button" data-setup-move="-1" data-setup-id="${card.id}" aria-label="Đưa ${shownName} sang trái">‹</button><strong>${setupIndex + 1}</strong><button type="button" data-setup-move="1" data-setup-id="${card.id}" aria-label="Đưa ${shownName} sang phải">›</button></div>` : ""}
+    ${known && !isSetup ? `<div class="skill-tooltip"><strong>${shownName}</strong><span>${ROLE_SKILLS[roleKey]}</span>${directAction ? `<em>Nhấp để ${directAction.label.toLowerCase()}</em>` : ""}</div>` : ""}
   </article>`;
 }
 
@@ -279,12 +332,35 @@ function historyMarkup() {
   return `<aside class="history-panel"><h2>Diễn biến công khai</h2><ol class="history-list">${state.log.slice(-6).reverse().map((item) => `<li>${item}</li>`).join("")}</ol>${own.notes.length && handVisible ? `<div class="notes"><strong>Ghi chú riêng:</strong><br>${own.notes.join("<br>")}</div>` : ""}</aside>`;
 }
 
+function battlefieldActionMarkup() {
+  if (state.phase.startsWith("setup-") || state.phase === "ended") return controlMarkup();
+  if (botNeedsTurn() || !activeForSeat() || alreadyLocked()) return `<div class="battle-action bot-battle"><span class="bot-orbit" aria-hidden="true"></span><strong>BOT B đang cân nhắc</strong><p>Bạn có khoảng 1,7 giây để nhìn trạng thái bàn trước khi bot đi.</p></div>`;
+  if (state.phase === "council") {
+    const power = votePower(interaction?.voters);
+    if (interaction?.kind === "accuse" && interaction.target) {
+      return `<div class="battle-action"><p class="battle-step">Bước 3 · Đoán role của ${interaction.target}</p><div class="role-guess-grid">${Object.entries(ROLE_DEFS).map(([key, role]) => `<button type="button" data-direct-guess="${key}">${role.name}</button>`).join("")}</div><button class="battle-cancel" type="button" data-direct-cancel>Chọn lại</button></div>`;
+    }
+    if (interaction?.kind === "accuse") {
+      return `<div class="battle-action"><p class="battle-step">${power >= 3 ? "Bước 2 · Chọn một lá đối thủ" : "Bước 1 · Chọn lá bên mình làm phiếu"}</p><strong>${power}/3 phiếu hợp lệ</strong><p>${power >= 3 ? "Các mục tiêu hợp lệ đang sáng đỏ." : "Dân làng đóng góp 2 phiếu; role Dân khác đóng góp 1."}</p><button class="battle-cancel" type="button" data-direct-cancel>Hủy buộc tội</button></div>`;
+    }
+    if (interaction?.kind === "protect") return `<div class="battle-action"><p class="battle-step">Chọn lá bên mình cần bảo kê</p><strong>Sói Hộ Vệ đang chờ lệnh</strong><button class="battle-cancel" type="button" data-direct-cancel>Hủy</button></div>`;
+    const wolfguard = sourceFor("wolfguard") && privateCard(sourceFor("wolfguard")).uses.rescue > 0;
+    return `<div class="battle-action"><p class="battle-step">Hội đồng</p><strong>Chọn cách tham gia</strong><div class="battle-buttons"><button type="button" data-council-mode="accuse">Buộc tội</button>${wolfguard ? `<button type="button" data-council-mode="protect">Bảo kê</button>` : ""}<button type="button" data-direct-pass>Bỏ qua</button></div></div>`;
+  }
+  if (state.phase === "final-duel") return `<div class="battle-action"><p class="battle-step">Final Duel</p><strong>Đoán role cuối của BOT</strong><div class="role-guess-grid">${Object.entries(ROLE_DEFS).map(([key, role]) => `<button type="button" data-final-guess="${key}">${role.name}</button>`).join("")}</div></div>`;
+  if (interaction) {
+    const source = state.players.A.board.find((card) => card.id === interaction.source);
+    return `<div class="battle-action"><p class="battle-step">Đã chọn ${source ? ROLE_DEFS[source.role].name : "hành động"}</p><strong>Chọn lá đang sáng làm mục tiêu</strong><p>${ROLE_SKILLS[source?.role] || ""}</p><button class="battle-cancel" type="button" data-direct-cancel>Hủy chọn</button></div>`;
+  }
+  return `<div class="battle-action"><p class="battle-step">Lượt của bạn</p><strong>Chọn một lá đang phát sáng</strong><p>Rê chuột lên card để xem kỹ năng. Nhấp card nguồn, rồi nhấp card mục tiêu.</p><button class="battle-pass" type="button" data-direct-pass>Bỏ lượt</button></div>`;
+}
+
 function arenaMarkup() {
   const view = publicView(state);
   const light = state.phase.includes("night") || state.phase.includes("dusk") ? "night" : "day";
   return `<section class="arena">
     ${boardMarkup(otherSeat(seat), "Đối thủ")}
-    <div class="center-table"><div class="table-seal ${light}"><strong>${PHASE_LABEL[state.phase]}</strong><p>Vòng ${view.round} · Quyền loại bỏ A: ${view.elimination.A} · B: ${view.elimination.B}</p></div></div>
+    <div class="center-table"><div class="table-seal ${light}"><span class="arena-phase">${PHASE_LABEL[state.phase]}</span><p>Vòng ${view.round} · Quyền loại bỏ A: ${view.elimination.A} · B: ${view.elimination.B}</p></div>${battlefieldActionMarkup()}</div>
     ${boardMarkup(seat, "Tay của bạn")}
   </section>`;
 }
@@ -297,7 +373,7 @@ function render() {
   const control = controlMarkup();
   const history = historyMarkup();
   const body = variant === "A"
-    ? `<div class="play-grid">${arena}<div class="side-rail">${control}${history}</div></div>`
+    ? `<div class="play-grid">${arena}<div class="side-rail">${history}</div></div>`
     : variant === "B"
       ? `<div class="play-grid">${arena}<div class="side-rail">${history}</div>${control}</div>`
       : `<div class="play-grid">${control}${arena}<div class="side-rail">${history}</div></div>`;
@@ -349,6 +425,38 @@ function submitAction(form) {
   render();
 }
 
+function commitDirectAction(action) {
+  try {
+    state = dispatch(state, action);
+    interaction = null;
+    feedback = "Hành động đã khóa. BOT B đang suy nghĩ.";
+  } catch (error) {
+    feedback = error.message;
+  }
+  handVisible = true;
+  render();
+}
+
+function chooseDirectTarget(target) {
+  if (!interaction || !directTargetIds().has(target)) return;
+  if (interaction.kind === "accuse") {
+    interaction.target = target;
+    return render();
+  }
+  if (interaction.kind === "protect") return commitDirectAction({ type: "council.submit", seat: "A", kind: "protect", source: interaction.source, target });
+  if (interaction.kind === "defend") return commitDirectAction({ type: "defense.submit", seat: "A", pass: false, target });
+  if (state.phase.startsWith("day-")) return commitDirectAction({ type: "day.submit", seat: "A", kind: interaction.kind, source: interaction.source, target });
+  return commitDirectAction({ type: "night.submit", seat: "A", kind: interaction.kind, source: interaction.source, target });
+}
+
+function directPass() {
+  interaction = null;
+  if (state.phase === "council") return commitDirectAction({ type: "council.submit", seat: "A", kind: "pass" });
+  if (state.phase.startsWith("day-")) return commitDirectAction({ type: "day.submit", seat: "A", kind: "pass" });
+  if (state.phase === "dusk-defense") return commitDirectAction({ type: "defense.submit", seat: "A", pass: true });
+  if (state.phase === "night-main") return commitDirectAction({ type: "night.submit", seat: "A", kind: "pass" });
+}
+
 function switchVariant(direction) {
   const keys = Object.keys(VARIANTS);
   variant = keys[(keys.indexOf(variant) + direction + keys.length) % keys.length];
@@ -361,6 +469,38 @@ function switchVariant(direction) {
 document.addEventListener("click", (event) => {
   const direction = event.target.closest("[data-variant-direction]")?.dataset.variantDirection;
   if (direction) return switchVariant(Number(direction));
+  const directTarget = event.target.closest("[data-direct-target]");
+  if (directTarget) return chooseDirectTarget(directTarget.dataset.directTarget);
+  const directSource = event.target.closest("[data-direct-source]");
+  if (directSource) {
+    const source = directSource.dataset.directSource;
+    const kind = directSource.dataset.directKind;
+    if (kind === "vote") {
+      interaction.voters ||= [];
+      interaction.voters = interaction.voters.includes(source)
+        ? interaction.voters.filter((id) => id !== source)
+        : interaction.voters.length < 3 ? [...interaction.voters, source] : interaction.voters;
+    } else interaction = { source, kind };
+    return render();
+  }
+  if (event.target.closest("[data-direct-cancel]")) {
+    interaction = null;
+    return render();
+  }
+  if (event.target.closest("[data-direct-pass]")) return directPass();
+  const councilMode = event.target.closest("[data-council-mode]")?.dataset.councilMode;
+  if (councilMode === "accuse") {
+    interaction = { kind: "accuse", voters: [], target: null };
+    return render();
+  }
+  if (councilMode === "protect") {
+    interaction = { kind: "protect", source: sourceFor("wolfguard") };
+    return render();
+  }
+  const directGuess = event.target.closest("[data-direct-guess]")?.dataset.directGuess;
+  if (directGuess) return commitDirectAction({ type: "council.submit", seat: "A", kind: "accuse", target: interaction.target, guess: directGuess, voters: interaction.voters });
+  const finalGuess = event.target.closest("[data-final-guess]")?.dataset.finalGuess;
+  if (finalGuess) return commitDirectAction({ type: "final.submit", seat: "A", guess: finalGuess });
   if (event.target.closest("[data-reveal-hand]")) {
     handVisible = true;
     return render();
@@ -370,6 +510,7 @@ document.addEventListener("click", (event) => {
     setupOrder = { A: state.players.A.board.map((card) => card.id), B: state.players.B.board.map((card) => card.id) };
     seat = "A";
     handVisible = true;
+    interaction = null;
     feedback = "Ván mới đã sẵn sàng.";
     return render();
   }
