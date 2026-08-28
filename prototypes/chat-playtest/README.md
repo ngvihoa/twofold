@@ -2,7 +2,7 @@
 
 Prototype này trả lời một câu hỏi: vòng chơi `Hội đồng -> Ban ngày -> Phòng thủ -> Ban đêm -> Bình minh` có tạo ra quyết định thú vị và có tự kết thúc khi hai bên điều khiển các bộ bài đối xứng hay không?
 
-Ngoại lệ mở màn: Vòng 1 bắt đầu thẳng ở Ban ngày, chưa có Hội đồng/treo cổ. Hội đồng đầu tiên xuất hiện tại bình minh Vòng 2.
+Hai vòng mở màn bắt đầu thẳng ở Ban ngày, chưa có Hội đồng/treo cổ. Hội đồng đầu tiên xuất hiện tại bình minh Vòng 3 và là hành động phụ trước Ban ngày, không tiêu lượt chính.
 
 Trước Vòng 1, mỗi bên bí mật sắp xếp thứ tự 10 lá rồi khóa đội hình. Vị trí đã khóa trở thành mã A1–A10 hoặc B1–B10 trong suốt ván.
 
@@ -30,7 +30,7 @@ Ba bố cục thử nghiệm A/B/C nằm trên cùng route và đổi bằng tha
 
 ## Bộ bài mỗi bên
 
-- 1 Dân làng — tính 2 phiếu khi lộ diện bỏ phiếu
+- 1 Dân làng — có thể tham gia Hội đồng sau khi đã lộ diện
 - 2 Ma sói
 - 1 Tiên tri
 - 1 Bảo vệ
@@ -61,7 +61,7 @@ public
 quit
 ```
 
-Hội đồng cần tổng ba phiếu phe Dân còn sống. Dân làng có trọng số hai phiếu; các role Dân khác có một phiếu. Lá đang ẩn sẽ tự lộ khi đứng ra bỏ phiếu. Đoán sai vẫn tiêu hao quyền loại bỏ của vòng và các lá bỏ phiếu không được dùng kỹ năng Ban ngày trong vòng đó. Sói Hộ Vệ có thể bí mật bảo kê trước một lá và lộ diện nếu chặn đúng án treo cổ.
+Hội đồng chỉ mở từ Vòng 3 và cần đúng ba role phe Dân còn sống, đã công khai từ trước. Treo cổ không tiêu quyền loại bỏ, không làm mất lượt chính và ba người tham gia vẫn được dùng kỹ năng Ban ngày. Đoán sai khóa ba người đó khỏi Hội đồng kế tiếp. Sói Hộ Vệ có thể bí mật bảo kê trước một lá và lộ diện nếu chặn đúng án treo cổ.
 
 Kẻ báo thù công khai đánh dấu một mục tiêu Ban ngày; nếu chết trước bình minh kế tiếp, mục tiêu chết theo. Mục sư có một lần thanh tẩy: giết đúng phe Sói, nhưng tự chết nếu chọn nhầm phe Dân.
 

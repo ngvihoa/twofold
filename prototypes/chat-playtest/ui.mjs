@@ -1,4 +1,4 @@
-import { createGame, dispatch, privateView, publicView, ROLE_DEFS } from "./engine.mjs";
+import { createGame, dispatch, privateView, publicView, ROLE_DEFS } from "./engine.mjs?rev=council-round-3-v2";
 
 const VARIANTS = {
   A: "Bàn đối đầu",
@@ -31,7 +31,7 @@ const ROLE_PHASE = {
 };
 
 const ROLE_SKILLS = {
-  villager: "Hội đồng · Khi lộ diện, lá này đóng góp 2 phiếu.",
+  villager: "Hội đồng · Khi đã lộ diện, lá này có thể là một trong 3 người tham gia treo cổ.",
   wolf: "Ban đêm · Tấn công một lá đối thủ không được khiên che.",
   seer: "Ban đêm · Xem role thật của một lá đối thủ.",
   guard: "Chạng vạng · Đặt khiên lên một lá đồng minh, tối đa 3 lần.",
@@ -85,6 +85,9 @@ let botTimer = null;
 let interaction = null;
 let lastMove = null;
 let moveTimer = null;
+let phaseTitleKey = "";
+let phaseTitleStartedAt = 0;
+let phaseTitleTimer = null;
 
 const otherSeat = (value) => value === "A" ? "B" : "A";
 const ownPlayer = () => state.players[seat];
@@ -131,14 +134,8 @@ function botAction() {
   }
   if (state.phase === "council") {
     const target = living("A").find((card) => card.revealed);
-    const voters = [];
-    let power = 0;
-    for (const card of living("B").filter((item) => ROLE_DEFS[item.role].faction === "village" && item.voteCooldown === 0)) {
-      voters.push(card.id);
-      power += card.role === "villager" ? 2 : 1;
-      if (power >= 3) break;
-    }
-    if (target && power >= 3) return { type: "council.submit", seat: "B", kind: "accuse", target: target.id, guess: target.role, voters };
+    const voters = living("B").filter((item) => item.revealed && ROLE_DEFS[item.role].faction === "village" && item.voteCooldown === 0).slice(0, 3).map((card) => card.id);
+    if (target && voters.length === 3) return { type: "council.submit", seat: "B", kind: "accuse", target: target.id, guess: target.role, voters };
     return { type: "council.submit", seat: "B", kind: "pass" };
   }
   if (state.phase === "dusk-defense") {
@@ -230,14 +227,14 @@ function actionForOwnCard(card) {
     if (card.role === "seer" && card.uses.seer > 0) return { kind: "inspect", label: "Soi role" };
     if (card.role === "witch" && card.uses.poison > 0 && !state.players.A.eliminationSpent) return { kind: "poison", label: "Dùng độc" };
   }
-  if (state.phase === "council" && interaction?.kind === "accuse" && card.voteCooldown === 0) return { kind: "vote", label: "Chọn làm phiếu" };
+  if (state.phase === "council" && interaction?.kind === "accuse" && card.revealed && ROLE_DEFS[card.role].faction === "village" && card.voteCooldown === 0) return { kind: "vote", label: "Tham gia treo cổ" };
   return null;
 }
 
 function votePower(voterIds = []) {
   return voterIds.reduce((total, id) => {
     const card = state.players.A.board.find((item) => item.id === id);
-    return total + (card?.role === "villager" ? 2 : ROLE_DEFS[card?.role]?.faction === "village" ? 1 : 0);
+    return total + (card?.alive && card.revealed && card.voteCooldown === 0 && ROLE_DEFS[card.role]?.faction === "village" ? 1 : 0);
   }, 0);
 }
 
@@ -247,7 +244,7 @@ function directTargetIds() {
   if (interaction.kind === "shoot") return new Set(living("B").filter((card) => card.revealed).map((card) => card.id));
   if (interaction.kind === "revive") return new Set(state.players.A.board.filter((card) => !card.alive).map((card) => card.id));
   if (interaction.kind === "defend" || interaction.kind === "protect") return new Set(living("A").map((card) => card.id));
-  if (interaction.kind === "accuse" && votePower(interaction.voters) >= 3) return new Set(living("B").map((card) => card.id));
+  if (interaction.kind === "accuse" && votePower(interaction.voters) === 3) return new Set(living("B").map((card) => card.id));
   return new Set();
 }
 
@@ -268,7 +265,7 @@ function cardMarkup(card, isOwn, setupIndex = -1) {
   const status = !card.alive
     ? "Đã chết"
     : isRevealed
-      ? `Đã lộ${card.votePower ? ` · ${card.votePower} phiếu` : ""}`
+      ? `Đã lộ${card.votePower ? " · Có thể vote" : ""}`
       : isOwn ? "Đang ẩn" : "Đang sống";
   const moveSource = lastMove?.source === card.id;
   const moveTarget = lastMove?.target === card.id;
@@ -346,7 +343,7 @@ function alreadyLocked() {
 
 function actionKinds() {
   if (state.phase === "council") {
-    const kinds = [["pass", "Bỏ qua"], ["accuse", "Buộc tội bằng 3 phiếu"]];
+    const kinds = [["pass", "Bỏ qua"], ["accuse", "Chọn 3 role để treo cổ"]];
     if (sourceFor("wolfguard") && privateCard(sourceFor("wolfguard")).uses.rescue > 0) kinds.push(["protect", "Sói Hộ Vệ bảo kê"]);
     return kinds;
   }
@@ -377,7 +374,7 @@ function actionFields() {
   if (state.phase === "council") return `
     <label class="field conditional" data-for="accuse"><span>Mục tiêu</span><select name="target">${cardOptions(enemy)}</select></label>
     <label class="field conditional" data-for="accuse"><span>Đoán role</span><select name="guess">${roleOptions()}</select></label>
-    <fieldset class="voter-field conditional" data-for="accuse"><legend>Chọn tối đa 3 lá, cần tổng 3 phiếu · Dân làng = 2</legend><div class="voters">${own.filter((card) => card.alive).map((card) => `<label><input type="checkbox" name="voter" value="${card.id}" /> ${card.id}</label>`).join("")}</div></fieldset>
+    <fieldset class="voter-field conditional" data-for="accuse"><legend>Chọn đúng 3 role Dân đang sống và đã lộ</legend><div class="voters">${own.filter((card) => card.alive && card.revealed && ROLE_DEFS[card.role].faction === "village").map((card) => `<label><input type="checkbox" name="voter" value="${card.id}" /> ${card.id}</label>`).join("")}</div></fieldset>
     <label class="field conditional" data-for="protect"><span>Lá muốn bảo kê</span><select name="protectTarget">${cardOptions(own)}</select></label>`;
   if (state.phase.startsWith("day-")) return `
     <label class="field conditional" data-for="shoot"><span>Mục tiêu đã lộ</span><select name="shootTarget">${cardOptions(enemy.filter((card) => card.revealed))}</select></label>
@@ -421,11 +418,11 @@ function battlefieldActionMarkup() {
       return `<div class="battle-action"><p class="battle-step">Bước 3 · Đoán role của ${interaction.target}</p><div class="role-guess-grid">${Object.entries(ROLE_DEFS).map(([key, role]) => `<button type="button" data-direct-guess="${key}">${role.name}</button>`).join("")}</div><button class="battle-cancel" type="button" data-direct-cancel>Chọn lại</button></div>`;
     }
     if (interaction?.kind === "accuse") {
-      return `<div class="battle-action"><p class="battle-step">${power >= 3 ? "Bước 2 · Chọn một lá đối thủ" : "Bước 1 · Chọn lá bên mình làm phiếu"}</p><strong>${power}/3 phiếu hợp lệ</strong><p>${power >= 3 ? "Các mục tiêu hợp lệ đang sáng đỏ." : "Dân làng đóng góp 2 phiếu; role Dân khác đóng góp 1."}</p><button class="battle-cancel" type="button" data-direct-cancel>Hủy buộc tội</button></div>`;
+      return `<div class="battle-action"><p class="battle-step">${power === 3 ? "Bước 2 · Chọn một lá đối thủ" : "Bước 1 · Chọn 3 role Dân đã lộ"}</p><strong>${power}/3 nhân vật đã chọn</strong><p>${power === 3 ? "Các mục tiêu hợp lệ đang sáng đỏ." : "Chỉ role phe Dân đã công khai mới có thể tham gia. Treo cổ không làm mất lượt chính."}</p><button class="battle-cancel" type="button" data-direct-cancel>Hủy buộc tội</button></div>`;
     }
     if (interaction?.kind === "protect") return `<div class="battle-action"><p class="battle-step">Chọn lá bên mình cần bảo kê</p><strong>Sói Hộ Vệ đang chờ lệnh</strong><button class="battle-cancel" type="button" data-direct-cancel>Hủy</button></div>`;
     const wolfguard = sourceFor("wolfguard") && privateCard(sourceFor("wolfguard")).uses.rescue > 0;
-    return `<div class="battle-action"><p class="battle-step">Hội đồng</p><strong>Chọn cách tham gia</strong><div class="battle-buttons"><button type="button" data-council-mode="accuse">Buộc tội</button>${wolfguard ? `<button type="button" data-council-mode="protect">Bảo kê</button>` : ""}<button type="button" data-direct-pass>Bỏ qua</button></div></div>`;
+    return `<div class="battle-action"><p class="battle-step">Hành động phụ · vẫn giữ lượt Ban ngày</p><strong>Lập Hội đồng treo cổ</strong><p>Cần đúng 3 role Dân đã lộ để buộc tội một lá đối thủ.</p><div class="battle-buttons"><button type="button" data-council-mode="accuse">Chọn 3 người</button>${wolfguard ? `<button type="button" data-council-mode="protect">Bảo kê</button>` : ""}<button type="button" data-direct-pass>Bỏ qua</button></div></div>`;
   }
   if (state.phase === "final-duel") return `<div class="battle-action"><p class="battle-step">Final Duel</p><strong>Đoán role cuối của BOT</strong><div class="role-guess-grid">${Object.entries(ROLE_DEFS).map(([key, role]) => `<button type="button" data-final-guess="${key}">${role.name}</button>`).join("")}</div></div>`;
   if (interaction) {
@@ -435,14 +432,45 @@ function battlefieldActionMarkup() {
   return `<div class="battle-action"><p class="battle-step">Lượt của bạn</p><strong>Chọn một lá đang phát sáng</strong><p>Rê chuột lên card để xem kỹ năng. Nhấp card nguồn, rồi nhấp card mục tiêu.</p><button class="battle-pass" type="button" data-direct-pass>Bỏ lượt</button></div>`;
 }
 
+function roundTitle() {
+  if (state.phase === "council") return `VÒNG ${state.round} · HỘI ĐỒNG TREO CỔ`;
+  if (state.phase === "day-A") return `VÒNG ${state.round} · BAN NGÀY — LƯỢT CỦA BẠN`;
+  if (state.phase === "day-B") return `VÒNG ${state.round} · BAN NGÀY — BOT HÀNH ĐỘNG`;
+  if (state.phase === "dusk-defense") return `VÒNG ${state.round} · CHẠNG VẠNG — ĐẶT KHIÊN`;
+  if (state.phase === "night-main") return `VÒNG ${state.round} · BAN ĐÊM — MAIN ORDER`;
+  if (state.phase === "final-duel") return `VÒNG ${state.round} · FINAL DUEL`;
+  return PHASE_LABEL[state.phase];
+}
+
+function roundRuleHint() {
+  if (state.phase.startsWith("setup-")) return "Sắp xếp đội hình trước khi khai cuộc";
+  if (state.round < 3) return `Vòng ${state.round}/2 mở màn · chưa được treo cổ`;
+  if (state.phase === "council") return "Hành động phụ · chọn đúng 3 role Dân đã lộ";
+  return "Từ Vòng 3 · Hội đồng không tiêu lượt chính";
+}
+
+function syncPhaseTitle() {
+  const key = `${state.round}:${state.phase}`;
+  if (key === phaseTitleKey) return;
+  phaseTitleKey = key;
+  phaseTitleStartedAt = performance.now();
+  clearTimeout(phaseTitleTimer);
+  phaseTitleTimer = setTimeout(render, 3400);
+}
+
+function phaseTitleMarkup(light) {
+  const elapsed = Math.min(3400, performance.now() - phaseTitleStartedAt);
+  const flying = elapsed < 3300;
+  return `<div class="table-seal ${light} ${flying ? "phase-flying" : "phase-docked"}" style="--phase-elapsed:-${Math.round(elapsed)}ms"><span class="arena-phase">${roundTitle()}</span><p>${roundRuleHint()}</p></div>`;
+}
+
 function arenaMarkup() {
-  const view = publicView(state);
   const light = state.phase.includes("night") || state.phase.includes("dusk") ? "night" : "day";
   return `<section class="arena">
     ${boardMarkup(otherSeat(seat), "Đối thủ")}
     <div class="center-table">
       ${revealedLaneMarkup(otherSeat(seat))}
-      <div class="table-core"><div class="table-seal ${light}"><span class="arena-phase">${PHASE_LABEL[state.phase]}</span><p>Vòng ${view.round} · Quyền loại bỏ A: ${view.elimination.A} · B: ${view.elimination.B}</p></div>${moveReplayMarkup() || battlefieldActionMarkup()}</div>
+      <div class="table-core">${phaseTitleMarkup(light)}<div class="table-action-stack">${battlefieldActionMarkup()}${moveReplayMarkup()}</div></div>
       ${revealedLaneMarkup(seat)}
     </div>
     ${boardMarkup(seat, "Tay của bạn")}
@@ -450,9 +478,10 @@ function arenaMarkup() {
 }
 
 function render() {
+  syncPhaseTitle();
   document.body.className = `variant-${variant.toLowerCase()}`;
   document.querySelector("#variant-label").textContent = `${variant} — ${VARIANTS[variant]}`;
-  const topbar = `<header class="topbar"><div class="brand"><span class="brand-mark">TF</span>TWOFOLD</div><span class="round">Local playtest · Vòng ${state.round}</span><span class="phase-chip">${PHASE_LABEL[state.phase]}</span><div class="seat-toggle"><span class="human-seat">A · BẠN</span><span class="bot-seat ${botNeedsTurn() ? "thinking" : ""}"><i></i>B · BOT</span></div><button class="reset" type="button" data-reset>Reset</button></header>`;
+  const topbar = `<header class="topbar"><div class="brand"><span class="brand-mark">TF</span>TWOFOLD</div><span class="round">Local playtest · Vòng ${state.round}</span><span class="phase-chip">${roundTitle()}</span><div class="seat-toggle"><span class="human-seat">A · BẠN</span><span class="bot-seat ${botNeedsTurn() ? "thinking" : ""}"><i></i>B · BOT</span></div><button class="reset" type="button" data-reset>Reset</button></header>`;
   const arena = arenaMarkup();
   const control = controlMarkup();
   const history = historyMarkup();
@@ -599,6 +628,7 @@ document.addEventListener("click", (event) => {
     interaction = null;
     lastMove = null;
     clearTimeout(moveTimer);
+    phaseTitleKey = "";
     feedback = "Ván mới đã sẵn sàng.";
     return render();
   }

@@ -188,16 +188,11 @@ function resolveCouncil(state) {
       continue;
     }
 
-    state.players[seat].eliminationSpent = true;
     const voters = submission.voters.map((id) => cardById(state, id));
-    for (const voter of voters) {
-      reveal(voter);
-      voter.dayExhausted = true;
-    }
-    const validVotes = voters.filter((card) => card.alive && card.id.startsWith(seat) && ROLE_DEFS[card.role].faction === "village" && card.voteCooldown === 0);
+    const validVotes = voters.filter((card) => card.alive && card.revealed && card.id.startsWith(seat) && ROLE_DEFS[card.role].faction === "village" && card.voteCooldown === 0);
     const target = cardById(state, submission.target);
-    const votePower = validVotes.reduce((total, card) => total + (card.role === "villager" ? 2 : 1), 0);
-    const correct = votePower >= 3 && target.alive && target.id.startsWith(otherSeat(seat)) && target.role === submission.guess;
+    const votePower = validVotes.length;
+    const correct = votePower === 3 && target.alive && target.id.startsWith(otherSeat(seat)) && target.role === submission.guess;
 
     if (correct) {
       const defenderSeat = otherSeat(seat);
@@ -226,6 +221,7 @@ function resolveCouncil(state) {
 
 function submitCouncil(state, action) {
   if (state.phase !== "council") throw new Error("Hiện không phải pha Hội đồng.");
+  if (state.round < 3) throw new Error("Hội đồng chỉ mở từ Vòng 3.");
   assertSeat(action.seat);
   if (state.players[action.seat].council) throw new Error(`${action.seat} đã khóa Hội đồng.`);
 
@@ -242,10 +238,12 @@ function submitCouncil(state, action) {
     if (!ROLE_DEFS[action.guess]) throw new Error("Role đoán không hợp lệ.");
     const target = cardById(state, action.target);
     if (!target.alive || !target.id.startsWith(otherSeat(action.seat))) throw new Error("Target Hội đồng không hợp lệ.");
-    if (action.voters.length < 1 || action.voters.length > 3 || new Set(action.voters).size !== action.voters.length) throw new Error("Chọn từ một đến ba lá khác nhau bỏ phiếu.");
+    if (action.voters.length !== 3 || new Set(action.voters).size !== 3) throw new Error("Cần đúng ba role đã lộ khác nhau để treo cổ.");
     for (const id of action.voters) {
       const voter = cardById(state, id);
       if (!voter.alive || !voter.id.startsWith(action.seat)) throw new Error(`${id} không thể bỏ phiếu.`);
+      if (!voter.revealed) throw new Error(`${id} chưa lộ role nên chưa thể bỏ phiếu.`);
+      if (ROLE_DEFS[voter.role].faction !== "village") throw new Error(`${id} không thuộc phe Dân nên không thể lập Hội đồng.`);
       if (voter.voteCooldown > 0) throw new Error(`${id} đang bị khóa vote.`);
     }
     state.players[action.seat].council = { kind: "accuse", target: target.id, guess: action.guess, voters: action.voters.map((id) => id.toUpperCase()) };
@@ -437,8 +435,9 @@ function resolveNight(state) {
   }
   if (checkWinner(state)) return;
   state.round += 1;
-  state.phase = "council";
+  state.phase = state.round >= 3 ? "council" : "day-A";
   addLog(state, `Bình minh Vòng ${state.round}.`);
+  if (state.round < 3) addLog(state, `Vòng ${state.round} chưa mở treo cổ. Bên A bắt đầu lượt Ban ngày.`);
   maybeEnterFinalDuel(state);
 }
 
@@ -496,7 +495,7 @@ export function publicView(state) {
       faction: card.revealed ? ROLE_DEFS[card.role].faction : "?",
       shielded: card.shielded,
       canVote: card.alive && card.revealed && ROLE_DEFS[card.role].faction === "village" && card.voteCooldown === 0,
-      votePower: card.alive && card.revealed && ROLE_DEFS[card.role].faction === "village" && card.voteCooldown === 0 ? (card.role === "villager" ? 2 : 1) : 0,
+      votePower: card.alive && card.revealed && ROLE_DEFS[card.role].faction === "village" && card.voteCooldown === 0 ? 1 : 0,
     }));
   }
   return {
