@@ -6,6 +6,7 @@
     "dev": "python3 -m http.server 4173",
     "start": "python3 -m http.server 4173",
     "check": "node scripts/check-role-data.mjs",
-    "annotate:roles": "node scripts/annotate-role-gameplay.mjs"
+    "annotate:roles": "node scripts/annotate-role-gameplay.mjs",
+    "prototype:chat": "node prototypes/chat-playtest/cli.mjs"
   }
 }
