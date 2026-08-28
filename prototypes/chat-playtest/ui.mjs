@@ -79,6 +79,8 @@ let interaction = null;
 let lastMove = null;
 let moveTimer = null;
 let resolutionTimer = null;
+let dawnTimer = null;
+let dawnActive = false;
 
 const otherSeat = (value) => value === "A" ? "B" : "A";
 const ownPlayer = () => state.players[seat];
@@ -166,7 +168,7 @@ function runBotTurn() {
 }
 
 function scheduleBot() {
-  if (!botNeedsTurn() || botTimer) return;
+  if (dawnActive || !botNeedsTurn() || botTimer) return;
   botTimer = setTimeout(runBotTurn, 2400);
 }
 
@@ -177,6 +179,13 @@ function runNightResolution() {
   try {
     state = dispatch(state, { type: "night.resolve" });
     showMove(opponentAction, "B", { revealTarget: true });
+    dawnActive = true;
+    clearTimeout(dawnTimer);
+    dawnTimer = setTimeout(() => {
+      dawnActive = false;
+      dawnTimer = null;
+      render();
+    }, 3000);
     feedback = "Bình minh đã phán xét toàn bộ lệnh đêm.";
   } catch (error) {
     feedback = `Lỗi xử lý đêm: ${error.message}`;
@@ -186,7 +195,7 @@ function runNightResolution() {
 
 function scheduleNightResolution() {
   if (state.phase !== "night-resolution" || resolutionTimer) return;
-  resolutionTimer = setTimeout(runNightResolution, 2400);
+  resolutionTimer = setTimeout(runNightResolution, 3200);
 }
 
 function moveKind(action) {
@@ -338,6 +347,7 @@ function moveReplayMarkup() {
 }
 
 function activeForSeat() {
+  if (dawnActive) return false;
   if (state.phase.startsWith("setup-")) return state.phase === `setup-${seat}`;
   if (state.phase === "council" || state.phase === "dusk-defense" || state.phase === "night-plan" || state.phase === "final-duel") return true;
   return state.phase === `day-${seat}`;
@@ -422,7 +432,8 @@ function historyMarkup() {
 
 function battlefieldActionMarkup() {
   if (state.phase.startsWith("setup-") || state.phase === "ended") return controlMarkup();
-  if (state.phase === "night-resolution") return `<div class="battle-action night-verdict"><span class="verdict-moon">☾</span><strong>Lệnh đã lên sân</strong><p>Nguồn và vị trí có khiên đang hiển thị. Mục tiêu vẫn bí mật; bình minh phán xét sau 2,4 giây.</p></div>`;
+  if (dawnActive) return `<div class="battle-action dawn-reveal"><span class="dawn-sun">☀</span><p class="battle-step">Bình minh công khai</p><strong>Phán xét đang được hé lộ</strong><p>Nhịp đấu tạm chậm lại để bạn theo dõi card vừa lộ, lá bị hạ và kết quả của khiên.</p></div>`;
+  if (state.phase === "night-resolution") return `<div class="battle-action night-verdict"><span class="verdict-moon">☾</span><strong>Lệnh đã lên sân</strong><p>Nguồn và vị trí có khiên đang hiển thị. Mục tiêu vẫn bí mật; bình minh phán xét sau 3,2 giây.</p></div>`;
   if (botNeedsTurn() || !activeForSeat() || alreadyLocked()) return `<div class="battle-action bot-battle"><span class="bot-orbit" aria-hidden="true"></span><strong>BOT B đang cân nhắc</strong><p>Bạn có khoảng 1,7 giây để nhìn trạng thái bàn trước khi bot đi.</p></div>`;
   if (state.phase === "council") {
     const power = votePower(interaction?.voters);
@@ -445,6 +456,7 @@ function battlefieldActionMarkup() {
 }
 
 function roundTitle() {
+  if (dawnActive) return `VÒNG ${state.round} · BÌNH MINH PHÁN XÉT`;
   if (state.phase === "council") return `VÒNG ${state.round} · HỘI ĐỒNG TREO CỔ`;
   if (state.phase === "day-A") return `VÒNG ${state.round} · BAN NGÀY — LƯỢT CỦA BẠN`;
   if (state.phase === "day-B") return `VÒNG ${state.round} · BAN NGÀY — BOT HÀNH ĐỘNG`;
@@ -453,6 +465,13 @@ function roundTitle() {
   if (state.phase === "night-resolution") return `VÒNG ${state.round} · BAN ĐÊM — CHỜ PHÁN XÉT`;
   if (state.phase === "final-duel") return `VÒNG ${state.round} · FINAL DUEL`;
   return PHASE_LABEL[state.phase];
+}
+
+function visualScene() {
+  if (dawnActive) return "dawn";
+  if (state.phase === "dusk-defense") return "dusk";
+  if (state.phase === "night-plan" || state.phase === "night-resolution") return "night";
+  return "day";
 }
 
 function arenaMarkup() {
@@ -472,14 +491,14 @@ function commandDockMarkup() {
 }
 
 function render() {
-  document.body.className = "duel-only";
+  document.body.className = `duel-only scene-${visualScene()}`;
   const topbar = `<header class="topbar"><div class="brand"><span class="brand-mark">TF</span>TWOFOLD</div><span class="round">Local playtest · Vòng ${state.round}</span><span class="phase-chip">${roundTitle()}</span><div class="seat-toggle"><span class="human-seat">A · BẠN</span><span class="bot-seat ${botNeedsTurn() ? "thinking" : ""}"><i></i>B · BOT</span></div><button class="reset" type="button" data-reset>Reset</button></header>`;
   const arena = arenaMarkup();
   const history = historyMarkup();
   const body = `<div class="play-grid">${arena}<div class="side-rail">${history}${commandDockMarkup()}</div></div>`;
   app.innerHTML = `<div class="shell">${topbar}${body}</div>`;
   syncConditionalFields();
-  scheduleBot();
+  if (!dawnActive) scheduleBot();
   scheduleNightResolution();
 }
 
@@ -608,6 +627,9 @@ document.addEventListener("click", (event) => {
     moveTimer = null;
     clearTimeout(resolutionTimer);
     resolutionTimer = null;
+    clearTimeout(dawnTimer);
+    dawnTimer = null;
+    dawnActive = false;
     clearTimeout(botTimer);
     botTimer = null;
     feedback = "Ván mới đã sẵn sàng.";
