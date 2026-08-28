@@ -24,7 +24,7 @@ Khi local server đang chạy, mở:
 http://127.0.0.1:4173/prototypes/chat-playtest/ui.html
 ```
 
-Bố cục A — Bàn đối đầu là phương án duy nhất đã được giữ lại. Khu giữa chỉ dành cho card trên sân; điều khiển nằm phía dưới và toàn bộ state vẫn chỉ nằm trong bộ nhớ của tab.
+Bố cục A — Bàn đối đầu là phương án duy nhất đã được giữ lại. Trên desktop, toàn bộ bàn được khóa trong một màn hình: khu trái chỉ gồm đội B, card đã lộ ở giữa và đội A; diễn biến nằm góc phải trên, còn hướng dẫn/thao tác được neo ở góc phải dưới. Toàn bộ state vẫn chỉ nằm trong bộ nhớ của tab.
 
 `--seat=A` chỉ định tay riêng được hiển thị. Dùng `view B` nếu hai người đang thử chung một máy. Chế độ chat hiện dùng honor mode, chưa chống nhìn trộm tay đối phương.
 

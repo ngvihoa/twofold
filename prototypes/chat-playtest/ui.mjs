@@ -461,8 +461,13 @@ function arenaMarkup() {
   return `<section class="arena">
     ${boardMarkup(otherSeat(seat), "Đối thủ")}
     <div class="center-table ${hasRevealedCards ? "" : "center-empty"}">${revealedLaneMarkup(otherSeat(seat))}${revealedLaneMarkup(seat)}</div>
-    <section class="command-dock"><div class="table-action-stack">${battlefieldActionMarkup()}${moveReplayMarkup()}</div></section>
     ${boardMarkup(seat, "Tay của bạn")}
+  </section>`;
+}
+
+function commandDockMarkup() {
+  return `<section class="command-dock" aria-label="Hướng dẫn và thao tác">
+    <div class="table-action-stack">${battlefieldActionMarkup()}${moveReplayMarkup()}</div>
   </section>`;
 }
 
@@ -471,7 +476,7 @@ function render() {
   const topbar = `<header class="topbar"><div class="brand"><span class="brand-mark">TF</span>TWOFOLD</div><span class="round">Local playtest · Vòng ${state.round}</span><span class="phase-chip">${roundTitle()}</span><div class="seat-toggle"><span class="human-seat">A · BẠN</span><span class="bot-seat ${botNeedsTurn() ? "thinking" : ""}"><i></i>B · BOT</span></div><button class="reset" type="button" data-reset>Reset</button></header>`;
   const arena = arenaMarkup();
   const history = historyMarkup();
-  const body = `<div class="play-grid">${arena}<div class="side-rail">${history}</div></div>`;
+  const body = `<div class="play-grid">${arena}<div class="side-rail">${history}${commandDockMarkup()}</div></div>`;
   app.innerHTML = `<div class="shell">${topbar}${body}</div>`;
   syncConditionalFields();
   scheduleBot();
