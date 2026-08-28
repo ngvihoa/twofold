@@ -1,4 +1,4 @@
-import { createGame, dispatch, privateView, publicView, ROLE_DEFS } from "./engine.mjs?rev=council-hidden-voters-v1";
+import { availableRoleGuesses, createGame, dispatch, privateView, publicView, ROLE_DEFS, SPECIAL_CARD } from "./engine.mjs?rev=round6-special-v1";
 
 const ROLE_ART = {
   villager: "../../assets/game/wwo-reference/dan-lang.png",
@@ -62,6 +62,7 @@ const MOVE_META = {
   accuse: ["⚖", "Buộc tội"],
   pass: ["—", "Bỏ lượt"],
   final: ["?", "Đoán role cuối"],
+  bloodmoon: ["◐", "Huyết Nguyệt"],
 };
 
 const app = document.querySelector("#app");
@@ -85,7 +86,7 @@ let dawnActive = false;
 const otherSeat = (value) => value === "A" ? "B" : "A";
 const ownPlayer = () => state.players[seat];
 const privateCard = (id) => ownPlayer().board.find((card) => card.id === id);
-const roleOptions = () => Object.entries(ROLE_DEFS).map(([key, role]) => `<option value="${key}">${role.name}</option>`).join("");
+const roleOptions = (keys = Object.keys(ROLE_DEFS)) => keys.map((key) => `<option value="${key}">${ROLE_DEFS[key].name}</option>`).join("");
 const cardOptions = (cards) => cards.filter((card) => card.alive).map((card) => `<option value="${card.id}">${card.id}${card.revealed ? ` · ${ROLE_DEFS[card.role].name}` : ""}</option>`).join("");
 const deadCardOptions = (cards) => cards.filter((card) => !card.alive).map((card) => `<option value="${card.id}">${card.id} · ${ROLE_DEFS[card.role].name}</option>`).join("");
 const sourceFor = (role) => ownPlayer().board.find((card) => card.alive && card.role === role)?.id;
@@ -145,6 +146,10 @@ function botAction() {
     const target = pool[state.round % pool.length];
     const wolf = botSourceFor("wolf");
     if (wolf && !state.players.B.eliminationSpent) return { type: "night.submit", seat: "B", kind: "attack", source: wolf.id, target: target.id };
+    const revealedTargets = targets.filter((card) => card.revealed);
+    if (state.round >= SPECIAL_CARD.unlockRound && state.players.B.bloodMoonReadyRound <= state.round && revealedTargets.length && !state.players.B.eliminationSpent) {
+      return { type: "night.submit", seat: "B", kind: "bloodmoon", target: revealedTargets[state.round % revealedTargets.length].id };
+    }
     const seer = botSourceFor("seer");
     if (seer?.uses.seer > 0) return { type: "night.submit", seat: "B", kind: "inspect", source: seer.id, target: target.id };
     return { type: "night.submit", seat: "B", kind: "pass" };
@@ -219,7 +224,9 @@ function showMove(action, actor, { revealTarget = false } = {}) {
     actor,
     kind,
     source: sourceVisible ? action.source : null,
-    sourceLabel: sourceVisible
+    sourceLabel: kind === "bloodmoon"
+      ? SPECIAL_CARD.name
+      : sourceVisible
       ? actor === seat && privateCard(action.source) ? `${action.source} · ${ROLE_DEFS[privateCard(action.source).role].name}` : publicCardLabel(action.source)
       : action.source ? "Lá ẩn" : actor === "B" && kind !== "pass" ? "Lá ẩn" : "Hệ thống",
     target: hiddenNightTarget ? null : action.target || null,
@@ -262,6 +269,7 @@ function votePower(voterIds = []) {
 function directTargetIds() {
   if (!interaction) return new Set();
   if (["mark", "purify", "attack", "inspect", "poison"].includes(interaction.kind)) return new Set(living("B").map((card) => card.id));
+  if (interaction.kind === "bloodmoon") return new Set(living("B").filter((card) => card.revealed).map((card) => card.id));
   if (interaction.kind === "shoot") return new Set(living("B").filter((card) => card.revealed).map((card) => card.id));
   if (interaction.kind === "revive") return new Set(state.players.A.board.filter((card) => !card.alive).map((card) => card.id));
   if (interaction.kind === "defend" || interaction.kind === "protect") return new Set(living("A").map((card) => card.id));
@@ -394,7 +402,7 @@ function actionFields() {
   const own = ownPlayer().board;
   if (state.phase === "council") return `
     <label class="field conditional" data-for="accuse"><span>Mục tiêu</span><select name="target">${cardOptions(enemy)}</select></label>
-    <label class="field conditional" data-for="accuse"><span>Đoán role</span><select name="guess">${roleOptions()}</select></label>
+    <label class="field conditional" data-for="accuse"><span>Đoán role còn lại</span><select name="guess">${roleOptions(availableRoleGuesses(state, otherSeat(seat)))}</select></label>
     <fieldset class="voter-field conditional" data-for="accuse"><legend>Chọn đúng 3 role Dân đang sống · lá úp sẽ lộ khi Hội đồng xử lý</legend><div class="voters">${own.filter((card) => card.alive && ROLE_DEFS[card.role].faction === "village").map((card) => `<label><input type="checkbox" name="voter" value="${card.id}" /> ${card.id}</label>`).join("")}</div></fieldset>
     <label class="field conditional" data-for="protect"><span>Lá muốn bảo kê</span><select name="protectTarget">${cardOptions(own)}</select></label>`;
   if (state.phase.startsWith("day-")) return `
@@ -438,10 +446,11 @@ function battlefieldActionMarkup() {
   if (state.phase === "council") {
     const power = votePower(interaction?.voters);
     if (interaction?.kind === "accuse" && interaction.target) {
-      return `<div class="battle-action"><p class="battle-step">Bước 3 · Đoán role của ${interaction.target}</p><div class="role-guess-grid">${Object.entries(ROLE_DEFS).map(([key, role]) => `<button type="button" data-direct-guess="${key}">${role.name}</button>`).join("")}</div><button class="battle-cancel" type="button" data-direct-cancel>Chọn lại</button></div>`;
+      const guesses = availableRoleGuesses(state, otherSeat(seat));
+      return `<div class="battle-action"><p class="battle-step">Bước 3 · Đoán role còn lại của ${interaction.target}</p><div class="role-guess-grid">${guesses.map((key) => `<button type="button" data-direct-guess="${key}">${ROLE_DEFS[key].name}</button>`).join("")}</div><p>Những role đã lộ đủ số lượng trên sân được tự động loại trừ.</p><button class="battle-cancel" type="button" data-direct-cancel>Chọn lại</button></div>`;
     }
     if (interaction?.kind === "accuse") {
-      return `<div class="battle-action"><p class="battle-step">${power === 3 ? "Bước 2 · Chọn một lá đối thủ" : "Bước 1 · Chọn 3 role Dân còn sống"}</p><strong>${power}/3 nhân vật đã chọn</strong><p>${power === 3 ? "Các mục tiêu hợp lệ đang sáng đỏ." : "Có thể chọn cả card đang úp phía dưới; chúng sẽ lộ khi Hội đồng xử lý."}</p><button class="battle-cancel" type="button" data-direct-cancel>Hủy buộc tội</button></div>`;
+      return `<div class="battle-action"><p class="battle-step">${power === 3 ? "Bước 2 · Chọn một lá đối thủ" : "Bước 1 · Chọn 3 role Dân còn sống"}</p><strong>${power}/3 nhân vật đã chọn</strong><p>${power === 3 ? "Card đã lộ sẽ xử lý ngay; card úp mới cần đoán role." : "Có thể chọn cả card đang úp phía dưới; chúng sẽ lộ khi Hội đồng xử lý."}</p><button class="battle-cancel" type="button" data-direct-cancel>Hủy buộc tội</button></div>`;
     }
     if (interaction?.kind === "protect") return `<div class="battle-action"><p class="battle-step">Chọn lá bên mình cần bảo kê</p><strong>Sói Hộ Vệ đang chờ lệnh</strong><button class="battle-cancel" type="button" data-direct-cancel>Hủy</button></div>`;
     const wolfguard = sourceFor("wolfguard") && privateCard(sourceFor("wolfguard")).uses.rescue > 0;
@@ -449,10 +458,14 @@ function battlefieldActionMarkup() {
   }
   if (state.phase === "final-duel") return `<div class="battle-action"><p class="battle-step">Final Duel</p><strong>Đoán role cuối của BOT</strong><div class="role-guess-grid">${Object.entries(ROLE_DEFS).map(([key, role]) => `<button type="button" data-final-guess="${key}">${role.name}</button>`).join("")}</div></div>`;
   if (interaction) {
+    if (interaction.kind === "bloodmoon") return `<div class="battle-action special-order"><p class="battle-step">Card đặc biệt · ${SPECIAL_CARD.name}</p><strong>Chọn một role đối thủ đã lộ</strong><p>Đòn này dùng Main Order, bị khiên chặn và hồi lại sau ${SPECIAL_CARD.cooldownRounds} vòng.</p><button class="battle-cancel" type="button" data-direct-cancel>Hủy chọn</button></div>`;
     const source = state.players.A.board.find((card) => card.id === interaction.source);
     return `<div class="battle-action"><p class="battle-step">Đã chọn ${source ? ROLE_DEFS[source.role].name : "hành động"}</p><strong>Chọn lá đang sáng làm mục tiêu</strong><p>${ROLE_SKILLS[source?.role] || ""}</p><button class="battle-cancel" type="button" data-direct-cancel>Hủy chọn</button></div>`;
   }
-  return `<div class="battle-action"><p class="battle-step">Lượt của bạn</p><strong>Chọn một lá đang phát sáng</strong><p>Rê chuột lên card để xem kỹ năng. Nhấp card nguồn, rồi nhấp card mục tiêu.</p><button class="battle-pass" type="button" data-direct-pass>Bỏ lượt</button></div>`;
+  const special = state.round >= SPECIAL_CARD.unlockRound && state.phase === "night-plan"
+    ? `<button class="special-action-card ${state.players.A.bloodMoonReadyRound <= state.round ? "ready" : "cooldown"}" type="button" ${state.players.A.bloodMoonReadyRound <= state.round ? "data-special-action" : "disabled"}><span>ROUND 6+</span><strong>◐ ${SPECIAL_CARD.name}</strong><small>${state.players.A.bloodMoonReadyRound <= state.round ? "Sẵn sàng · đánh role đã lộ" : `Hồi lại Vòng ${state.players.A.bloodMoonReadyRound}`}</small></button>`
+    : "";
+  return `<div class="battle-action"><p class="battle-step">Lượt của bạn</p><strong>Chọn một lá đang phát sáng</strong><p>Rê chuột lên card để xem kỹ năng. Nhấp card nguồn, rồi nhấp card mục tiêu.</p>${special}<button class="battle-pass" type="button" data-direct-pass>Bỏ lượt</button></div>`;
 }
 
 function roundTitle() {
@@ -562,6 +575,9 @@ function commitDirectAction(action) {
 function chooseDirectTarget(target) {
   if (!interaction || !directTargetIds().has(target)) return;
   if (interaction.kind === "accuse") {
+    const voters = [...interaction.voters];
+    const targetCard = state.players.B.board.find((card) => card.id === target);
+    if (targetCard?.revealed) return commitDirectAction({ type: "council.submit", seat: "A", kind: "accuse", target, voters });
     interaction.target = target;
     return render();
   }
@@ -596,6 +612,10 @@ document.addEventListener("click", (event) => {
   }
   if (event.target.closest("[data-direct-cancel]")) {
     interaction = null;
+    return render();
+  }
+  if (event.target.closest("[data-special-action]")) {
+    interaction = { kind: "bloodmoon", source: null };
     return render();
   }
   if (event.target.closest("[data-direct-pass]")) return directPass();

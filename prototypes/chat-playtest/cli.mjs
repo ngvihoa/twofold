@@ -37,6 +37,7 @@ function render() {
   const own = privateView(state, shownSeat);
   console.log(`${color.bold}TWOFOLD CHAT PROTOTYPE${color.reset}  ${color.dim}seed=${seed}${color.reset}`);
   console.log(`${color.amber}Vòng ${view.round}${color.reset}  phase=${color.bold}${view.phase}${color.reset}  elimination A=${view.elimination.A} B=${view.elimination.B}`);
+  if (view.special.A.unlocked) console.log(`${color.red}Huyết Nguyệt${color.reset}  A=${view.special.A.ready ? "READY" : `V${view.special.A.readyRound}`} B=${view.special.B.ready ? "READY" : `V${view.special.B.readyRound}`}`);
   console.log(`\n${color.bold}PUBLIC BOARD A${color.reset}`);
   console.log(view.board.A.map(boardLine).join("\n"));
   console.log(`\n${color.bold}PUBLIC BOARD B${color.reset}`);
@@ -71,7 +72,7 @@ function parseCommand(line) {
       return { type: "council.submit", seat, kind: "protect", source: parts.shift()?.toUpperCase(), target: parts.shift()?.toUpperCase() };
     }
     const target = parts.shift()?.toUpperCase();
-    const guess = roleKey(parts.shift());
+    const guess = parts.length === 3 ? undefined : roleKey(parts.shift());
     return { type: "council.submit", seat, pass: false, target, guess, voters: parts.map((item) => item.toUpperCase()) };
   }
   if (command === "day") {
@@ -91,6 +92,7 @@ function parseCommand(line) {
     const seat = parts.shift()?.toUpperCase();
     const kind = parts.shift()?.toLowerCase();
     if (kind === "pass") return { type: "night.submit", seat, kind };
+    if (kind === "bloodmoon") return { type: "night.submit", seat, kind, target: parts.shift()?.toUpperCase() };
     return { type: "night.submit", seat, kind, source: parts.shift()?.toUpperCase(), target: parts.shift()?.toUpperCase() };
   }
   if (command === "resolve") return { type: "night.resolve" };
@@ -102,11 +104,12 @@ function helpText() {
   return [
     "setup A A1 A2 A3 A4 A5 A6 A7 A8 A9 A10",
     "council A pass",
+    "council A B3 A1 A2 A3  (B3 đã lộ)",
     "council A B3 guard A1 A2 A3",
     "council A protect A7 A3",
     "day A pass | day A shoot A9 B3 | day A revive A8 A2 | day A mark A6 B4 | day A purify A5 B4",
     "defend A pass | defend A A4",
-    "night A pass | night A attack A5 B4 | night A inspect A7 B4 | night A poison A8 B4",
+    "night A pass | night A attack A5 B4 | night A inspect A7 B4 | night A poison A8 B4 | night A bloodmoon B4",
     "resolve  (xử lý đồng thời sau khi hai bên đã đặt khiên)",
     "final A guard",
   ].join("  ||  ");

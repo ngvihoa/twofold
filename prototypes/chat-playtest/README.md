@@ -46,6 +46,7 @@ Bố cục A — Bàn đối đầu là phương án duy nhất đã được gi
 
 ```text
 council A pass
+council A B3 A1 A2 A3
 council A B3 guard A1 A2 A3
 day A pass
 day A shoot A9 B3
@@ -56,6 +57,7 @@ night A pass
 night A attack A5 B4
 night A inspect A7 B4
 night A poison A8 B4
+night A bloodmoon B4
 resolve
 final A guard
 view A
@@ -66,10 +68,14 @@ quit
 
 Hội đồng chỉ mở từ Vòng 3 và cần đúng ba role phe Dân còn sống. Có thể chọn các lá còn úp ở hàng dưới; ba người tham gia sẽ bước lên và lộ diện khi Hội đồng xử lý. Treo cổ không tiêu quyền loại bỏ, không làm mất lượt chính và ba người tham gia vẫn được dùng kỹ năng Ban ngày. Đoán sai khóa ba người đó khỏi Hội đồng kế tiếp. Sói Hộ Vệ có thể bí mật bảo kê trước một lá và lộ diện nếu chặn đúng án treo cổ.
 
+Nếu mục tiêu Hội đồng đã nằm ngửa trên sân, án treo được xử lý ngay và không cần đoán role. Nếu mục tiêu còn úp, người chơi chỉ được chọn trong các role chưa lộ đủ số lượng của bộ bài; ví dụ Ma sói vẫn còn trong danh sách sau khi mới lộ một trong hai lá.
+
 Kẻ báo thù công khai đánh dấu một mục tiêu Ban ngày; nếu chết trước bình minh kế tiếp, mục tiêu chết theo. Mục sư có một lần thanh tẩy: giết đúng phe Sói, nhưng tự chết nếu chọn nhầm phe Dân.
 
 Bảo vệ chỉ công khai vị trí có khiên. Role của mục tiêu và vị trí Bảo vệ vẫn giữ kín; không được bảo vệ cùng vị trí hai vòng liên tiếp. Khi một lá chết, role thật của nó được công khai.
 
 Sau Ban ngày, hai bên bí mật khóa lệnh đêm. Khi cả hai đã chọn, card nguồn bước lên và lộ role nhưng mục tiêu vẫn được giữ kín. Hai bên sau đó mới chọn khiên; card được bảo hộ tiến về giữa sân nhưng không lật. Bàn giữ trạng thái khoảng 3,2 giây rồi xử lý đồng thời; pha Bình minh tiếp tục khóa thao tác thêm 3 giây để công khai kết quả. Khiên chặn một hiệu ứng đêm bất lợi gồm cắn, độc hoặc soi.
+
+Từ Vòng 6, mỗi bên mở khóa card chiến thuật **Huyết Nguyệt**. Card này dùng Main Order để tấn công một role đối thủ đã lộ, vẫn bị khiên chặn và hồi lại sau hai vòng. Nó tạo áp lực cuối game khi các role attack ban đầu đã chết hoặc hết charge, nhưng vẫn giữ giới hạn một nguồn loại bỏ trong vòng.
 
 Lệnh `chat` tạo snapshot công khai ngắn để gửi nguyên văn vào cuộc trò chuyện. Mỗi người chỉ cần giữ bí mật tay riêng của mình và gửi action; một người chạy CLI làm trọng tài/state keeper.

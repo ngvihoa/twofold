@@ -150,6 +150,14 @@ button:disabled { cursor: not-allowed; opacity: .42; }
 .battle-buttons button:first-child, .battle-pass { border-color: #c89d47; background: #d6ad58; color: #15120c; font-weight: 900; }
 .battle-cancel { background: transparent; color: #aeb0b5; }
 .role-guess-grid button { font-size: 10px; }
+.special-action-card { display: grid; justify-items: start; gap: 3px; width: 100%; padding: 10px 12px; border-radius: 9px; text-align: left; }
+.special-action-card span { color: #db9992; font-size: 8px; font-weight: 950; letter-spacing: .14em; }
+.special-action-card strong { color: #ffe0d6; font: 900 15px Georgia, serif; }
+.special-action-card small { color: #baaaa7; font-size: 9px; }
+.special-action-card.ready { border-color: rgba(224,103,92,.72); background: radial-gradient(circle at 15% 0, rgba(196,61,53,.28), transparent 48%), #261719; box-shadow: inset 0 0 18px rgba(213,67,58,.12), 0 0 18px rgba(196,61,53,.13); }
+.special-action-card.ready:hover { border-color: #f08477; background-color: #32191b; }
+.special-action-card.cooldown { filter: grayscale(.65); }
+.special-order { border-color: rgba(224,103,92,.4); background: radial-gradient(circle at 50% 0, rgba(190,57,50,.2), transparent 58%), rgba(17,10,12,.92); }
 .bot-battle { place-items: center; text-align: center; }
 .night-verdict { place-items: center; text-align: center; border-color: rgba(130,155,224,.36); }
 .verdict-moon { display: grid; place-items: center; width: 42px; height: 42px; border: 1px solid #9eb2e8; border-radius: 50%; background: #1a2238; color: #cad5f6; font-size: 23px; box-shadow: 0 0 24px rgba(105,132,207,.38); animation: verdict-breathe 1s ease-in-out infinite alternate; }
