@@ -1,4 +1,4 @@
-import { createGame, dispatch, privateView, publicView, ROLE_DEFS } from "./engine.mjs?rev=staged-night-v1";
+import { createGame, dispatch, privateView, publicView, ROLE_DEFS } from "./engine.mjs?rev=council-hidden-voters-v1";
 
 const VARIANTS = {
   A: "Bàn đối đầu",
@@ -31,7 +31,7 @@ const ROLE_PHASE = {
 };
 
 const ROLE_SKILLS = {
-  villager: "Hội đồng · Khi đã lộ diện, lá này có thể là một trong 3 người tham gia treo cổ.",
+  villager: "Hội đồng · Có thể là một trong 3 người tham gia treo cổ; sẽ lộ diện khi Hội đồng xử lý.",
   wolf: "Ban đêm · Tấn công một lá đối thủ không được khiên che.",
   seer: "Ban đêm · Xem role thật của một lá đối thủ.",
   guard: "Chạng vạng · Đặt khiên lên một lá đồng minh, tối đa 3 lần.",
@@ -136,7 +136,7 @@ function botAction() {
   }
   if (state.phase === "council") {
     const target = living("A").find((card) => card.revealed);
-    const voters = living("B").filter((item) => item.revealed && ROLE_DEFS[item.role].faction === "village" && item.voteCooldown === 0).slice(0, 3).map((card) => card.id);
+    const voters = living("B").filter((item) => ROLE_DEFS[item.role].faction === "village" && item.voteCooldown === 0).slice(0, 3).map((card) => card.id);
     if (target && voters.length === 3) return { type: "council.submit", seat: "B", kind: "accuse", target: target.id, guess: target.role, voters };
     return { type: "council.submit", seat: "B", kind: "pass" };
   }
@@ -250,14 +250,14 @@ function actionForOwnCard(card) {
     if (card.role === "seer" && card.uses.seer > 0) return { kind: "inspect", label: "Soi role" };
     if (card.role === "witch" && card.uses.poison > 0 && !state.players.A.eliminationSpent) return { kind: "poison", label: "Dùng độc" };
   }
-  if (state.phase === "council" && interaction?.kind === "accuse" && card.revealed && ROLE_DEFS[card.role].faction === "village" && card.voteCooldown === 0) return { kind: "vote", label: "Tham gia treo cổ" };
+  if (state.phase === "council" && interaction?.kind === "accuse" && ROLE_DEFS[card.role].faction === "village" && card.voteCooldown === 0) return { kind: "vote", label: "Tham gia treo cổ" };
   return null;
 }
 
 function votePower(voterIds = []) {
   return voterIds.reduce((total, id) => {
     const card = state.players.A.board.find((item) => item.id === id);
-    return total + (card?.alive && card.revealed && card.voteCooldown === 0 && ROLE_DEFS[card.role]?.faction === "village" ? 1 : 0);
+    return total + (card?.alive && card.voteCooldown === 0 && ROLE_DEFS[card.role]?.faction === "village" ? 1 : 0);
   }, 0);
 }
 
@@ -398,7 +398,7 @@ function actionFields() {
   if (state.phase === "council") return `
     <label class="field conditional" data-for="accuse"><span>Mục tiêu</span><select name="target">${cardOptions(enemy)}</select></label>
     <label class="field conditional" data-for="accuse"><span>Đoán role</span><select name="guess">${roleOptions()}</select></label>
-    <fieldset class="voter-field conditional" data-for="accuse"><legend>Chọn đúng 3 role Dân đang sống và đã lộ</legend><div class="voters">${own.filter((card) => card.alive && card.revealed && ROLE_DEFS[card.role].faction === "village").map((card) => `<label><input type="checkbox" name="voter" value="${card.id}" /> ${card.id}</label>`).join("")}</div></fieldset>
+    <fieldset class="voter-field conditional" data-for="accuse"><legend>Chọn đúng 3 role Dân đang sống · lá úp sẽ lộ khi Hội đồng xử lý</legend><div class="voters">${own.filter((card) => card.alive && ROLE_DEFS[card.role].faction === "village").map((card) => `<label><input type="checkbox" name="voter" value="${card.id}" /> ${card.id}</label>`).join("")}</div></fieldset>
     <label class="field conditional" data-for="protect"><span>Lá muốn bảo kê</span><select name="protectTarget">${cardOptions(own)}</select></label>`;
   if (state.phase.startsWith("day-")) return `
     <label class="field conditional" data-for="shoot"><span>Mục tiêu đã lộ</span><select name="shootTarget">${cardOptions(enemy.filter((card) => card.revealed))}</select></label>
@@ -443,11 +443,11 @@ function battlefieldActionMarkup() {
       return `<div class="battle-action"><p class="battle-step">Bước 3 · Đoán role của ${interaction.target}</p><div class="role-guess-grid">${Object.entries(ROLE_DEFS).map(([key, role]) => `<button type="button" data-direct-guess="${key}">${role.name}</button>`).join("")}</div><button class="battle-cancel" type="button" data-direct-cancel>Chọn lại</button></div>`;
     }
     if (interaction?.kind === "accuse") {
-      return `<div class="battle-action"><p class="battle-step">${power === 3 ? "Bước 2 · Chọn một lá đối thủ" : "Bước 1 · Chọn 3 role Dân đã lộ"}</p><strong>${power}/3 nhân vật đã chọn</strong><p>${power === 3 ? "Các mục tiêu hợp lệ đang sáng đỏ." : "Chỉ role phe Dân đã công khai mới có thể tham gia. Treo cổ không làm mất lượt chính."}</p><button class="battle-cancel" type="button" data-direct-cancel>Hủy buộc tội</button></div>`;
+      return `<div class="battle-action"><p class="battle-step">${power === 3 ? "Bước 2 · Chọn một lá đối thủ" : "Bước 1 · Chọn 3 role Dân còn sống"}</p><strong>${power}/3 nhân vật đã chọn</strong><p>${power === 3 ? "Các mục tiêu hợp lệ đang sáng đỏ." : "Có thể chọn cả card đang úp phía dưới; chúng sẽ lộ khi Hội đồng xử lý."}</p><button class="battle-cancel" type="button" data-direct-cancel>Hủy buộc tội</button></div>`;
     }
     if (interaction?.kind === "protect") return `<div class="battle-action"><p class="battle-step">Chọn lá bên mình cần bảo kê</p><strong>Sói Hộ Vệ đang chờ lệnh</strong><button class="battle-cancel" type="button" data-direct-cancel>Hủy</button></div>`;
     const wolfguard = sourceFor("wolfguard") && privateCard(sourceFor("wolfguard")).uses.rescue > 0;
-    return `<div class="battle-action"><p class="battle-step">Hành động phụ · vẫn giữ lượt Ban ngày</p><strong>Lập Hội đồng treo cổ</strong><p>Cần đúng 3 role Dân đã lộ để buộc tội một lá đối thủ.</p><div class="battle-buttons"><button type="button" data-council-mode="accuse">Chọn 3 người</button>${wolfguard ? `<button type="button" data-council-mode="protect">Bảo kê</button>` : ""}<button type="button" data-direct-pass>Bỏ qua</button></div></div>`;
+    return `<div class="battle-action"><p class="battle-step">Hành động phụ · vẫn giữ lượt Ban ngày</p><strong>Lập Hội đồng treo cổ</strong><p>Cần đúng 3 role Dân còn sống; card đang úp vẫn chọn được và sẽ lộ khi xử lý.</p><div class="battle-buttons"><button type="button" data-council-mode="accuse">Chọn 3 người</button>${wolfguard ? `<button type="button" data-council-mode="protect">Bảo kê</button>` : ""}<button type="button" data-direct-pass>Bỏ qua</button></div></div>`;
   }
   if (state.phase === "final-duel") return `<div class="battle-action"><p class="battle-step">Final Duel</p><strong>Đoán role cuối của BOT</strong><div class="role-guess-grid">${Object.entries(ROLE_DEFS).map(([key, role]) => `<button type="button" data-final-guess="${key}">${role.name}</button>`).join("")}</div></div>`;
   if (interaction) {
@@ -471,7 +471,7 @@ function roundTitle() {
 function roundRuleHint() {
   if (state.phase.startsWith("setup-")) return "Sắp xếp đội hình trước khi khai cuộc";
   if (state.round < 3) return `Vòng ${state.round}/2 mở màn · chưa được treo cổ`;
-  if (state.phase === "council") return "Hành động phụ · chọn đúng 3 role Dân đã lộ";
+  if (state.phase === "council") return "Hành động phụ · chọn đúng 3 role Dân còn sống";
   return "Từ Vòng 3 · Hội đồng không tiêu lượt chính";
 }
 

@@ -62,7 +62,7 @@ public
 quit
 ```
 
-Hội đồng chỉ mở từ Vòng 3 và cần đúng ba role phe Dân còn sống, đã công khai từ trước. Treo cổ không tiêu quyền loại bỏ, không làm mất lượt chính và ba người tham gia vẫn được dùng kỹ năng Ban ngày. Đoán sai khóa ba người đó khỏi Hội đồng kế tiếp. Sói Hộ Vệ có thể bí mật bảo kê trước một lá và lộ diện nếu chặn đúng án treo cổ.
+Hội đồng chỉ mở từ Vòng 3 và cần đúng ba role phe Dân còn sống. Có thể chọn các lá còn úp ở hàng dưới; ba người tham gia sẽ bước lên và lộ diện khi Hội đồng xử lý. Treo cổ không tiêu quyền loại bỏ, không làm mất lượt chính và ba người tham gia vẫn được dùng kỹ năng Ban ngày. Đoán sai khóa ba người đó khỏi Hội đồng kế tiếp. Sói Hộ Vệ có thể bí mật bảo kê trước một lá và lộ diện nếu chặn đúng án treo cổ.
 
 Kẻ báo thù công khai đánh dấu một mục tiêu Ban ngày; nếu chết trước bình minh kế tiếp, mục tiêu chết theo. Mục sư có một lần thanh tẩy: giết đúng phe Sói, nhưng tự chết nếu chọn nhầm phe Dân.
 

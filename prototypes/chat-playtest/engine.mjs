@@ -189,7 +189,8 @@ function resolveCouncil(state) {
     }
 
     const voters = submission.voters.map((id) => cardById(state, id));
-    const validVotes = voters.filter((card) => card.alive && card.revealed && card.id.startsWith(seat) && ROLE_DEFS[card.role].faction === "village" && card.voteCooldown === 0);
+    const validVotes = voters.filter((card) => card.alive && card.id.startsWith(seat) && ROLE_DEFS[card.role].faction === "village" && card.voteCooldown === 0);
+    for (const voter of validVotes) reveal(voter);
     const target = cardById(state, submission.target);
     const votePower = validVotes.length;
     const correct = votePower === 3 && target.alive && target.id.startsWith(otherSeat(seat)) && target.role === submission.guess;
@@ -242,7 +243,6 @@ function submitCouncil(state, action) {
     for (const id of action.voters) {
       const voter = cardById(state, id);
       if (!voter.alive || !voter.id.startsWith(action.seat)) throw new Error(`${id} không thể bỏ phiếu.`);
-      if (!voter.revealed) throw new Error(`${id} chưa lộ role nên chưa thể bỏ phiếu.`);
       if (ROLE_DEFS[voter.role].faction !== "village") throw new Error(`${id} không thuộc phe Dân nên không thể lập Hội đồng.`);
       if (voter.voteCooldown > 0) throw new Error(`${id} đang bị khóa vote.`);
     }
