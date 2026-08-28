@@ -37,10 +37,13 @@ twofold/
 │   └── web/                         # [UPCOMING] Web Alpha Client chính thức (target 07/09/2026)
 │       └── package.json             # @twofold/web
 ├── packages/
+│   ├── cli/                         # Centralized Monorepo Management CLI (tf / twofold)
+│   │   └── package.json             # @twofold/cli
 │   ├── game-core/                   # Shared ruleset v0.1 & turn state machine
 │   │   └── package.json             # @twofold/game-core
 │   └── shared-types/                # Shared data schemas & type definitions
 │       └── package.json             # @twofold/shared-types
+├── bin/                             # CLI executable shortcuts (./bin/tf, ./bin/twofold)
 ├── docs/                            # Game design docs, ADRs & Project management
 │   ├── decisions/                   # Architectural & game rule decision records
 │   ├── game-design/                 # Flow, rules, roles draft
@@ -51,28 +54,58 @@ twofold/
 
 ---
 
-## Hướng dẫn Chạy Nhanh
+## Centralized CLI (`tf` / `twofold`)
 
-### 1. Xem công cụ Spec Reviewer & Role Atlas của PO
-
-```bash
-# Khởi chạy dev server Spec Reviewer (mặc định cổng 4173)
-npm run dev
-# hoặc
-pnpm dev
-
-# Mở trình duyệt tại:
-# http://localhost:4173/ -> Khám phá 92 vai trò, lọc phe và xem bộ 10 role gợi ý
-# http://localhost:4173/shortlist.html -> Review và sao chép danh sách role đã chọn cho buổi họp
-```
-
-### 2. Kiểm tra tính toàn vẹn của dữ liệu Roles
+Monorepo được trang bị công cụ CLI tập trung (`@twofold/cli`) với format chuẩn hóa:
 
 ```bash
-npm run check
-# hoặc
-pnpm check
+pnpm tf <feat> [--filter <project_name> | -<shorten>]
 ```
+
+### Bảng tra cứu Mã rút gọn (Aliases)
+
+| Project | Location | Tên đầy đủ | Mã rút gọn (`-<short>`) |
+|---|---|---|---|
+| **Spec Reviewer** | `apps/spec-reviewer` | `spec-reviewer` | `-sr` |
+| **Web Alpha Client** | `apps/web` | `web` | `-w` |
+| **Game Core** | `packages/game-core` | `game-core` | `-gc` |
+| **Shared Types** | `packages/shared-types` | `shared-types` | `-st` |
+| **CLI** | `packages/cli` | `cli` | `-c` |
+
+### Các lệnh phổ biến
+
+```bash
+# Xem danh sách tất cả apps, packages và alias rút gọn
+pnpm tf list
+
+# Khởi chạy Spec Reviewer của PO bằng filter hoặc mã rút gọn
+pnpm tf dev --filter spec-reviewer
+pnpm tf dev -sr
+
+# Chạy kiểm tra dữ liệu roles / tests
+pnpm tf check -sr
+pnpm tf check # Kiểm tra toàn bộ monorepo
+
+# Mở rộng tạo app mới hoặc package mới nhanh chóng (Scaffolding)
+pnpm tf create app admin-portal "Admin management dashboard"
+pnpm tf create package game-net "Networking synchronization layer"
+
+# Xem tổng quan dự án & roadmap Alpha
+pnpm tf info
+```
+
+---
+
+## Hướng dẫn Chạy Nhanh Spec Reviewer
+
+1. Khởi chạy dev server:
+   ```bash
+   npm run dev
+   # hoặc: ./bin/tf dev spec-reviewer
+   ```
+2. Mở trình duyệt:
+   - `http://localhost:4173/` → Tra cứu 92 vai trò, lọc phe và xem bộ 10 role gợi ý.
+   - `http://localhost:4173/shortlist.html` → Review và sao chép danh sách role đã chọn cho buổi họp.
 
 ---
 

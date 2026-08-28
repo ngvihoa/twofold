@@ -8,12 +8,14 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "python3 -m http.server 4173 --directory apps/spec-reviewer",
-    "dev:spec": "python3 -m http.server 4173 --directory apps/spec-reviewer",
-    "dev:atlas": "python3 -m http.server 4173 --directory apps/spec-reviewer",
-    "start": "python3 -m http.server 4173 --directory apps/spec-reviewer",
-    "check": "node apps/spec-reviewer/scripts/check-role-data.mjs",
-    "check:roles": "node apps/spec-reviewer/scripts/check-role-data.mjs",
-    "annotate:roles": "node apps/spec-reviewer/scripts/annotate-role-gameplay.mjs"
+    "tf": "node packages/cli/bin/twofold.mjs",
+    "dev": "node packages/cli/bin/twofold.mjs dev",
+    "dev:spec": "node packages/cli/bin/twofold.mjs dev spec-reviewer",
+    "dev:atlas": "node packages/cli/bin/twofold.mjs dev spec-reviewer",
+    "check": "node packages/cli/bin/twofold.mjs check",
+    "check:roles": "node packages/cli/bin/twofold.mjs check spec-reviewer",
+    "create": "node packages/cli/bin/twofold.mjs create",
+    "list": "node packages/cli/bin/twofold.mjs list",
+    "info": "node packages/cli/bin/twofold.mjs info"
   }
 }
