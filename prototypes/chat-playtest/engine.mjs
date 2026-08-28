@@ -68,14 +68,14 @@ export function createGame(seed = "twofold-01") {
   return {
     seed,
     round: 1,
-    phase: "day-A",
+    phase: "setup-A",
     firstSeat: "A",
     players: {
-      A: { board: shuffledDeck(seed, "A"), eliminationSpent: false, council: null, defense: null, lastGuardTarget: null, revengeTarget: null, night: null, finalGuess: null, notes: [] },
-      B: { board: shuffledDeck(seed, "B"), eliminationSpent: false, council: null, defense: null, lastGuardTarget: null, revengeTarget: null, night: null, finalGuess: null, notes: [] },
+      A: { board: shuffledDeck(seed, "A"), setupLocked: false, eliminationSpent: false, council: null, defense: null, lastGuardTarget: null, revengeTarget: null, night: null, finalGuess: null, notes: [] },
+      B: { board: shuffledDeck(seed, "B"), setupLocked: false, eliminationSpent: false, council: null, defense: null, lastGuardTarget: null, revengeTarget: null, night: null, finalGuess: null, notes: [] },
     },
     result: null,
-    log: ["Ván đấu bắt đầu ở Ban ngày Vòng 1. Hội đồng chỉ mở từ Vòng 2."],
+    log: ["Hai bên bí mật xếp thứ tự 10 lá trước khi lên bàn."],
   };
 }
 
@@ -146,6 +146,26 @@ function validateSource(state, seat, sourceId, role) {
   if (!source.alive || !source.id.startsWith(seat)) throw new Error("Source không hợp lệ hoặc đã chết.");
   if (source.role !== role) throw new Error(`${source.id} không phải ${ROLE_DEFS[role].name}.`);
   return source;
+}
+
+function submitSetup(state, action) {
+  const expected = state.phase === "setup-A" ? "A" : state.phase === "setup-B" ? "B" : null;
+  if (!expected || action.seat !== expected) throw new Error(`Đang là lượt xếp đội hình của ${expected || "không ai"}.`);
+  const player = state.players[action.seat];
+  const currentIds = player.board.map((card) => card.id).sort();
+  const submittedIds = [...action.order].map((id) => id.toUpperCase());
+  if (submittedIds.length !== 10 || new Set(submittedIds).size !== 10 || submittedIds.slice().sort().join("|") !== currentIds.join("|")) {
+    throw new Error("Đội hình phải chứa đúng 10 lá hiện có, không trùng vị trí.");
+  }
+  const byId = new Map(player.board.map((card) => [card.id, card]));
+  player.board = submittedIds.map((id, index) => ({ ...byId.get(id), id: `${action.seat}${index + 1}` }));
+  player.setupLocked = true;
+  addLog(state, `${action.seat} đã khóa thứ tự đội hình.`);
+  if (action.seat === "A") state.phase = "setup-B";
+  else {
+    state.phase = "day-A";
+    addLog(state, "Hai đội hình đã lên bàn. Ban ngày Vòng 1 bắt đầu; chưa có Hội đồng.");
+  }
 }
 
 function resolveCouncil(state) {
@@ -456,7 +476,8 @@ function submitFinalGuess(state, action) {
 export function dispatch(currentState, action) {
   if (currentState.phase === "ended") throw new Error("Ván đấu đã kết thúc.");
   const state = clone(currentState);
-  if (action.type === "council.submit") submitCouncil(state, action);
+  if (action.type === "setup.submit") submitSetup(state, action);
+  else if (action.type === "council.submit") submitCouncil(state, action);
   else if (action.type === "day.submit") submitDay(state, action);
   else if (action.type === "defense.submit") submitDefense(state, action);
   else if (action.type === "night.submit") submitNight(state, action);

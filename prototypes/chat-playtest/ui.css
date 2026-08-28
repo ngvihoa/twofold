@@ -32,19 +32,27 @@ button:disabled { cursor: not-allowed; opacity: .42; }
 .seat-toggle button { min-width: 42px; border: 0; border-right: 1px solid var(--line); padding: 8px; }
 .seat-toggle button:last-child { border-right: 0; }
 .seat-toggle button.active { background: var(--ink); color: #111; }
+.human-seat, .bot-seat { display: inline-flex; align-items: center; min-height: 34px; padding: 0 9px; font-size: 9px; font-weight: 900; letter-spacing: .06em; }
+.human-seat { background: var(--ink); color: #111; }
+.bot-seat { gap: 5px; color: #aaaeb6; }
+.bot-seat i { width: 6px; height: 6px; border-radius: 50%; background: #666c77; }
+.bot-seat.thinking i { background: #e4ad43; box-shadow: 0 0 8px #e4ad43; animation: bot-pulse .8s infinite alternate; }
 .reset { padding: 8px 11px; border-radius: 9px; background: transparent; color: var(--muted); }
 
-.board-title { display: flex; align-items: end; justify-content: space-between; margin: 0 0 10px; }
+.board { position: relative; padding: 8px 10px 12px; border: 1px solid rgba(255,255,255,.055); border-radius: 13px; background: linear-gradient(180deg, rgba(255,255,255,.022), rgba(0,0,0,.08)); }
+.board-title { display: flex; align-items: end; justify-content: space-between; margin: 0 0 8px; }
 .board-title h2 { margin: 0; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; }
-.board-title span { color: var(--muted); font-size: 12px; }
-.card-row { display: grid; grid-template-columns: repeat(10, minmax(62px, 82px)); justify-content: center; gap: 7px; perspective: 1200px; }
-.role-card { --frame: #856d45; --frame-dark: #2e271c; position: relative; min-height: 118px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--frame) 65%, #fff 10%); border-radius: 7px; background: linear-gradient(145deg, color-mix(in srgb, var(--frame) 88%, #fff 12%), var(--frame-dark)); box-shadow: 0 4px 9px rgba(0,0,0,.48), inset 0 0 0 1px rgba(255,255,255,.12); isolation: isolate; transition: transform .16s ease, box-shadow .16s ease; }
-.role-card:hover { z-index: 3; transform: translateY(-3px) rotateX(2deg); box-shadow: 0 9px 18px rgba(0,0,0,.6), inset 0 0 0 1px rgba(255,255,255,.16); }
+.board-title span { color: var(--muted); font-size: 10px; }
+.card-row { display: grid; grid-template-columns: repeat(10, minmax(62px, 82px)); justify-content: center; gap: 7px; min-height: 142px; padding: 14px 0; perspective: 1200px; }
+.role-card { --frame: #856d45; --frame-dark: #2e271c; --advance: 0px; position: relative; min-height: 118px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--frame) 65%, #fff 10%); border-radius: 7px; background: linear-gradient(145deg, color-mix(in srgb, var(--frame) 88%, #fff 12%), var(--frame-dark)); box-shadow: 0 4px 9px rgba(0,0,0,.48), inset 0 0 0 1px rgba(255,255,255,.12); isolation: isolate; transform: translateY(var(--advance)); transition: transform .25s ease, box-shadow .16s ease; }
+.role-card:hover { z-index: 3; transform: translateY(calc(var(--advance) - 3px)) rotateX(2deg); box-shadow: 0 9px 18px rgba(0,0,0,.6), inset 0 0 0 1px rgba(255,255,255,.16); }
 .role-card.faction-village { --frame: #a97c38; --frame-dark: #312619; }
 .role-card.faction-werewolf { --frame: #67507e; --frame-dark: #211a2a; }
 .role-card.faction-unknown { --frame: #414854; --frame-dark: #161a20; }
-.role-card.dead { opacity: .44; filter: grayscale(.86); transform: rotate(-1.5deg); }
+.role-card.dead { opacity: .44; filter: grayscale(.86); }
 .role-card.revealed { border-color: #f2c867; box-shadow: 0 0 0 1px rgba(242,200,103,.55), 0 5px 16px rgba(242,184,73,.24); }
+.board-opponent .role-card.revealed { --advance: 12px; }
+.board-own .role-card.revealed { --advance: -12px; }
 .role-card.hidden-role { filter: saturate(.88); }
 .role-card.shielded { border-color: #9cb9ff; box-shadow: 0 0 0 2px #7398eb, 0 0 18px rgba(115,152,235,.38); }
 .card-shell { position: absolute; inset: 3px; display: grid; grid-template-rows: 22px 1fr 18px; overflow: hidden; border: 1px solid rgba(13,10,7,.72); border-radius: 4px; background: #17191d; }
@@ -61,6 +69,20 @@ button:disabled { cursor: not-allowed; opacity: .42; }
 .card-foot { display: grid; grid-template-columns: auto minmax(0,1fr); align-items: center; gap: 3px; padding: 2px 4px; border-top: 1px solid rgba(0,0,0,.65); background: linear-gradient(90deg, rgba(12,13,16,.96), color-mix(in srgb, var(--frame-dark) 85%, #000)); }
 .card-id { font: 900 8px/1 monospace; color: #efe1bd; }
 .card-status { overflow: hidden; color: #c7c1b5; font-size: 6px; font-weight: 800; letter-spacing: .04em; text-align: right; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.role-card.setup-card { min-height: 143px; cursor: grab; }
+.role-card.setup-card:active { cursor: grabbing; }
+.role-card.setup-card.is-dragging { opacity: .35; }
+.setup-card .card-shell { bottom: 25px; }
+.setup-controls { position: absolute; right: 3px; bottom: 3px; left: 3px; display: grid; grid-template-columns: 20px 1fr 20px; align-items: center; gap: 2px; height: 20px; }
+.setup-controls button { height: 20px; padding: 0; border: 0; border-radius: 3px; background: rgba(0,0,0,.48); font-weight: 900; line-height: 1; }
+.setup-controls strong { text-align: center; font: 900 9px monospace; }
+.step-label { margin-bottom: 8px !important; color: #d5a84c !important; font-size: 10px !important; font-weight: 850; letter-spacing: .12em; text-transform: uppercase; }
+.setup-panel h2 { font: 900 25px/1 Georgia, serif; }
+.bot-wait { display: grid; place-items: center; min-height: 180px; text-align: center; }
+.bot-wait p { max-width: 220px; }
+.bot-orbit { width: 35px; height: 35px; border: 2px solid rgba(255,255,255,.13); border-top-color: #e4ad43; border-radius: 50%; animation: bot-spin .9s linear infinite; }
+@keyframes bot-spin { to { transform: rotate(360deg); } }
+@keyframes bot-pulse { to { opacity: .35; } }
 
 .center-table { display: grid; place-items: center; min-height: 160px; padding: 18px; }
 .table-seal { width: min(100%, 520px); text-align: center; }

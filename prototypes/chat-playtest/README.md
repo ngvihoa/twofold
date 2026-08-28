@@ -4,6 +4,10 @@ Prototype này trả lời một câu hỏi: vòng chơi `Hội đồng -> Ban n
 
 Ngoại lệ mở màn: Vòng 1 bắt đầu thẳng ở Ban ngày, chưa có Hội đồng/treo cổ. Hội đồng đầu tiên xuất hiện tại bình minh Vòng 2.
 
+Trước Vòng 1, mỗi bên bí mật sắp xếp thứ tự 10 lá rồi khóa đội hình. Vị trí đã khóa trở thành mã A1–A10 hoặc B1–B10 trong suốt ván.
+
+Bản web hiện là chế độ một người: người chơi điều khiển bên A, còn B là bot local. Bot tự xếp đội hình và chỉ ra quyết định từ thông tin công khai cùng kết quả Tiên tri riêng của chính nó.
+
 Đây là code throwaway. State chỉ nằm trong bộ nhớ và biến mất khi thoát.
 
 ## Chạy

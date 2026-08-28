@@ -61,6 +61,7 @@ function parseCommand(line) {
   const parts = line.trim().split(/\s+/);
   const command = parts.shift()?.toLowerCase();
   if (!command) return null;
+  if (command === "setup") return { type: "setup.submit", seat: parts.shift()?.toUpperCase(), order: parts.map((item) => item.toUpperCase()) };
   if (command === "council") {
     const seat = parts.shift()?.toUpperCase();
     if (parts[0]?.toLowerCase() === "pass") return { type: "council.submit", seat, pass: true };
@@ -97,6 +98,7 @@ function parseCommand(line) {
 
 function helpText() {
   return [
+    "setup A A1 A2 A3 A4 A5 A6 A7 A8 A9 A10",
     "council A pass",
     "council A B3 guard A1 A2 A3",
     "council A protect A7 A3",
