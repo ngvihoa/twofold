@@ -18,6 +18,18 @@ const ROLE_ART = {
   wolfguard: "../../assets/game/wwo-reference/soi-ho-ve.webp",
 };
 
+const ROLE_PHASE = {
+  villager: "day",
+  wolf: "night",
+  seer: "night",
+  guard: "night",
+  witch: "both",
+  shooter: "day",
+  avenger: "both",
+  priest: "day",
+  wolfguard: "day",
+};
+
 const PHASE_LABEL = {
   council: "Hội đồng sáng",
   "day-A": "Ban ngày · lượt A",
@@ -46,15 +58,29 @@ const sourceFor = (role) => ownPlayer().board.find((card) => card.alive && card.
 
 function cardMarkup(card, isOwn) {
   const secret = isOwn ? privateCard(card.id) : null;
+  const isRevealed = card.role !== "?";
   const roleKey = secret?.role || (card.role !== "?" ? Object.entries(ROLE_DEFS).find(([, value]) => value.name === card.role)?.[0] : null);
   const roleName = secret ? ROLE_DEFS[secret.role].name : card.role;
   const known = Boolean(roleKey);
-  return `<article class="role-card ${card.alive ? "" : "dead"} ${card.shielded ? "shielded" : ""}">
-    ${known ? `<img class="role-art" src="${ROLE_ART[roleKey]}" alt="" />` : `<div class="card-back">TF</div>`}
-    <span class="card-id">${card.id}</span>
-    ${card.shielded ? `<span class="shield" title="Đang được bảo vệ">◈</span>` : ""}
-    <strong class="role-name">${known ? roleName : "Chưa lộ"}</strong>
-    <span class="card-status">${card.alive ? (card.votePower > 1 ? `${card.votePower} phiếu` : card.canVote ? "Có quyền vote" : "Đang sống") : "Đã chết"}</span>
+  const faction = known ? ROLE_DEFS[roleKey].faction : "unknown";
+  const phase = ROLE_PHASE[roleKey] || "hidden";
+  const phaseMark = phase === "day" ? "☀" : phase === "night" ? "☾" : phase === "both" ? "☀☾" : "◇";
+  const shownName = known ? roleName : "Bí danh";
+  const status = !card.alive
+    ? "Đã chết"
+    : isRevealed
+      ? `Đã lộ${card.votePower ? ` · ${card.votePower} phiếu` : ""}`
+      : isOwn ? "Đang ẩn" : "Đang sống";
+  return `<article class="role-card faction-${faction} phase-${phase} ${card.alive ? "" : "dead"} ${isRevealed ? "revealed" : "hidden-role"} ${card.shielded ? "shielded" : ""}">
+    <div class="card-shell">
+      <header class="card-head"><strong class="role-name" title="${shownName}">${shownName}</strong><span class="phase-rune" title="Pha kỹ năng">${phaseMark}</span></header>
+      <div class="art-window">
+        ${known ? `<img class="role-art" src="${ROLE_ART[roleKey]}" alt="" />` : `<div class="card-back"><span>TF</span></div>`}
+        ${isRevealed ? `<span class="reveal-badge" title="Role này đã công khai với đối thủ">◉ ĐÃ LỘ</span>` : ""}
+        ${card.shielded ? `<span class="shield" title="Đang được bảo vệ">◈</span>` : ""}
+      </div>
+      <footer class="card-foot"><span class="card-id">${card.id}</span><span class="card-status">${status}</span></footer>
+    </div>
   </article>`;
 }
 

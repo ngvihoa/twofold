@@ -37,17 +37,30 @@ button:disabled { cursor: not-allowed; opacity: .42; }
 .board-title { display: flex; align-items: end; justify-content: space-between; margin: 0 0 10px; }
 .board-title h2 { margin: 0; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; }
 .board-title span { color: var(--muted); font-size: 12px; }
-.card-row { display: grid; grid-template-columns: repeat(10, minmax(62px, 82px)); justify-content: center; gap: 7px; }
-.role-card { position: relative; min-height: 102px; overflow: hidden; border: 1px solid var(--line); border-radius: 9px; background: #15181d; isolation: isolate; }
-.role-card.dead { opacity: .46; filter: grayscale(.8); }
-.role-card.shielded { border-color: #89aaff; box-shadow: inset 0 0 0 2px #89aaff; }
-.role-art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .78; z-index: -2; }
-.role-card::after { content: ""; position: absolute; inset: 35% 0 0; z-index: -1; background: linear-gradient(transparent, rgba(3,4,6,.96) 55%); }
-.card-back { position: absolute; inset: 0; display: grid; place-items: center; background: repeating-linear-gradient(135deg, #191c22, #191c22 10px, #20242b 10px, #20242b 20px); color: #626975; font-size: 25px; font-weight: 900; }
-.card-id { position: absolute; top: 6px; left: 6px; padding: 3px 5px; border-radius: 5px; background: rgba(0,0,0,.62); font: 800 10px/1 monospace; }
-.shield { position: absolute; top: 6px; right: 6px; font-size: 15px; }
-.role-name { position: absolute; left: 6px; right: 6px; bottom: 16px; font-weight: 850; font-size: 11px; line-height: 1.05; }
-.card-status { position: absolute; left: 7px; bottom: 5px; color: #bbb; font-size: 8px; letter-spacing: .08em; text-transform: uppercase; }
+.card-row { display: grid; grid-template-columns: repeat(10, minmax(62px, 82px)); justify-content: center; gap: 7px; perspective: 1200px; }
+.role-card { --frame: #856d45; --frame-dark: #2e271c; position: relative; min-height: 118px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--frame) 65%, #fff 10%); border-radius: 7px; background: linear-gradient(145deg, color-mix(in srgb, var(--frame) 88%, #fff 12%), var(--frame-dark)); box-shadow: 0 4px 9px rgba(0,0,0,.48), inset 0 0 0 1px rgba(255,255,255,.12); isolation: isolate; transition: transform .16s ease, box-shadow .16s ease; }
+.role-card:hover { z-index: 3; transform: translateY(-3px) rotateX(2deg); box-shadow: 0 9px 18px rgba(0,0,0,.6), inset 0 0 0 1px rgba(255,255,255,.16); }
+.role-card.faction-village { --frame: #a97c38; --frame-dark: #312619; }
+.role-card.faction-werewolf { --frame: #67507e; --frame-dark: #211a2a; }
+.role-card.faction-unknown { --frame: #414854; --frame-dark: #161a20; }
+.role-card.dead { opacity: .44; filter: grayscale(.86); transform: rotate(-1.5deg); }
+.role-card.revealed { border-color: #f2c867; box-shadow: 0 0 0 1px rgba(242,200,103,.55), 0 5px 16px rgba(242,184,73,.24); }
+.role-card.hidden-role { filter: saturate(.88); }
+.role-card.shielded { border-color: #9cb9ff; box-shadow: 0 0 0 2px #7398eb, 0 0 18px rgba(115,152,235,.38); }
+.card-shell { position: absolute; inset: 3px; display: grid; grid-template-rows: 22px 1fr 18px; overflow: hidden; border: 1px solid rgba(13,10,7,.72); border-radius: 4px; background: #17191d; }
+.card-head { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 3px; padding: 3px 4px; color: #17120b; background: linear-gradient(90deg, color-mix(in srgb, var(--frame) 78%, #e8d4a8 22%), color-mix(in srgb, var(--frame) 88%, #111 12%)); border-bottom: 1px solid rgba(0,0,0,.7); }
+.role-name { overflow: hidden; font-family: Georgia, "Times New Roman", serif; font-size: 8px; font-weight: 900; line-height: 1; text-overflow: ellipsis; white-space: nowrap; text-shadow: 0 1px rgba(255,255,255,.18); }
+.phase-rune { display: inline-grid; place-items: center; min-width: 15px; height: 15px; padding: 0 2px; border: 1px solid rgba(0,0,0,.42); border-radius: 50%; background: rgba(248,234,191,.55); font-size: 8px; font-weight: 900; }
+.art-window { position: relative; min-height: 0; overflow: hidden; margin: 3px 4px 2px; border: 1px solid rgba(0,0,0,.9); background: #0e1014; box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); }
+.role-art { width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%; filter: contrast(1.04) saturate(.92); }
+.card-back { position: absolute; inset: 0; display: grid; place-items: center; overflow: hidden; background: radial-gradient(circle at center, transparent 0 15%, #121722 16% 23%, transparent 24% 34%, #293143 35% 37%, transparent 38%), repeating-conic-gradient(from 20deg, #161b25 0 12deg, #242b3a 12deg 24deg); color: #8b97ad; }
+.card-back::after { content: ""; position: absolute; width: 38px; height: 38px; border: 1px solid #66728a; transform: rotate(45deg); }
+.card-back span { z-index: 1; font: 900 15px Georgia, serif; letter-spacing: -.08em; }
+.reveal-badge { position: absolute; top: 3px; left: 3px; padding: 3px 4px; border: 1px solid rgba(255,255,255,.45); border-radius: 3px; background: #e8b84e; color: #17120a; box-shadow: 0 2px 6px rgba(0,0,0,.5); font-size: 6px; font-weight: 950; letter-spacing: .04em; }
+.shield { position: absolute; top: 3px; right: 4px; display: grid; place-items: center; width: 17px; height: 17px; border: 1px solid #bad0ff; border-radius: 50%; background: #31549a; color: #e8f0ff; font-size: 11px; }
+.card-foot { display: grid; grid-template-columns: auto minmax(0,1fr); align-items: center; gap: 3px; padding: 2px 4px; border-top: 1px solid rgba(0,0,0,.65); background: linear-gradient(90deg, rgba(12,13,16,.96), color-mix(in srgb, var(--frame-dark) 85%, #000)); }
+.card-id { font: 900 8px/1 monospace; color: #efe1bd; }
+.card-status { overflow: hidden; color: #c7c1b5; font-size: 6px; font-weight: 800; letter-spacing: .04em; text-align: right; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
 
 .center-table { display: grid; place-items: center; min-height: 160px; padding: 18px; }
 .table-seal { width: min(100%, 520px); text-align: center; }
@@ -101,7 +114,7 @@ button:disabled { cursor: not-allowed; opacity: .42; }
 .variant-c .center-table { order: -1; min-height: 90px; padding: 8px; }
 .variant-c .table-seal strong { font-size: 34px; }
 .variant-c .card-row { grid-template-columns: repeat(5, 1fr); }
-.variant-c .role-card { min-height: 88px; }
+.variant-c .role-card { min-height: 108px; }
 .variant-c .side-rail { grid-column: 1 / -1; }
 .variant-c .history-list { grid-template-columns: repeat(3, 1fr); }
 
@@ -117,7 +130,7 @@ button:disabled { cursor: not-allowed; opacity: .42; }
   .variant-b .control-panel { position: static; }
   .variant-b .action-form { display: grid; grid-template-columns: 1fr; }
   .card-row, .variant-c .card-row { display: flex; overflow-x: auto; padding-bottom: 6px; }
-  .role-card { min-width: 70px; min-height: 100px; }
+  .role-card { min-width: 70px; min-height: 110px; }
   .center-table { min-height: 105px; }
   .history-list, .variant-c .history-list { grid-template-columns: 1fr; }
 }
