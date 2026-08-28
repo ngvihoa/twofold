@@ -1,11 +1,19 @@
 {
-  "name": "twofold-role-atlas",
+  "name": "twofold-monorepo",
   "version": "0.1.0",
   "private": true,
+  "description": "Twofold Monorepo - 1v1 Turn-based Strategy Game",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "python3 -m http.server 4173",
-    "start": "python3 -m http.server 4173",
-    "check": "node scripts/check-role-data.mjs",
-    "annotate:roles": "node scripts/annotate-role-gameplay.mjs"
+    "dev": "python3 -m http.server 4173 --directory apps/spec-reviewer",
+    "dev:spec": "python3 -m http.server 4173 --directory apps/spec-reviewer",
+    "dev:atlas": "python3 -m http.server 4173 --directory apps/spec-reviewer",
+    "start": "python3 -m http.server 4173 --directory apps/spec-reviewer",
+    "check": "node apps/spec-reviewer/scripts/check-role-data.mjs",
+    "check:roles": "node apps/spec-reviewer/scripts/check-role-data.mjs",
+    "annotate:roles": "node apps/spec-reviewer/scripts/annotate-role-gameplay.mjs"
   }
 }
