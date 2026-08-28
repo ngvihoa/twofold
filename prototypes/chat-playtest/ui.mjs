@@ -1,4 +1,4 @@
-import { createGame, dispatch, privateView, publicView, ROLE_DEFS } from "./engine.mjs?rev=council-round-3-v2";
+import { createGame, dispatch, privateView, publicView, ROLE_DEFS } from "./engine.mjs?rev=staged-night-v1";
 
 const VARIANTS = {
   A: "Bàn đối đầu",
@@ -48,8 +48,9 @@ const PHASE_LABEL = {
   council: "Hội đồng sáng",
   "day-A": "Ban ngày · lượt A",
   "day-B": "Ban ngày · lượt B",
+  "night-plan": "Khóa lệnh đêm",
   "dusk-defense": "Chạng vạng · đặt khiên",
-  "night-main": "Ban đêm · main order",
+  "night-resolution": "Ban đêm · chờ phán xét",
   "final-duel": "Final Duel",
   ended: "Kết thúc",
 };
@@ -88,6 +89,7 @@ let moveTimer = null;
 let phaseTitleKey = "";
 let phaseTitleStartedAt = 0;
 let phaseTitleTimer = null;
+let resolutionTimer = null;
 
 const otherSeat = (value) => value === "A" ? "B" : "A";
 const ownPlayer = () => state.players[seat];
@@ -103,7 +105,7 @@ function botNeedsTurn() {
   if (state.phase === "setup-B" || state.phase === "day-B") return true;
   if (state.phase === "council") return Boolean(state.players.A.council) && !state.players.B.council;
   if (state.phase === "dusk-defense") return state.players.A.defense !== null && state.players.B.defense === null;
-  if (state.phase === "night-main") return Boolean(state.players.A.night) && !state.players.B.night;
+  if (state.phase === "night-plan") return Boolean(state.players.A.night) && !state.players.B.night;
   if (state.phase === "final-duel") return Boolean(state.players.A.finalGuess) && !state.players.B.finalGuess;
   return false;
 }
@@ -145,7 +147,7 @@ function botAction() {
     const target = choices.find((card) => card.revealed) || choices[state.round % choices.length];
     return { type: "defense.submit", seat: "B", pass: false, target: target.id };
   }
-  if (state.phase === "night-main") {
+  if (state.phase === "night-plan") {
     const targets = living("A");
     const openTargets = targets.filter((card) => !card.shielded);
     const pool = openTargets.length ? openTargets : targets;
@@ -179,6 +181,25 @@ function scheduleBot() {
   botTimer = setTimeout(runBotTurn, 2400);
 }
 
+function runNightResolution() {
+  resolutionTimer = null;
+  if (state.phase !== "night-resolution") return;
+  const opponentAction = state.players.B.night;
+  try {
+    state = dispatch(state, { type: "night.resolve" });
+    showMove(opponentAction, "B", { revealTarget: true });
+    feedback = "Bình minh đã phán xét toàn bộ lệnh đêm.";
+  } catch (error) {
+    feedback = `Lỗi xử lý đêm: ${error.message}`;
+  }
+  render();
+}
+
+function scheduleNightResolution() {
+  if (state.phase !== "night-resolution" || resolutionTimer) return;
+  resolutionTimer = setTimeout(runNightResolution, 2400);
+}
+
 function moveKind(action) {
   if (action.pass || action.kind === "pass") return "pass";
   if (action.type === "defense.submit") return "defend";
@@ -192,8 +213,9 @@ function publicCardLabel(id) {
   return card?.role && card.role !== "?" ? `${id} · ${card.role}` : id;
 }
 
-function showMove(action, actor) {
+function showMove(action, actor, { revealTarget = false } = {}) {
   const kind = moveKind(action);
+  const hiddenNightTarget = action.type === "night.submit" && !revealTarget && action.target;
   const sourceVisible = action.source && (actor === seat || publicView(state).board[actor]?.find((card) => card.id === action.source)?.role !== "?");
   lastMove = {
     actor,
@@ -202,8 +224,9 @@ function showMove(action, actor) {
     sourceLabel: sourceVisible
       ? actor === seat && privateCard(action.source) ? `${action.source} · ${ROLE_DEFS[privateCard(action.source).role].name}` : publicCardLabel(action.source)
       : action.source ? "Lá ẩn" : actor === "B" && kind !== "pass" ? "Lá ẩn" : "Hệ thống",
-    target: action.target || null,
-    targetLabel: publicCardLabel(action.target),
+    target: hiddenNightTarget ? null : action.target || null,
+    hiddenTarget: Boolean(hiddenNightTarget),
+    targetLabel: hiddenNightTarget ? "Mục tiêu bí mật" : publicCardLabel(action.target),
   };
   clearTimeout(moveTimer);
   moveTimer = setTimeout(() => {
@@ -222,7 +245,7 @@ function actionForOwnCard(card) {
     if (card.role === "witch" && card.uses.revive > 0 && state.players.A.board.some((item) => !item.alive)) return { kind: "revive", label: "Hồi sinh" };
   }
   if (state.phase === "dusk-defense" && card.role === "guard" && card.uses.guard > 0) return { kind: "defend", label: "Đặt khiên" };
-  if (state.phase === "night-main") {
+  if (state.phase === "night-plan") {
     if (card.role === "wolf" && !state.players.A.eliminationSpent) return { kind: "attack", label: "Tấn công" };
     if (card.role === "seer" && card.uses.seer > 0) return { kind: "inspect", label: "Soi role" };
     if (card.role === "witch" && card.uses.poison > 0 && !state.players.A.eliminationSpent) return { kind: "poison", label: "Dùng độc" };
@@ -269,12 +292,13 @@ function cardMarkup(card, isOwn, setupIndex = -1) {
       : isOwn ? "Đang ẩn" : "Đang sống";
   const moveSource = lastMove?.source === card.id;
   const moveTarget = lastMove?.target === card.id;
-  return `<article class="role-card faction-${faction} phase-${phase} ${isSetup ? "setup-card" : ""} ${directAction ? "actionable" : ""} ${targetable ? "targetable" : ""} ${selected ? "selected-card" : ""} ${moveSource ? "move-source" : ""} ${moveTarget ? "move-target" : ""} ${card.alive ? "" : "dead"} ${isRevealed ? "revealed" : "hidden-role"} ${card.shielded ? "shielded" : ""}" ${isSetup ? `draggable="true" data-setup-card="${card.id}"` : ""} ${directAction ? `data-direct-source="${card.id}" data-direct-kind="${directAction.kind}"` : ""} ${targetable ? `data-direct-target="${card.id}"` : ""}>
+  return `<article class="role-card faction-${faction} phase-${phase} ${isSetup ? "setup-card" : ""} ${directAction ? "actionable" : ""} ${targetable ? "targetable" : ""} ${selected ? "selected-card" : ""} ${moveSource ? "move-source" : ""} ${moveTarget ? "move-target" : ""} ${card.staged ? "staged" : ""} ${card.alive ? "" : "dead"} ${isRevealed ? "revealed" : "hidden-role"} ${card.shielded ? "shielded" : ""}" ${isSetup ? `draggable="true" data-setup-card="${card.id}"` : ""} ${directAction ? `data-direct-source="${card.id}" data-direct-kind="${directAction.kind}"` : ""} ${targetable ? `data-direct-target="${card.id}"` : ""}>
     <div class="card-shell">
       <header class="card-head"><strong class="role-name" title="${shownName}">${shownName}</strong><span class="phase-rune" title="Pha kỹ năng">${phaseMark}</span></header>
       <div class="art-window">
         ${known ? `<img class="role-art" src="${ROLE_ART[roleKey]}" alt="" />` : `<div class="card-back"><span>TF</span></div>`}
         ${isRevealed ? `<span class="reveal-badge" title="Role này đã công khai với đối thủ">◉ ĐÃ LỘ</span>` : ""}
+        ${card.staged ? `<span class="staged-badge" title="Nguồn lệnh đêm đã khóa">LỆNH ĐÊM</span>` : ""}
         ${card.shielded ? `<span class="shield" title="Đang được bảo vệ">◈</span>` : ""}
       </div>
       <footer class="card-foot"><span class="card-id">${card.id}</span><span class="card-status">${status}</span></footer>
@@ -321,14 +345,14 @@ function moveReplayMarkup() {
     <span class="move-actor">${lastMove.actor === seat ? "BẠN" : "BOT B"}</span>
     <span class="move-card">${lastMove.sourceLabel}</span>
     <span class="move-icon">${icon}</span>
-    <span class="move-card target">${lastMove.target ? lastMove.targetLabel : label}</span>
+    <span class="move-card target">${lastMove.target || lastMove.hiddenTarget ? lastMove.targetLabel : label}</span>
     <strong>${label}</strong>
   </div>`;
 }
 
 function activeForSeat() {
   if (state.phase.startsWith("setup-")) return state.phase === `setup-${seat}`;
-  if (state.phase === "council" || state.phase === "dusk-defense" || state.phase === "night-main" || state.phase === "final-duel") return true;
+  if (state.phase === "council" || state.phase === "dusk-defense" || state.phase === "night-plan" || state.phase === "final-duel") return true;
   return state.phase === `day-${seat}`;
 }
 
@@ -336,7 +360,7 @@ function alreadyLocked() {
   if (state.phase.startsWith("setup-")) return ownPlayer().setupLocked;
   if (state.phase === "council") return Boolean(ownPlayer().council);
   if (state.phase === "dusk-defense") return ownPlayer().defense !== null;
-  if (state.phase === "night-main") return Boolean(ownPlayer().night);
+  if (state.phase === "night-plan") return Boolean(ownPlayer().night);
   if (state.phase === "final-duel") return Boolean(ownPlayer().finalGuess);
   return false;
 }
@@ -357,7 +381,7 @@ function actionKinds() {
     return kinds;
   }
   if (state.phase === "dusk-defense") return [["pass", "Không đặt khiên"], ["defend", "Bảo vệ một lá"]];
-  if (state.phase === "night-main") {
+  if (state.phase === "night-plan") {
     const kinds = [["pass", "Bỏ main order"]];
     if (sourceFor("wolf")) kinds.push(["attack", "Ma sói tấn công"]);
     if (sourceFor("seer")) kinds.push(["inspect", "Tiên tri soi"]);
@@ -381,7 +405,7 @@ function actionFields() {
     <label class="field conditional" data-for="revive"><span>Lá muốn hồi sinh</span><select name="reviveTarget">${deadCardOptions(own)}</select></label>
     <label class="field conditional" data-for="mark purify"><span>Mục tiêu bên ${otherSeat(seat)}</span><select name="dayTarget">${cardOptions(enemy)}</select></label>`;
   if (state.phase === "dusk-defense") return `<label class="field conditional" data-for="defend"><span>Vị trí đặt khiên</span><select name="defendTarget">${cardOptions(own)}</select></label>`;
-  if (state.phase === "night-main") return `<label class="field conditional" data-for="attack inspect poison"><span>Mục tiêu bên ${otherSeat(seat)}</span><select name="nightTarget">${cardOptions(enemy)}</select></label>`;
+  if (state.phase === "night-plan") return `<label class="field conditional" data-for="attack inspect poison"><span>Mục tiêu bí mật bên ${otherSeat(seat)}</span><select name="nightTarget">${cardOptions(enemy)}</select></label>`;
   if (state.phase === "final-duel") return `<label class="field conditional" data-for="final"><span>Role dự đoán</span><select name="finalGuess">${roleOptions()}</select></label>`;
   return "";
 }
@@ -411,6 +435,7 @@ function historyMarkup() {
 
 function battlefieldActionMarkup() {
   if (state.phase.startsWith("setup-") || state.phase === "ended") return controlMarkup();
+  if (state.phase === "night-resolution") return `<div class="battle-action night-verdict"><span class="verdict-moon">☾</span><strong>Lệnh đã lên sân</strong><p>Nguồn và vị trí có khiên đang hiển thị. Mục tiêu vẫn bí mật; bình minh phán xét sau 2,4 giây.</p></div>`;
   if (botNeedsTurn() || !activeForSeat() || alreadyLocked()) return `<div class="battle-action bot-battle"><span class="bot-orbit" aria-hidden="true"></span><strong>BOT B đang cân nhắc</strong><p>Bạn có khoảng 1,7 giây để nhìn trạng thái bàn trước khi bot đi.</p></div>`;
   if (state.phase === "council") {
     const power = votePower(interaction?.voters);
@@ -437,7 +462,8 @@ function roundTitle() {
   if (state.phase === "day-A") return `VÒNG ${state.round} · BAN NGÀY — LƯỢT CỦA BẠN`;
   if (state.phase === "day-B") return `VÒNG ${state.round} · BAN NGÀY — BOT HÀNH ĐỘNG`;
   if (state.phase === "dusk-defense") return `VÒNG ${state.round} · CHẠNG VẠNG — ĐẶT KHIÊN`;
-  if (state.phase === "night-main") return `VÒNG ${state.round} · BAN ĐÊM — MAIN ORDER`;
+  if (state.phase === "night-plan") return `VÒNG ${state.round} · KHÓA LỆNH ĐÊM`;
+  if (state.phase === "night-resolution") return `VÒNG ${state.round} · BAN ĐÊM — CHỜ PHÁN XÉT`;
   if (state.phase === "final-duel") return `VÒNG ${state.round} · FINAL DUEL`;
   return PHASE_LABEL[state.phase];
 }
@@ -493,6 +519,7 @@ function render() {
   app.innerHTML = `<div class="shell">${topbar}${body}</div>`;
   syncConditionalFields();
   scheduleBot();
+  scheduleNightResolution();
 }
 
 function syncConditionalFields() {
@@ -523,7 +550,7 @@ function submitAction(form) {
   else if (state.phase === "dusk-defense") action = kind === "pass"
     ? { type: "defense.submit", seat, pass: true }
     : { type: "defense.submit", seat, pass: false, target: data.get("defendTarget") };
-  else if (state.phase === "night-main") action = kind === "pass"
+  else if (state.phase === "night-plan") action = kind === "pass"
     ? { type: "night.submit", seat, kind }
     : { type: "night.submit", seat, kind, source: sourceFor(kind === "attack" ? "wolf" : kind === "inspect" ? "seer" : "witch"), target: data.get("nightTarget") };
   else action = { type: "final.submit", seat, guess: data.get("finalGuess") };
@@ -569,7 +596,7 @@ function directPass() {
   if (state.phase === "council") return commitDirectAction({ type: "council.submit", seat: "A", kind: "pass" });
   if (state.phase.startsWith("day-")) return commitDirectAction({ type: "day.submit", seat: "A", kind: "pass" });
   if (state.phase === "dusk-defense") return commitDirectAction({ type: "defense.submit", seat: "A", pass: true });
-  if (state.phase === "night-main") return commitDirectAction({ type: "night.submit", seat: "A", kind: "pass" });
+  if (state.phase === "night-plan") return commitDirectAction({ type: "night.submit", seat: "A", kind: "pass" });
 }
 
 function switchVariant(direction) {
@@ -628,6 +655,11 @@ document.addEventListener("click", (event) => {
     interaction = null;
     lastMove = null;
     clearTimeout(moveTimer);
+    moveTimer = null;
+    clearTimeout(resolutionTimer);
+    resolutionTimer = null;
+    clearTimeout(botTimer);
+    botTimer = null;
     phaseTitleKey = "";
     feedback = "Ván mới đã sẵn sàng.";
     return render();

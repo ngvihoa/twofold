@@ -1,6 +1,6 @@
 # PROTOTYPE - Twofold chat playtest
 
-Prototype này trả lời một câu hỏi: vòng chơi `Hội đồng -> Ban ngày -> Phòng thủ -> Ban đêm -> Bình minh` có tạo ra quyết định thú vị và có tự kết thúc khi hai bên điều khiển các bộ bài đối xứng hay không?
+Prototype này trả lời một câu hỏi: nhịp `Hội đồng -> Ban ngày -> khóa lệnh đêm -> lộ nguồn -> Phòng thủ -> xử lý đêm -> Bình minh` có tạo ra đủ thông tin để phản ứng mà không biến phòng thủ thành đáp án hoàn hảo hay không?
 
 Hai vòng mở màn bắt đầu thẳng ở Ban ngày, chưa có Hội đồng/treo cổ. Hội đồng đầu tiên xuất hiện tại bình minh Vòng 3 và là hành động phụ trước Ban ngày, không tiêu lượt chính.
 
@@ -54,6 +54,7 @@ night A pass
 night A attack A5 B4
 night A inspect A7 B4
 night A poison A8 B4
+resolve
 final A guard
 view A
 chat
@@ -66,5 +67,7 @@ Hội đồng chỉ mở từ Vòng 3 và cần đúng ba role phe Dân còn s�
 Kẻ báo thù công khai đánh dấu một mục tiêu Ban ngày; nếu chết trước bình minh kế tiếp, mục tiêu chết theo. Mục sư có một lần thanh tẩy: giết đúng phe Sói, nhưng tự chết nếu chọn nhầm phe Dân.
 
 Bảo vệ chỉ công khai vị trí có khiên. Role của mục tiêu và vị trí Bảo vệ vẫn giữ kín; không được bảo vệ cùng vị trí hai vòng liên tiếp. Khi một lá chết, role thật của nó được công khai.
+
+Sau Ban ngày, hai bên bí mật khóa lệnh đêm. Khi cả hai đã chọn, card nguồn bước lên và lộ role nhưng mục tiêu vẫn được giữ kín. Hai bên sau đó mới chọn khiên; card được bảo hộ tiến về giữa sân nhưng không lật. Bàn giữ trạng thái khoảng 2,4 giây rồi xử lý đồng thời. Khiên chặn một hiệu ứng đêm bất lợi gồm cắn, độc hoặc soi; kết quả chỉ được công bố tại bình minh.
 
 Lệnh `chat` tạo snapshot công khai ngắn để gửi nguyên văn vào cuộc trò chuyện. Mỗi người chỉ cần giữ bí mật tay riêng của mình và gửi action; một người chạy CLI làm trọng tài/state keeper.

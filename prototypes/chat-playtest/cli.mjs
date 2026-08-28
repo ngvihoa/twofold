@@ -26,8 +26,9 @@ const color = {
 function boardLine(card) {
   const status = card.alive ? "LIVE" : "DEAD";
   const shield = card.shielded ? " SHIELD" : "";
+  const staged = card.staged ? " STAGED" : "";
   const vote = card.canVote ? " VOTE" : "";
-  return `${card.id.padEnd(3)} ${status.padEnd(4)} ${card.role.padEnd(14)}${shield}${vote}`;
+  return `${card.id.padEnd(3)} ${status.padEnd(4)} ${card.role.padEnd(14)}${shield}${staged}${vote}`;
 }
 
 function render() {
@@ -92,6 +93,7 @@ function parseCommand(line) {
     if (kind === "pass") return { type: "night.submit", seat, kind };
     return { type: "night.submit", seat, kind, source: parts.shift()?.toUpperCase(), target: parts.shift()?.toUpperCase() };
   }
+  if (command === "resolve") return { type: "night.resolve" };
   if (command === "final") return { type: "final.submit", seat: parts.shift()?.toUpperCase(), guess: roleKey(parts.shift()) };
   return { type: command, parts };
 }
@@ -105,6 +107,7 @@ function helpText() {
     "day A pass | day A shoot A9 B3 | day A revive A8 A2 | day A mark A6 B4 | day A purify A5 B4",
     "defend A pass | defend A A4",
     "night A pass | night A attack A5 B4 | night A inspect A7 B4 | night A poison A8 B4",
+    "resolve  (xử lý đồng thời sau khi hai bên đã đặt khiên)",
     "final A guard",
   ].join("  ||  ");
 }

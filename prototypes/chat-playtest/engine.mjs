@@ -254,8 +254,8 @@ function submitCouncil(state, action) {
 
 function advanceDay(state, seat) {
   if (checkWinner(state)) return;
-  state.phase = seat === "A" ? "day-B" : "dusk-defense";
-  if (state.phase === "dusk-defense") addLog(state, "Hai bên bí mật chọn vị trí đặt khiên.");
+  state.phase = seat === "A" ? "day-B" : "night-plan";
+  if (state.phase === "night-plan") addLog(state, "Hai bên bí mật khóa lệnh đêm. Mục tiêu chưa công khai.");
 }
 
 function submitDay(state, action) {
@@ -345,8 +345,8 @@ function resolveDefenses(state) {
     state.players[seat].lastGuardTarget = target.id;
     addLog(state, `${seat} công khai khiên tại ${target.id}. Role mục tiêu và Bảo vệ vẫn ẩn.`);
   }
-  state.phase = "night-main";
-  addLog(state, "Hai bên nhìn thấy vị trí có khiên và khóa Main Order ban đêm.");
+  state.phase = "night-resolution";
+  addLog(state, "Nguồn lệnh và vị trí có khiên đã lên sân. Đêm sẽ xử lý sau nhịp chờ.");
 }
 
 function submitDefense(state, action) {
@@ -389,6 +389,16 @@ function validateNightAction(state, action) {
   if (!target.alive || !target.id.startsWith(otherSeat(action.seat))) throw new Error("Night target không hợp lệ.");
 }
 
+function stageNight(state) {
+  for (const seat of ["A", "B"]) {
+    const action = state.players[seat].night;
+    if (action.kind === "pass") continue;
+    reveal(cardById(state, action.source));
+  }
+  state.phase = "dusk-defense";
+  addLog(state, "Hai nguồn lệnh đêm bước lên sân; mục tiêu vẫn bí mật. Hai bên chọn vị trí đặt khiên.");
+}
+
 function resolveNight(state) {
   const pendingDeaths = [];
   for (const seat of ["A", "B"]) {
@@ -402,9 +412,11 @@ function resolveNight(state) {
 
     if (action.kind === "inspect") {
       source.uses.seer -= 1;
-      reveal(source);
-      state.players[seat].notes.push(`V${state.round}: ${target.id} là ${ROLE_DEFS[target.role].name}.`);
-      addLog(state, `${seat} dùng Tiên tri. Kết quả được giữ riêng.`);
+      if (target.shielded) addLog(state, `${target.id} được khiên chặn lượt soi của ${seat}.`);
+      else {
+        state.players[seat].notes.push(`V${state.round}: ${target.id} là ${ROLE_DEFS[target.role].name}.`);
+        addLog(state, `${seat} dùng Tiên tri. Kết quả được giữ riêng.`);
+      }
       continue;
     }
 
@@ -442,13 +454,18 @@ function resolveNight(state) {
 }
 
 function submitNight(state, action) {
-  if (state.phase !== "night-main") throw new Error("Hiện không phải pha Main Order ban đêm.");
+  if (state.phase !== "night-plan") throw new Error("Hiện không phải pha khóa lệnh đêm.");
   assertSeat(action.seat);
   if (state.players[action.seat].night) throw new Error(`${action.seat} đã khóa Main Order.`);
   validateNightAction(state, action);
   state.players[action.seat].night = { ...action };
   addLog(state, `${action.seat} đã khóa Main Order ban đêm.`);
-  if (state.players.A.night && state.players.B.night) resolveNight(state);
+  if (state.players.A.night && state.players.B.night) stageNight(state);
+}
+
+function submitNightResolution(state) {
+  if (state.phase !== "night-resolution") throw new Error("Đêm chưa sẵn sàng xử lý.");
+  resolveNight(state);
 }
 
 function submitFinalGuess(state, action) {
@@ -480,6 +497,7 @@ export function dispatch(currentState, action) {
   else if (action.type === "day.submit") submitDay(state, action);
   else if (action.type === "defense.submit") submitDefense(state, action);
   else if (action.type === "night.submit") submitNight(state, action);
+  else if (action.type === "night.resolve") submitNightResolution(state);
   else if (action.type === "final.submit") submitFinalGuess(state, action);
   else throw new Error("Action type không hợp lệ.");
   return state;
@@ -494,6 +512,7 @@ export function publicView(state) {
       role: card.revealed ? ROLE_DEFS[card.role].name : "?",
       faction: card.revealed ? ROLE_DEFS[card.role].faction : "?",
       shielded: card.shielded,
+      staged: Boolean(state.players[seat].night?.source === card.id),
       canVote: card.alive && card.revealed && ROLE_DEFS[card.role].faction === "village" && card.voteCooldown === 0,
       votePower: card.alive && card.revealed && ROLE_DEFS[card.role].faction === "village" && card.voteCooldown === 0 ? 1 : 0,
     }));

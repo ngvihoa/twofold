@@ -55,6 +55,9 @@ button:disabled { cursor: not-allowed; opacity: .42; }
 .board-own .role-card.revealed { --advance: -12px; }
 .role-card.hidden-role { filter: saturate(.88); }
 .role-card.shielded { border-color: #9cb9ff; box-shadow: 0 0 0 2px #7398eb, 0 0 18px rgba(115,152,235,.38); }
+.board-own .role-card.shielded { --advance: -14px; }
+.board-opponent .role-card.shielded { --advance: 14px; }
+.role-card.staged { border-color: #a9bfff; box-shadow: 0 0 0 2px rgba(120,148,226,.7), 0 0 25px rgba(91,121,207,.55); animation: staged-order 1.15s ease-in-out infinite alternate; }
 .role-card.actionable { cursor: pointer; border-color: #f0c45f; animation: action-ready 1s ease-in-out infinite alternate; }
 .role-card.targetable { cursor: crosshair; border-color: #e66c61; box-shadow: 0 0 0 2px rgba(230,108,97,.65), 0 0 22px rgba(230,86,77,.52); animation: target-ready .7s ease-in-out infinite alternate; }
 .role-card.selected-card { border-color: #76d5f2; box-shadow: 0 0 0 2px #3e9fbd, 0 0 22px rgba(78,183,215,.55); }
@@ -68,6 +71,7 @@ button:disabled { cursor: not-allowed; opacity: .42; }
 @keyframes choice-ring { 70%,100% { inset: -11px; opacity: 0; } }
 @keyframes cast-card { 0% { transform: translateY(var(--advance)) scale(1); } 42% { transform: translateY(calc(var(--advance) - 18px)) scale(1.11) rotate(-2deg); filter: brightness(1.45); } 100% { transform: translateY(var(--advance)) scale(1); } }
 @keyframes impact-card { 0%,35% { transform: translateY(var(--advance)); } 55% { transform: translateY(var(--advance)) translateX(-7px) rotate(-3deg); filter: brightness(1.65); } 72% { transform: translateY(var(--advance)) translateX(6px) rotate(2deg); } 100% { transform: translateY(var(--advance)); } }
+@keyframes staged-order { to { filter: brightness(1.16); box-shadow: 0 0 0 3px rgba(137,166,241,.78), 0 0 34px rgba(91,121,207,.72); } }
 .card-shell { position: absolute; inset: 3px; display: grid; grid-template-rows: 22px 1fr 18px; overflow: hidden; border: 1px solid rgba(13,10,7,.72); border-radius: 4px; background: #17191d; }
 .card-head { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 3px; padding: 3px 4px; color: #17120b; background: linear-gradient(90deg, color-mix(in srgb, var(--frame) 78%, #e8d4a8 22%), color-mix(in srgb, var(--frame) 88%, #111 12%)); border-bottom: 1px solid rgba(0,0,0,.7); }
 .role-name { overflow: hidden; font-family: Georgia, "Times New Roman", serif; font-size: 8px; font-weight: 900; line-height: 1; text-overflow: ellipsis; white-space: nowrap; text-shadow: 0 1px rgba(255,255,255,.18); }
@@ -79,6 +83,7 @@ button:disabled { cursor: not-allowed; opacity: .42; }
 .card-back span { z-index: 1; font: 900 15px Georgia, serif; letter-spacing: -.08em; }
 .reveal-badge { position: absolute; top: 3px; left: 3px; padding: 3px 4px; border: 1px solid rgba(255,255,255,.45); border-radius: 3px; background: #e8b84e; color: #17120a; box-shadow: 0 2px 6px rgba(0,0,0,.5); font-size: 6px; font-weight: 950; letter-spacing: .04em; }
 .shield { position: absolute; top: 3px; right: 4px; display: grid; place-items: center; width: 17px; height: 17px; border: 1px solid #bad0ff; border-radius: 50%; background: #31549a; color: #e8f0ff; font-size: 11px; }
+.staged-badge { position: absolute; right: 3px; bottom: 3px; padding: 3px 4px; border: 1px solid #b9c9ff; border-radius: 3px; background: #344d91; color: #eef2ff; box-shadow: 0 2px 8px rgba(0,0,0,.55); font-size: 5px; font-weight: 950; letter-spacing: .06em; }
 .card-foot { display: grid; grid-template-columns: auto minmax(0,1fr); align-items: center; gap: 3px; padding: 2px 4px; border-top: 1px solid rgba(0,0,0,.65); background: linear-gradient(90deg, rgba(12,13,16,.96), color-mix(in srgb, var(--frame-dark) 85%, #000)); }
 .card-id { font: 900 8px/1 monospace; color: #efe1bd; }
 .card-status { overflow: hidden; color: #c7c1b5; font-size: 6px; font-weight: 800; letter-spacing: .04em; text-align: right; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
@@ -139,6 +144,9 @@ button:disabled { cursor: not-allowed; opacity: .42; }
 .battle-cancel { background: transparent; color: #aeb0b5; }
 .role-guess-grid button { font-size: 10px; }
 .bot-battle { place-items: center; text-align: center; }
+.night-verdict { place-items: center; text-align: center; border-color: rgba(130,155,224,.36); }
+.verdict-moon { display: grid; place-items: center; width: 42px; height: 42px; border: 1px solid #9eb2e8; border-radius: 50%; background: #1a2238; color: #cad5f6; font-size: 23px; box-shadow: 0 0 24px rgba(105,132,207,.38); animation: verdict-breathe 1s ease-in-out infinite alternate; }
+@keyframes verdict-breathe { to { transform: scale(1.08); box-shadow: 0 0 34px rgba(105,132,207,.62); } }
 
 .lifted-slot { display: grid; place-items: center; align-content: center; gap: 5px; min-height: 118px; border: 1px dashed rgba(226,188,105,.36); border-radius: 7px; background: linear-gradient(145deg, rgba(214,172,85,.07), rgba(0,0,0,.13)); color: #807864; animation: slot-open .45s ease both; }
 .lifted-slot > span { font: 900 10px monospace; color: #b7a57d; }
@@ -163,6 +171,7 @@ button:disabled { cursor: not-allowed; opacity: .42; }
 .revealed-cards .role-card.targetable { animation: target-ready .7s ease-in-out infinite alternate; }
 .revealed-cards .role-card.move-source { animation: cast-card .72s cubic-bezier(.2,.9,.2,1) both; }
 .revealed-cards .role-card.move-target { animation: impact-card .72s .18s cubic-bezier(.2,.9,.2,1) both; }
+.revealed-cards .role-card.staged { animation: staged-order 1.15s ease-in-out infinite alternate; }
 .empty-lane { color: #6d7077; font-size: 9px; font-style: italic; }
 @keyframes reveal-center { from { opacity: 0; transform: translateY(var(--reveal-origin, -24px)) scale(.72) rotate(-4deg); } }
 .lane-a { --reveal-origin: 24px; }
