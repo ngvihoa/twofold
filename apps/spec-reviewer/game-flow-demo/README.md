@@ -1,8 +1,8 @@
 # PROTOTYPE - Twofold chat playtest
 
-Prototype này trả lời một câu hỏi: nhịp `Hội đồng -> Ban ngày -> khóa lệnh đêm -> lộ nguồn -> Phòng thủ -> xử lý đêm -> Bình minh` có tạo ra đủ thông tin để phản ứng mà không biến phòng thủ thành đáp án hoàn hảo hay không?
+Prototype này trả lời một câu hỏi: nhịp `Bình minh -> Thanh trừng (V6+) -> Ban ngày -> Vote (V2+) -> khóa lệnh đêm -> Phòng thủ -> xử lý đêm` có tạo ra đủ thông tin để phản ứng mà không biến phòng thủ thành đáp án hoàn hảo hay không?
 
-Hai vòng mở màn bắt đầu thẳng ở Ban ngày, chưa có Hội đồng/treo cổ. Hội đồng đầu tiên xuất hiện tại bình minh Vòng 3 và là hành động phụ trước Ban ngày, không tiêu lượt chính.
+Vòng 1 bắt đầu thẳng ở Ban ngày và chưa có Vote. Từ Vòng 2, Vote diễn ra sau khi hai bên hoàn tất hành động Ban ngày và trước Ban đêm; nó không tiêu Main Order.
 
 Trước Vòng 1, mỗi bên bí mật sắp xếp thứ tự 10 lá rồi khóa đội hình. Vị trí đã khóa trở thành mã A1–A10 hoặc B1–B10 trong suốt ván.
 
@@ -45,6 +45,9 @@ Bố cục A — Bàn đối đầu là phương án duy nhất đã được gi
 ## Lệnh chính
 
 ```text
+begin
+purge A A3
+purge A A3 B4
 council A pass
 council A B3 A1 A2 A3
 council A B3 guard A1 A2 A3
@@ -66,15 +69,17 @@ public
 quit
 ```
 
-Hội đồng chỉ mở từ Vòng 3 và cần đúng ba role phe Dân còn sống. Có thể chọn các lá còn úp ở hàng dưới; ba người tham gia sẽ bước lên và lộ diện khi Hội đồng xử lý. Treo cổ không tiêu quyền loại bỏ, không làm mất lượt chính và ba người tham gia vẫn được dùng kỹ năng Ban ngày. Đoán sai khóa ba người đó khỏi Hội đồng kế tiếp. Sói Hộ Vệ có thể bí mật bảo kê trước một lá và lộ diện nếu chặn đúng án treo cổ.
+Hội đồng mở từ Vòng 2 sau Ban ngày và cần đúng ba role phe Dân còn sống. Dân làng đóng góp 2 phiếu nhưng vẫn chỉ tính là một trong ba nhân vật. Có thể chọn các lá còn úp; ba người tham gia sẽ bước lên và lộ diện khi Hội đồng xử lý. Treo cổ không tiêu Main Order. Đoán sai khóa ba người đó khỏi Hội đồng kế tiếp. Sói Hộ Vệ có thể bí mật bảo kê trước một lá và lộ diện nếu chặn đúng án treo cổ.
 
 Nếu mục tiêu Hội đồng đã nằm ngửa trên sân, án treo được xử lý ngay và không cần đoán role. Nếu mục tiêu còn úp, người chơi chỉ được chọn trong các role chưa lộ đủ số lượng của bộ bài; ví dụ Ma sói vẫn còn trong danh sách sau khi mới lộ một trong hai lá.
 
 Kẻ báo thù công khai đánh dấu một mục tiêu Ban ngày; nếu chết trước bình minh kế tiếp, mục tiêu chết theo. Mục sư có một lần thanh tẩy: giết đúng phe Sói, nhưng tự chết nếu chọn nhầm phe Dân.
 
-Bảo vệ chỉ công khai vị trí có khiên. Role của mục tiêu và vị trí Bảo vệ vẫn giữ kín; không được bảo vệ cùng vị trí hai vòng liên tiếp. Khi một lá chết, role thật của nó được công khai.
+Bảo vệ chỉ công khai vị trí có khiên. Role của mục tiêu và Bảo vệ vẫn giữ kín; không được tự bảo vệ hoặc bảo vệ cùng một lá trong hai đêm liên tiếp. Khiên chặn cắn, độc và Huyết Nguyệt, nhưng không chặn Tiên tri.
 
-Sau Ban ngày, hai bên bí mật khóa lệnh đêm. Khi cả hai đã chọn, card nguồn bước lên và lộ role nhưng mục tiêu vẫn được giữ kín. Hai bên sau đó mới chọn khiên; card được bảo hộ tiến về giữa sân nhưng không lật. Bàn giữ trạng thái khoảng 3,2 giây rồi xử lý đồng thời; pha Bình minh tiếp tục khóa thao tác thêm 3 giây để công khai kết quả. Khiên chặn một hiệu ứng đêm bất lợi gồm cắn, độc hoặc soi.
+Sau Vote, hai bên bí mật khóa lệnh đêm rồi chọn khiên. Nguồn và mục tiêu của lệnh đêm đều giữ kín tới Bình minh; chỉ vị trí có khiên được công khai trước. Bình minh khóa thao tác và lần lượt trình bày từng nguồn, mục tiêu và kết quả.
+
+Từ Vòng 6 có pha bắt buộc **Thanh trừng** trước Ban ngày: V6 Cắt bỏ, V7 Đảo chiến tuyến, V8 Ép lộ diện và V9 Khóa mạch. Khóa mạch vô hiệu kỹ năng và quyền Vote của lá được chọn trong vòng hiện tại.
 
 Từ Vòng 6, mỗi bên mở khóa card chiến thuật **Huyết Nguyệt**. Card này dùng Main Order để tấn công một role đối thủ đã lộ, vẫn bị khiên chặn và hồi lại sau hai vòng. Nó tạo áp lực cuối game khi các role attack ban đầu đã chết hoặc hết charge, nhưng vẫn giữ giới hạn một nguồn loại bỏ trong pha đêm. Quyền loại bỏ của Ban ngày và Ban đêm được tính riêng theo giới hạn một hành động chính trong mỗi pha.
 

@@ -8,7 +8,7 @@
 
 - Tên, mô tả và trạng thái ưu tiên tiếng Việt.
 - Một vai trò có thể dùng Ban ngày, Ban đêm, bị động hoặc cả ngày lẫn đêm.
-- Dùng kỹ năng làm lộ vai trò theo rule hiện tại.
+- Kỹ năng Ban ngày lộ role khi resolve; nguồn lệnh Ban đêm giữ kín cho tới Bình minh. Voter Hội đồng còn ẩn sẽ lộ khi Vote được xác nhận.
 - Vai trò dùng ở cả hai pha cần giới hạn rõ để không mạnh gấp đôi.
 - Alpha nên bắt đầu với 4–6 loại dễ hiểu, rồi mới thêm vai trò kiểm soát/đánh lừa phức tạp.
 
@@ -16,10 +16,10 @@
 
 | Vai trò | Ban ngày | Ban đêm | Bị động / ghi chú | Trạng thái |
 |---|---|---|---|---|
-| Dân làng | Không có kỹ năng; có thể Treo cổ như luật chung | — | Dùng làm mồi nhử và che vai trò quan trọng | Ứng viên bộ cơ bản |
-| Ma sói | — | Chọn một lá đối thủ để tấn công | Cần chốt số lần dùng | Ứng viên bộ cơ bản |
-| Tiên tri | — | Xem vai trò thật của một lá đối thủ | Kết quả chỉ người dùng biết | Ứng viên bộ cơ bản |
-| Bảo vệ | — | Chọn một lá của mình để bảo vệ trong đêm | Cần chốt phạm vi chặn | Ứng viên bộ cơ bản |
+| Dân làng | Không có kỹ năng; tham gia Hội đồng từ Vòng 2 | — | Có trọng số 2 khi Vote; voter khác có trọng số 1 | Đang thử trong prototype |
+| Ma sói | — | Chọn một lá đối thủ để tấn công | Nguồn và mục tiêu giữ kín tới Bình minh | Đang thử trong prototype |
+| Tiên tri | — | Soi một lá đối thủ; lần hai kết liễu lá phe tối đã soi | Kết quả chỉ người dùng biết; khiên không chặn soi | Đang thử trong prototype |
+| Bảo vệ | — | Chọn một lá khác của mình để bảo vệ trong đêm | Không tự bảo vệ, không chọn cùng lá hai đêm liên tiếp; vị trí khiên công khai nhưng hai role vẫn ẩn | Đang thử trong prototype |
 | Phù thủy | Hồi sinh một lá đã chết | Đầu độc một lá đối thủ | Hai kỹ năng khác nhau; giới hạn cần chốt | Đã chốt hướng kỹ năng |
 | Thợ săn | — | — | Khi bị loại, chọn một lá đối thủ kéo theo | Ứng viên bộ cơ bản |
 | Trưởng làng | Một lần trong trận, Treo cổ sai mà không mất lượt (đề xuất) | — | Cần playtest để tránh vòng lặp hành động | Draft |

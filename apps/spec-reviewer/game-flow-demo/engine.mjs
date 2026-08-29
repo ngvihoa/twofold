@@ -53,15 +53,18 @@ function shuffledDeck(seed, seat) {
   }
   return deck.map((role, index) => ({
     id: `${seat}${index + 1}`,
+    instanceId: `${seat}:${index + 1}`,
     role,
     alive: true,
     revealed: false,
     shielded: false,
+    purgeLockedRound: -1,
+    seerInspected: null,
     dayExhausted: false,
     voteCooldown: 0,
     uses: {
-      guard: role === "guard" ? 3 : 0,
-      seer: role === "seer" ? 3 : 0,
+      guard: role === "guard" ? Infinity : 0,
+      seer: role === "seer" ? Infinity : 0,
       revive: role === "witch" ? 1 : 0,
       poison: role === "witch" ? 1 : 0,
       bullet: role === "shooter" ? 1 : 0,
@@ -78,8 +81,8 @@ export function createGame(seed = "twofold-01") {
     phase: "setup-A",
     firstSeat: "A",
     players: {
-      A: { board: shuffledDeck(seed, "A"), setupLocked: false, eliminationSpent: false, bloodMoonReadyRound: SPECIAL_CARD.unlockRound, council: null, defense: null, lastGuardTarget: null, revengeTarget: null, night: null, finalGuess: null, notes: [] },
-      B: { board: shuffledDeck(seed, "B"), setupLocked: false, eliminationSpent: false, bloodMoonReadyRound: SPECIAL_CARD.unlockRound, council: null, defense: null, lastGuardTarget: null, revengeTarget: null, night: null, finalGuess: null, notes: [] },
+      A: { board: shuffledDeck(seed, "A"), setupLocked: false, eliminationSpent: false, bloodMoonReadyRound: SPECIAL_CARD.unlockRound, council: null, defense: null, purge: null, lastGuardTarget: null, revengeTarget: null, night: null, finalGuess: null, notes: [] },
+      B: { board: shuffledDeck(seed, "B"), setupLocked: false, eliminationSpent: false, bloodMoonReadyRound: SPECIAL_CARD.unlockRound, council: null, defense: null, purge: null, lastGuardTarget: null, revengeTarget: null, night: null, finalGuess: null, notes: [] },
     },
     result: null,
     log: ["Hai bên bí mật xếp thứ tự 10 lá trước khi lên bàn."],
@@ -161,6 +164,7 @@ function validateSource(state, seat, sourceId, role) {
   const source = cardById(state, sourceId);
   if (!source.alive || !source.id.startsWith(seat)) throw new Error("Source không hợp lệ hoặc đã chết.");
   if (source.role !== role) throw new Error(`${source.id} không phải ${ROLE_DEFS[role].name}.`);
+  if (source.purgeLockedRound === state.round) throw new Error(`${source.id} đang bị Khóa mạch và không thể dùng kỹ năng trong vòng này.`);
   return source;
 }
 
@@ -179,9 +183,80 @@ function submitSetup(state, action) {
   addLog(state, `${action.seat} đã khóa thứ tự đội hình.`);
   if (action.seat === "A") state.phase = "setup-B";
   else {
-    state.phase = "day-A";
-    addLog(state, "Hai đội hình đã lên bàn. Ban ngày Vòng 1 bắt đầu; chưa có Hội đồng.");
+    state.phase = "match-intro";
+    addLog(state, "Hai đội hình đã lên bàn. Vòng 1 sắp bắt đầu; chưa có Hội đồng.");
   }
+}
+
+export function beginRound(state) {
+  if (state.phase !== "match-intro") throw new Error("Chưa sẵn sàng bắt đầu Vòng 1.");
+  const next = clone(state);
+  next.phase = "day-A";
+  addLog(next, "Bình minh đầu tiên. Bên A bắt đầu Ban ngày Vòng 1.");
+  return next;
+}
+
+function purgeRule(round) {
+  return ["cut", "swap", "reveal", "lock"][(round - 6) % 4];
+}
+
+function resolvePurge(state) {
+  const choices = [state.players.A.purge, state.players.B.purge];
+  if (choices[0].rule === "swap") {
+    const selectedIds = choices.flatMap((choice) => [choice.target, choice.swapTarget]);
+    if (new Set(selectedIds).size !== selectedIds.length) {
+      state.players.A.purge = null;
+      state.players.B.purge = null;
+      throw new Error("Đảo chiến tuyến bị trùng vị trí; mỗi lá chỉ được tham gia một lần.");
+    }
+    const snapshot = new Map(
+      ["A", "B"].flatMap((seat) => state.players[seat].board).map((card) => [card.id, card]),
+    );
+    const replacements = new Map();
+    for (const choice of choices) {
+      replacements.set(choice.target, { ...snapshot.get(choice.swapTarget), id: choice.target });
+      replacements.set(choice.swapTarget, { ...snapshot.get(choice.target), id: choice.swapTarget });
+    }
+    for (const seat of ["A", "B"]) {
+      state.players[seat].board = state.players[seat].board.map((card) => replacements.get(card.id) || card);
+    }
+  } else {
+    for (const choice of choices) {
+      if (choice.target === null) continue;
+      const card = cardById(state, choice.target);
+      if (choice.rule === "cut") eliminate(state, card, `Thanh trừng Vòng ${state.round}`);
+      if (choice.rule === "reveal") reveal(card);
+      if (choice.rule === "lock") card.purgeLockedRound = state.round;
+    }
+  }
+  state.players.A.purge = null;
+  state.players.B.purge = null;
+  if (!checkWinner(state)) state.phase = "day-A";
+}
+
+function submitPurge(state, action) {
+  if (state.phase !== "purge") throw new Error("Hiện không phải pha Thanh trừng.");
+  assertSeat(action.seat);
+  if (state.players[action.seat].purge) throw new Error(`${action.seat} đã khóa Thanh trừng.`);
+  const rule = purgeRule(state.round);
+  if (rule === "reveal" && !livingCards(state, action.seat).some((card) => !card.revealed)) {
+    state.players[action.seat].purge = { rule, target: null };
+    addLog(state, `${action.seat} không còn lá ẩn; Ép lộ diện được xác nhận không mục tiêu.`);
+    if (state.players.A.purge && state.players.B.purge) resolvePurge(state);
+    return;
+  }
+  const target = cardById(state, action.target);
+  if (!target.alive || !target.id.startsWith(action.seat)) throw new Error("Mục tiêu Thanh trừng không hợp lệ.");
+  if (rule === "reveal" && target.revealed) throw new Error("Ép lộ diện cần một lá đang ẩn.");
+  if (rule === "swap") {
+    const enemy = cardById(state, action.swapTarget);
+    if (!enemy.alive || !enemy.id.startsWith(otherSeat(action.seat))) throw new Error("Đảo chiến tuyến cần chọn một lá đối thủ còn sống.");
+    state.players[action.seat].purge = { rule, target: target.id, swapTarget: enemy.id };
+  } else {
+    state.players[action.seat].purge = { rule, target: target.id };
+  }
+  addLog(state, `${action.seat} đã khóa lựa chọn Thanh trừng.`);
+  if (state.players.A.purge && state.players.B.purge) resolvePurge(state);
 }
 
 function resolveCouncil(state) {
@@ -205,11 +280,11 @@ function resolveCouncil(state) {
     }
 
     const voters = submission.voters.map((id) => cardById(state, id));
-    const validVotes = voters.filter((card) => card.alive && card.id.startsWith(seat) && ROLE_DEFS[card.role].faction === "village" && card.voteCooldown === 0);
+    const validVotes = voters.filter((card) => card.alive && card.id.startsWith(seat) && ROLE_DEFS[card.role].faction === "village" && card.voteCooldown === 0 && card.purgeLockedRound !== state.round);
     for (const voter of validVotes) reveal(voter);
     const target = cardById(state, submission.target);
-    const votePower = validVotes.length;
-    const correct = votePower === 3 && target.alive && target.id.startsWith(otherSeat(seat)) && (target.revealed || target.role === submission.guess);
+    const votePower = validVotes.reduce((total, voter) => total + (voter.role === "villager" ? 2 : 1), 0);
+    const correct = votePower >= 3 && target.alive && target.id.startsWith(otherSeat(seat)) && (target.revealed || target.role === submission.guess);
 
     if (correct) {
       const defenderSeat = otherSeat(seat);
@@ -233,12 +308,18 @@ function resolveCouncil(state) {
   for (const item of pendingDeaths) eliminate(state, item.target, item.cause);
   state.players.A.council = null;
   state.players.B.council = null;
-  if (!checkWinner(state)) state.phase = "day-A";
+  if (!checkWinner(state)) {
+    state.players.A.eliminationSpent = false;
+    state.players.B.eliminationSpent = false;
+    state.phase = "night-plan";
+    addLog(state, "Hội đồng khép lại. Hai bên bí mật khóa lệnh đêm.");
+  }
 }
 
 function submitCouncil(state, action) {
+  if (state.phase === "purge") throw new Error("Thanh trừng cần được hoàn tất trước.");
   if (state.phase !== "council") throw new Error("Hiện không phải pha Hội đồng.");
-  if (state.round < 3) throw new Error("Hội đồng chỉ mở từ Vòng 3.");
+  if (state.round < 2) throw new Error("Hội đồng chỉ mở từ Vòng 2.");
   assertSeat(action.seat);
   if (state.players[action.seat].council) throw new Error(`${action.seat} đã khóa Hội đồng.`);
 
@@ -251,18 +332,18 @@ function submitCouncil(state, action) {
     if (!target.alive || !target.id.startsWith(action.seat)) throw new Error("Chỉ bảo kê được lá sống bên mình.");
     state.players[action.seat].council = { kind: "protect", source: source.id, target: target.id };
   } else {
-    if (state.players[action.seat].eliminationSpent) throw new Error("Quyền loại bỏ của vòng đã dùng.");
     const target = cardById(state, action.target);
     if (!target.alive || !target.id.startsWith(otherSeat(action.seat))) throw new Error("Target Hội đồng không hợp lệ.");
     const guess = target.revealed ? target.role : action.guess;
     if (!target.revealed && !ROLE_DEFS[guess]) throw new Error("Role đoán không hợp lệ.");
     if (!target.revealed && !availableRoleGuesses(state, otherSeat(action.seat)).includes(guess)) throw new Error("Role này không còn trong các khả năng chưa lộ.");
-    if (action.voters.length !== 3 || new Set(action.voters).size !== 3) throw new Error("Cần đúng ba role đã lộ khác nhau để treo cổ.");
+    if (action.voters.length !== 3 || new Set(action.voters).size !== 3) throw new Error("Cần đúng ba nhân vật khác nhau để treo cổ.");
     for (const id of action.voters) {
       const voter = cardById(state, id);
       if (!voter.alive || !voter.id.startsWith(action.seat)) throw new Error(`${id} không thể bỏ phiếu.`);
       if (ROLE_DEFS[voter.role].faction !== "village") throw new Error(`${id} không thuộc phe Dân nên không thể lập Hội đồng.`);
       if (voter.voteCooldown > 0) throw new Error(`${id} đang bị khóa vote.`);
+      if (voter.purgeLockedRound === state.round) throw new Error(`${id} đang bị Khóa mạch và không thể tham gia Vote trong vòng này.`);
     }
     state.players[action.seat].council = { kind: "accuse", target: target.id, guess, targetWasRevealed: target.revealed, voters: action.voters.map((id) => id.toUpperCase()) };
   }
@@ -272,7 +353,8 @@ function submitCouncil(state, action) {
 
 function advanceDay(state, seat) {
   if (checkWinner(state)) return;
-  state.phase = seat === "A" ? "day-B" : "night-plan";
+  state.phase = seat === "A" ? "day-B" : state.round >= 2 ? "council" : "night-plan";
+  if (state.phase === "council") addLog(state, "Ban ngày đã hoàn tất. Hội đồng Vote mở với đúng 3 voter phe dân.");
   if (state.phase === "night-plan") {
     // The removal budget is phase-scoped: a Day action must not consume the
     // separate Main Order that each player receives at Night.
@@ -366,11 +448,11 @@ function resolveDefenses(state) {
     guard.uses.guard -= 1;
     const target = cardById(state, targetId);
     target.shielded = true;
-    state.players[seat].lastGuardTarget = target.id;
+    state.players[seat].lastGuardTarget = target.instanceId;
     addLog(state, `${seat} công khai khiên tại ${target.id}. Role mục tiêu và Bảo vệ vẫn ẩn.`);
   }
   state.phase = "night-resolution";
-  addLog(state, "Nguồn lệnh và vị trí có khiên đã lên sân. Đêm sẽ xử lý sau nhịp chờ.");
+  addLog(state, "Vị trí có khiên đã công khai; nguồn và mục tiêu lệnh đêm vẫn kín tới Bình minh.");
 }
 
 function submitDefense(state, action) {
@@ -382,8 +464,9 @@ function submitDefense(state, action) {
   } else {
     const target = cardById(state, action.target);
     if (!target.alive || !target.id.startsWith(action.seat)) throw new Error("Chỉ bảo vệ được lá sống bên mình.");
-    if (state.players[action.seat].lastGuardTarget === target.id) throw new Error("Không được bảo vệ cùng một vị trí hai vòng liên tiếp.");
+    if (state.players[action.seat].lastGuardTarget === target.instanceId) throw new Error("Không được bảo vệ cùng một lá hai đêm liên tiếp.");
     const guard = state.players[action.seat].board.find((card) => card.alive && card.role === "guard" && card.uses.guard > 0);
+    if (target.instanceId === guard?.instanceId) throw new Error("Bảo vệ không được tự bảo vệ.");
     if (!guard) throw new Error("Không còn Bảo vệ hợp lệ.");
     state.players[action.seat].defense = target.id;
   }
@@ -402,6 +485,8 @@ function validateNightAction(state, action) {
   } else if (action.kind === "inspect") {
     const source = validateSource(state, action.seat, action.source, "seer");
     if (source.uses.seer < 1) throw new Error("Tiên tri đã hết lượt soi.");
+    const target = cardById(state, action.target);
+    if (target.seerInspected === "light") throw new Error("Lá phe sáng này đã được soi và không thể soi lại.");
   } else if (action.kind === "poison") {
     const source = validateSource(state, action.seat, action.source, "witch");
     if (source.uses.poison < 1) throw new Error("Phù thủy đã dùng độc.");
@@ -419,13 +504,8 @@ function validateNightAction(state, action) {
 }
 
 function stageNight(state) {
-  for (const seat of ["A", "B"]) {
-    const action = state.players[seat].night;
-    if (action.kind === "pass" || action.kind === "bloodmoon") continue;
-    reveal(cardById(state, action.source));
-  }
   state.phase = "dusk-defense";
-  addLog(state, "Hai nguồn lệnh đêm bước lên sân; mục tiêu vẫn bí mật. Hai bên chọn vị trí đặt khiên.");
+  addLog(state, "Hai bên đã khóa lệnh đêm. Nguồn và mục tiêu giữ kín tới Bình minh; hai bên chọn vị trí đặt khiên.");
 }
 
 function resolveNight(state) {
@@ -447,18 +527,21 @@ function resolveNight(state) {
     }
 
     const source = cardById(state, action.source);
+    reveal(source);
 
     if (action.kind === "inspect") {
+      if (target.seerInspected === "light") throw new Error("Lá phe sáng này đã được soi và không thể soi lại.");
       source.uses.seer -= 1;
-      if (target.shielded) addLog(state, `${target.id} được khiên chặn lượt soi của ${seat}.`);
-      else {
+      if (target.seerInspected === "dark") {
+        pendingDeaths.push({ target, cause: `Tiên tri kết liễu ${target.id}` });
+      } else {
+        target.seerInspected = ROLE_DEFS[target.role].faction === "werewolf" ? "dark" : "light";
         state.players[seat].notes.push(`V${state.round}: ${target.id} là ${ROLE_DEFS[target.role].name}.`);
         addLog(state, `${seat} dùng Tiên tri. Kết quả được giữ riêng.`);
       }
       continue;
     }
 
-    reveal(source);
     state.players[seat].eliminationSpent = true;
     if (action.kind === "poison") source.uses.poison -= 1;
     if (target.shielded) {
@@ -485,10 +568,10 @@ function resolveNight(state) {
   }
   if (checkWinner(state)) return;
   state.round += 1;
-  state.phase = state.round >= 3 ? "council" : "day-A";
+  state.phase = state.round >= 6 ? "purge" : "day-A";
   addLog(state, `Bình minh Vòng ${state.round}.`);
   if (state.round === SPECIAL_CARD.unlockRound) addLog(state, `${SPECIAL_CARD.name} thức tỉnh cho cả hai bên; dùng lại sau mỗi ${SPECIAL_CARD.cooldownRounds} vòng.`);
-  if (state.round < 3) addLog(state, `Vòng ${state.round} chưa mở treo cổ. Bên A bắt đầu lượt Ban ngày.`);
+  if (state.round === 1) addLog(state, "Vòng 1 chưa mở Vote. Bên A bắt đầu lượt Ban ngày.");
   maybeEnterFinalDuel(state);
 }
 
@@ -530,8 +613,10 @@ function submitFinalGuess(state, action) {
 
 export function dispatch(currentState, action) {
   if (currentState.phase === "ended") throw new Error("Ván đấu đã kết thúc.");
-  const state = clone(currentState);
-  if (action.type === "setup.submit") submitSetup(state, action);
+  let state = clone(currentState);
+  if (action.type === "round.begin") state = beginRound(state);
+  else if (action.type === "setup.submit") submitSetup(state, action);
+  else if (action.type === "purge.submit") submitPurge(state, action);
   else if (action.type === "council.submit") submitCouncil(state, action);
   else if (action.type === "day.submit") submitDay(state, action);
   else if (action.type === "defense.submit") submitDefense(state, action);
@@ -551,9 +636,9 @@ export function publicView(state) {
       role: card.revealed ? ROLE_DEFS[card.role].name : "?",
       faction: card.revealed ? ROLE_DEFS[card.role].faction : "?",
       shielded: card.shielded,
-      staged: Boolean(state.players[seat].night?.source === card.id),
-      canVote: card.alive && card.revealed && ROLE_DEFS[card.role].faction === "village" && card.voteCooldown === 0,
-      votePower: card.alive && card.revealed && ROLE_DEFS[card.role].faction === "village" && card.voteCooldown === 0 ? 1 : 0,
+      staged: card.revealed && Boolean(state.players[seat].night?.source === card.id),
+      canVote: card.alive && card.revealed && ROLE_DEFS[card.role].faction === "village" && card.voteCooldown === 0 && card.purgeLockedRound !== state.round,
+      votePower: card.alive && card.revealed && ROLE_DEFS[card.role].faction === "village" && card.voteCooldown === 0 && card.purgeLockedRound !== state.round ? (card.role === "villager" ? 2 : 1) : 0,
     }));
   }
   return {

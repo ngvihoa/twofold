@@ -16,8 +16,9 @@ Mở web
   → Đếm ngược 3 giây (có thể hủy)
   → Bắt đầu trận; Host = A
   → Vòng 1: Ban ngày A → B
-  → Ban đêm A → B, khóa hành động kín
+  → Từ Vòng 2: Hội đồng → Ban đêm A → B, khóa hành động kín
   → Bình minh: giải quyết và công bố kết quả
+  → Từ Vòng 6: Thanh trừng bắt buộc → Ban ngày vòng mới
   → Kiểm tra thắng/thua
       ├─ Chưa kết thúc: vòng tiếp theo
       └─ Kết thúc: kết quả → Đấu lại / Đối thủ khác / Thoát
@@ -50,15 +51,16 @@ Mở web
 2. Người chơi B thực hiện một hành động.
 3. Mỗi người chọn một trong các hành động hợp lệ:
    - dùng một kỹ năng Ban ngày;
-   - Treo cổ (chọn lá và đoán vai trò);
    - bỏ lượt.
 4. Hành động công khai được phản hồi rõ trên giao diện.
+5. Từ Vòng 2, sau lượt ngày của B là Hội đồng: chọn đúng 3 lá phe Dân còn sống làm voter. Dân làng có trọng số 2; voter khác có trọng số 1. Lá voter còn ẩn sẽ lộ khi Vote được xác nhận.
+6. Nếu mục tiêu đã lộ thì xử lý Treo cổ ngay; mục tiêu còn úp mới cần đoán một role chưa bị loại trừ bởi các lá công khai.
 
 ### 3.2 Ban đêm
 
 1. A chọn một kỹ năng Ban đêm và xác nhận.
-2. B không thấy lựa chọn của A, rồi chọn kỹ năng và xác nhận.
-3. Hai hành động được khóa; hệ thống giải quyết theo quy tắc ưu tiên chưa chốt.
+2. B chỉ biết A đã khóa lệnh, không thấy nguồn, mục tiêu hay loại action, rồi chọn kỹ năng và xác nhận.
+3. Hai hành động được khóa; vị trí có khiên được công khai ở Chạng vạng, còn nguồn và mục tiêu lệnh đêm chỉ công bố ở Bình minh.
 4. Kết quả không công bố ngay trong đêm.
 
 ### 3.3 Bình minh
@@ -68,17 +70,14 @@ Mở web
 - Kiểm tra điều kiện kết thúc trận.
 - Nếu chưa kết thúc, bắt đầu pha Ban ngày của vòng mới.
 
-### 3.4 Tai họa
+### 3.4 Thanh trừng
 
-- Vòng 1–6 dùng luật thường.
-- Từ Vòng 7, mỗi vòng thêm một Tai họa để tăng áp lực và giảm khả năng kéo dài trận.
-- Tai họa nên ngẫu nhiên hóa **tình huống/luật**, nhưng vẫn để người chơi có lựa chọn; tránh xóa ngẫu nhiên một lá quan trọng mà không có quyền phản ứng.
+- Vòng 1–5 dùng luật thường.
+- Từ Vòng 6, sau Bình minh và trước Ban ngày, hai bên bắt buộc chọn bí mật rồi resolve đồng thời một luật Thanh trừng.
+- Chu kỳ prototype: Vòng 6 **Cắt bỏ**, Vòng 7 **Đảo chiến tuyến**, Vòng 8 **Ép lộ diện**, Vòng 9 **Khóa mạch**, sau đó lặp lại.
+- Khóa mạch vô hiệu cả kỹ năng lẫn quyền Vote của lá bị chọn trong vòng đó.
 
-Các mẫu đầu tiên để prototype (chưa phải luật chính thức):
-
-- Mỗi bên phải tự lộ một lá.
-- Một loại bảo vệ bị vô hiệu trong vòng hiện tại.
-- Hệ thống chỉ định hai lá và người chơi phải chọn một lá để hy sinh.
+Đây là luật prototype cần human playtest, chưa phải kết luận cân bằng cuối cùng.
 
 ## 4. Kết thúc trận
 

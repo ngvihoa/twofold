@@ -59,10 +59,9 @@ async function runCheckForWorkspace(workspace) {
     return false;
   }
 
-  const cmd = workspace.scripts[checkKey];
   log.info(`Checking ${colors.bold}${workspace.name}${colors.reset} (${workspace.relativePath})...`);
 
-  const result = spawnSync("sh", ["-c", cmd], {
+  const result = spawnSync("pnpm", ["run", checkKey], {
     cwd: workspace.path,
     stdio: "inherit",
     env: { ...process.env },
