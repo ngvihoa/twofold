@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import * as React from 'react';
 import { CardRole } from '@twofold/shared-types';
+import { STANDARD_DECK } from '@twofold/game-core';
 import { Copy, Check, UserCheck, Shield, Sparkles, Swords } from 'lucide-react';
 
 export const Route = createFileRoute('/room/$id')({
@@ -11,24 +12,11 @@ export const Route = createFileRoute('/room/$id')({
   component: RoomLobbyComponent,
 });
 
-const DEFAULT_DECK: CardRole[] = [
-  CardRole.VILLAGER,
-  CardRole.VILLAGER,
-  CardRole.WEREWOLF,
-  CardRole.WEREWOLF,
-  CardRole.SEER,
-  CardRole.BODYGUARD,
-  CardRole.WITCH,
-  CardRole.HUNTER,
-  CardRole.MAYOR,
-  CardRole.DISGUISER,
-];
-
 function RoomLobbyComponent() {
   const { id: roomId } = Route.useParams();
   const navigate = useNavigate();
   const [copied, setCopied] = React.useState(false);
-  const [myDeck, setMyDeck] = React.useState<CardRole[]>(DEFAULT_DECK);
+  const [myDeck] = React.useState<CardRole[]>(() => [...STANDARD_DECK]);
   const [isReady, setIsReady] = React.useState(false);
   const [countdown, setCountdown] = React.useState<number | null>(null);
 

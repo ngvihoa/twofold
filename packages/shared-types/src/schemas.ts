@@ -95,13 +95,6 @@ export const GameActionSchema = z.discriminatedUnion('type', [
     type: z.literal(ActionType.PASS),
     payload: z.object({}),
   }),
-  z.object({
-    type: z.literal(ActionType.HUNTER_REVENGE),
-    payload: z.object({
-      targetCardIndex: z.number().min(0).max(9),
-    }),
-  }),
 ]);
 
 export type GameAction = z.infer<typeof GameActionSchema>;
-

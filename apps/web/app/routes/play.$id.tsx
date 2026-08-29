@@ -9,6 +9,7 @@ import {
   PublicCard,
   Card,
 } from '@twofold/shared-types';
+import { STANDARD_DECK } from '@twofold/game-core';
 import {
   Sun,
   Moon,
@@ -48,18 +49,18 @@ function GameBoardComponent() {
   );
 
   // 10 lá của người chơi A (thấy rõ vai trò)
-  const [myCards, setMyCards] = React.useState<Card[]>([
-    { id: 'A_0', index: 0, owner: PlayerId.PLAYER_A, role: CardRole.VILLAGER, status: CardStatus.HIDDEN, skillUsedDay: false, skillUsedNight: false, skillUsedTotal: 0 },
-    { id: 'A_1', index: 1, owner: PlayerId.PLAYER_A, role: CardRole.VILLAGER, status: CardStatus.HIDDEN, skillUsedDay: false, skillUsedNight: false, skillUsedTotal: 0 },
-    { id: 'A_2', index: 2, owner: PlayerId.PLAYER_A, role: CardRole.WEREWOLF, status: CardStatus.HIDDEN, skillUsedDay: false, skillUsedNight: false, skillUsedTotal: 0 },
-    { id: 'A_3', index: 3, owner: PlayerId.PLAYER_A, role: CardRole.WEREWOLF, status: CardStatus.HIDDEN, skillUsedDay: false, skillUsedNight: false, skillUsedTotal: 0 },
-    { id: 'A_4', index: 4, owner: PlayerId.PLAYER_A, role: CardRole.SEER, status: CardStatus.HIDDEN, skillUsedDay: false, skillUsedNight: false, skillUsedTotal: 0 },
-    { id: 'A_5', index: 5, owner: PlayerId.PLAYER_A, role: CardRole.BODYGUARD, status: CardStatus.HIDDEN, skillUsedDay: false, skillUsedNight: false, skillUsedTotal: 0 },
-    { id: 'A_6', index: 6, owner: PlayerId.PLAYER_A, role: CardRole.WITCH, status: CardStatus.HIDDEN, skillUsedDay: false, skillUsedNight: false, skillUsedTotal: 0 },
-    { id: 'A_7', index: 7, owner: PlayerId.PLAYER_A, role: CardRole.HUNTER, status: CardStatus.HIDDEN, skillUsedDay: false, skillUsedNight: false, skillUsedTotal: 0 },
-    { id: 'A_8', index: 8, owner: PlayerId.PLAYER_A, role: CardRole.MAYOR, status: CardStatus.HIDDEN, skillUsedDay: false, skillUsedNight: false, skillUsedTotal: 0 },
-    { id: 'A_9', index: 9, owner: PlayerId.PLAYER_A, role: CardRole.DISGUISER, status: CardStatus.HIDDEN, skillUsedDay: false, skillUsedNight: false, skillUsedTotal: 0 },
-  ]);
+  const [myCards] = React.useState<Card[]>(() =>
+    STANDARD_DECK.map((role, index) => ({
+      id: `A_${index}`,
+      index,
+      owner: PlayerId.PLAYER_A,
+      role,
+      status: CardStatus.HIDDEN,
+      skillUsedDay: false,
+      skillUsedNight: false,
+      skillUsedTotal: 0,
+    }))
+  );
 
   const [logs, setLogs] = React.useState<EventLogEntry[]>([
     {
@@ -343,4 +344,3 @@ function GameBoardComponent() {
     </div>
   );
 }
-

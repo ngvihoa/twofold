@@ -6,17 +6,30 @@ export enum CardRole {
   VILLAGER = 'VILLAGER',         // Dân làng
   WEREWOLF = 'WEREWOLF',         // Ma sói
   SEER = 'SEER',                 // Tiên tri
-  BODYGUARD = 'BODYGUARD',       // Bảo vệ
+  GUARD = 'GUARD',               // Bảo vệ
   WITCH = 'WITCH',               // Phù thủy
-  HUNTER = 'HUNTER',             // Thợ săn
-  MAYOR = 'MAYOR',               // Trưởng làng
-  DISGUISER = 'DISGUISER',       // Kẻ ngụy trang
+  SHOOTER = 'SHOOTER',           // Xạ thủ
+  AVENGER = 'AVENGER',           // Kẻ báo thù
+  PRIEST = 'PRIEST',             // Mục sư
+  WOLF_GUARD = 'WOLF_GUARD',     // Sói Hộ Vệ
 }
 
 export enum Faction {
   VILLAGE = 'VILLAGE',           // Phe Dân làng
   WEREWOLF = 'WEREWOLF',         // Phe Ma sói
   NEUTRAL = 'NEUTRAL',           // Phe Trung lập
+}
+
+export enum AbilityId {
+  WEREWOLF_ATTACK = 'WEREWOLF_ATTACK',
+  SEER_INSPECT = 'SEER_INSPECT',
+  GUARD_PROTECT = 'GUARD_PROTECT',
+  WITCH_REVIVE = 'WITCH_REVIVE',
+  WITCH_POISON = 'WITCH_POISON',
+  SHOOTER_SHOOT = 'SHOOTER_SHOOT',
+  AVENGER_MARK = 'AVENGER_MARK',
+  PRIEST_PURIFY = 'PRIEST_PURIFY',
+  WOLF_GUARD_RESCUE = 'WOLF_GUARD_RESCUE',
 }
 
 export enum CardStatus {
@@ -45,7 +58,6 @@ export enum ActionType {
   USE_SKILL = 'USE_SKILL',       // Dùng kỹ năng ngày/đêm
   HANG = 'HANG',                 // Treo cổ (đoán vai trò)
   PASS = 'PASS',                 // Bỏ lượt
-  HUNTER_REVENGE = 'HUNTER_REVENGE', // Kỹ năng kích hoạt khi Thợ săn chết
 }
 
 export enum WinReason {
@@ -53,4 +65,3 @@ export enum WinReason {
   SURRENDER = 'SURRENDER',       // Đối thủ nhận thua
   TIMEOUT = 'TIMEOUT',           // Hết giờ / Hết hạn kết nối lại (Reconnect timeout)
 }
-

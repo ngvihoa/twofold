@@ -11,6 +11,7 @@ import {
   ActionType,
   WinReason,
 } from '@twofold/shared-types';
+import { STANDARD_DECK } from './roles';
 
 export interface NightActionRecord {
   playerId: PlayerId;
@@ -80,18 +81,7 @@ export class GameEngine {
   }
 
   public getDefaultDeck(): CardRole[] {
-    return [
-      CardRole.VILLAGER,
-      CardRole.VILLAGER,
-      CardRole.WEREWOLF,
-      CardRole.WEREWOLF,
-      CardRole.SEER,
-      CardRole.BODYGUARD,
-      CardRole.WITCH,
-      CardRole.HUNTER,
-      CardRole.MAYOR,
-      CardRole.DISGUISER,
-    ];
+    return [...STANDARD_DECK];
   }
 
   public getState(): MasterGameState {
@@ -236,4 +226,3 @@ export class GameEngine {
     });
   }
 }
-
