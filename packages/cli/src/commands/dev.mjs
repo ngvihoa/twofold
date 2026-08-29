@@ -36,7 +36,7 @@ export async function devCommand(target) {
   log.info(`Command: ${colors.bold}${scriptCmd}${colors.reset}`);
   log.info(`Press Ctrl+C to stop.\n`);
 
-  const child = spawn("sh", ["-c", scriptCmd], {
+  const child = spawn("pnpm", ["run", scriptName], {
     cwd: selected.path,
     stdio: "inherit",
     env: { ...process.env },
@@ -44,12 +44,13 @@ export async function devCommand(target) {
 
   child.on("error", (err) => {
     log.error(`Failed to start dev server: ${err.message}`);
+    process.exitCode = 1;
   });
 
   child.on("exit", (code) => {
     if (code !== 0 && code !== null) {
       log.warn(`Dev server exited with code ${code}`);
+      process.exitCode = code;
     }
   });
 }
-
