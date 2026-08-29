@@ -65,6 +65,14 @@ const MOVE_META = {
   bloodmoon: ["◐", "Huyết Nguyệt"],
 };
 
+const COMBAT_KINDS = new Set(["attack", "poison", "purify", "shoot", "bloodmoon"]);
+const COMBAT_RESULTS = {
+  kill: "HẠ GỤC",
+  blocked: "BỊ CHẶN",
+  backfire: "PHẢN ĐÒN",
+  hit: "TRÚNG ĐÒN",
+};
+
 const app = document.querySelector("#app");
 let state = createGame("codex-web-01");
 let seat = "A";
@@ -80,8 +88,11 @@ let interaction = null;
 let lastMove = null;
 let moveTimer = null;
 let resolutionTimer = null;
+let nightReplayTimer = null;
 let dawnTimer = null;
 let dawnActive = false;
+let moveSequence = 0;
+let playedMoveId = null;
 
 const otherSeat = (value) => value === "A" ? "B" : "A";
 const ownPlayer = () => state.players[seat];
@@ -180,17 +191,29 @@ function scheduleBot() {
 function runNightResolution() {
   resolutionTimer = null;
   if (state.phase !== "night-resolution") return;
+  const ownAction = state.players.A.night;
   const opponentAction = state.players.B.night;
   try {
     state = dispatch(state, { type: "night.resolve" });
-    showMove(opponentAction, "B", { revealTarget: true });
+    const combatMoves = [
+      { action: ownAction, actor: "A" },
+      { action: opponentAction, actor: "B" },
+    ].filter(({ action }) => action && COMBAT_KINDS.has(moveKind(action)));
+    const replayMoves = combatMoves.length ? combatMoves : [{ action: opponentAction, actor: "B" }];
+    showMove(replayMoves[0].action, replayMoves[0].actor, { revealTarget: true });
+    clearTimeout(nightReplayTimer);
+    nightReplayTimer = replayMoves[1] ? setTimeout(() => {
+      nightReplayTimer = null;
+      showMove(replayMoves[1].action, replayMoves[1].actor, { revealTarget: true });
+      render();
+    }, 1450) : null;
     dawnActive = true;
     clearTimeout(dawnTimer);
     dawnTimer = setTimeout(() => {
       dawnActive = false;
       dawnTimer = null;
       render();
-    }, 3000);
+    }, replayMoves.length > 1 ? 4300 : 3200);
     feedback = "Bình minh đã phán xét toàn bộ lệnh đêm.";
   } catch (error) {
     feedback = `Lỗi xử lý đêm: ${error.message}`;
@@ -216,22 +239,44 @@ function publicCardLabel(id) {
   return card?.role && card.role !== "?" ? `${id} · ${card.role}` : id;
 }
 
+function cardState(id) {
+  return id ? state.players[id[0]]?.board.find((card) => card.id === id) : null;
+}
+
 function showMove(action, actor, { revealTarget = false } = {}) {
   const kind = moveKind(action);
   const hiddenNightTarget = action.type === "night.submit" && !revealTarget && action.target;
   const sourceVisible = action.source && (actor === seat || publicView(state).board[actor]?.find((card) => card.id === action.source)?.role !== "?");
+  const resolvedCombat = COMBAT_KINDS.has(kind) && action.target && !hiddenNightTarget;
+  const targetDied = resolvedCombat && !cardState(action.target)?.alive;
+  const sourceDied = resolvedCombat && action.source && !cardState(action.source)?.alive;
+  const outcome = !resolvedCombat
+    ? null
+    : targetDied
+      ? "kill"
+      : kind === "purify" && sourceDied
+        ? "backfire"
+        : "blocked";
+  const killerKnown = Boolean(actor !== seat && targetDied && sourceVisible);
+  const mysteryKiller = Boolean(actor !== seat && targetDied && !sourceVisible);
   lastMove = {
+    id: ++moveSequence,
     actor,
     kind,
     source: sourceVisible ? action.source : null,
     sourceLabel: kind === "bloodmoon"
-      ? SPECIAL_CARD.name
+      ? mysteryKiller ? `Kẻ giấu mặt · ${SPECIAL_CARD.name}` : SPECIAL_CARD.name
       : sourceVisible
       ? actor === seat && privateCard(action.source) ? `${action.source} · ${ROLE_DEFS[privateCard(action.source).role].name}` : publicCardLabel(action.source)
       : action.source ? "Lá ẩn" : actor === "B" && kind !== "pass" ? "Lá ẩn" : "Hệ thống",
     target: hiddenNightTarget ? null : action.target || null,
     hiddenTarget: Boolean(hiddenNightTarget),
     targetLabel: hiddenNightTarget ? "Mục tiêu bí mật" : publicCardLabel(action.target),
+    targetDied,
+    sourceDied,
+    outcome,
+    killerKnown,
+    mysteryKiller,
   };
   clearTimeout(moveTimer);
   moveTimer = setTimeout(() => {
@@ -290,7 +335,13 @@ function cardMarkup(card, isOwn, setupIndex = -1) {
   const shownName = known ? roleName : "Bí danh";
   const directAction = isOwn ? actionForOwnCard(secret) : null;
   const targetable = directTargetIds().has(card.id);
-  const selected = interaction?.source === card.id || interaction?.target === card.id || interaction?.voters?.includes(card.id);
+  const selectedSource = interaction?.source === card.id;
+  const selected = selectedSource || interaction?.target === card.id || interaction?.voters?.includes(card.id);
+  const selectionPhase = selectedSource && state.phase === "night-plan"
+    ? "ĐÃ CHỌN · ĐÊM"
+    : selectedSource && state.phase.startsWith("day-")
+      ? "ĐÃ CHỌN · NGÀY"
+      : null;
   const status = !card.alive
     ? "Đã chết"
     : isRevealed
@@ -298,7 +349,7 @@ function cardMarkup(card, isOwn, setupIndex = -1) {
       : isOwn ? "Đang ẩn" : "Đang sống";
   const moveSource = lastMove?.source === card.id;
   const moveTarget = lastMove?.target === card.id;
-  return `<article class="role-card faction-${faction} phase-${phase} ${isSetup ? "setup-card" : ""} ${directAction ? "actionable" : ""} ${targetable ? "targetable" : ""} ${selected ? "selected-card" : ""} ${moveSource ? "move-source" : ""} ${moveTarget ? "move-target" : ""} ${card.staged ? "staged" : ""} ${card.alive ? "" : "dead"} ${isRevealed ? "revealed" : "hidden-role"} ${card.shielded ? "shielded" : ""}" ${isSetup ? `draggable="true" data-setup-card="${card.id}"` : ""} ${directAction ? `data-direct-source="${card.id}" data-direct-kind="${directAction.kind}"` : ""} ${targetable ? `data-direct-target="${card.id}"` : ""}>
+  return `<article class="role-card faction-${faction} phase-${phase} ${isSetup ? "setup-card" : ""} ${directAction ? "actionable" : ""} ${targetable ? "targetable" : ""} ${selected ? "selected-card" : ""} ${moveSource ? "move-source" : ""} ${moveTarget ? "move-target" : ""} ${card.staged ? "staged" : ""} ${card.alive ? "" : "dead"} ${isRevealed ? "revealed" : "hidden-role"} ${card.shielded ? "shielded" : ""}" data-card-id="${card.id}" ${isSetup ? `draggable="true" data-setup-card="${card.id}"` : ""} ${directAction ? `data-direct-source="${card.id}" data-direct-kind="${directAction.kind}"` : ""} ${targetable ? `data-direct-target="${card.id}"` : ""}>
     <div class="card-shell">
       <header class="card-head"><strong class="role-name" title="${shownName}">${shownName}</strong><span class="phase-rune" title="Pha kỹ năng">${phaseMark}</span></header>
       <div class="art-window">
@@ -311,6 +362,7 @@ function cardMarkup(card, isOwn, setupIndex = -1) {
     </div>
     ${directAction && !isSetup ? `<span class="action-hint">${directAction.label}</span>` : ""}
     ${targetable && !isSetup ? `<span class="target-hint">CHỌN MỤC TIÊU</span>` : ""}
+    ${selectionPhase ? `<span class="selection-phase">${selectionPhase}</span>` : ""}
     ${isSetup ? `<div class="setup-controls"><button type="button" data-setup-move="-1" data-setup-id="${card.id}" aria-label="Đưa ${shownName} sang trái">‹</button><strong>${setupIndex + 1}</strong><button type="button" data-setup-move="1" data-setup-id="${card.id}" aria-label="Đưa ${shownName} sang phải">›</button></div>` : ""}
     ${known && !isSetup ? `<div class="skill-tooltip"><strong>${shownName}</strong><span>${ROLE_SKILLS[roleKey]}</span>${directAction ? `<em>Nhấp để ${directAction.label.toLowerCase()}</em>` : ""}</div>` : ""}
   </article>`;
@@ -351,7 +403,54 @@ function moveReplayMarkup() {
     <span class="move-icon">${icon}</span>
     <span class="move-card target">${lastMove.target || lastMove.hiddenTarget ? lastMove.targetLabel : label}</span>
     <strong>${label}</strong>
+    ${lastMove.outcome ? `<span class="move-result result-${lastMove.outcome}">${COMBAT_RESULTS[lastMove.outcome]}</span>` : ""}
   </div>`;
+}
+
+function playCombatEffect() {
+  if (!lastMove?.target || !COMBAT_KINDS.has(lastMove.kind) || playedMoveId === lastMove.id) return;
+  const layer = document.querySelector(".combat-fx-layer");
+  const target = document.querySelector(`[data-card-id="${lastMove.target}"]`);
+  if (!layer || !target) return;
+
+  const source = lastMove.source ? document.querySelector(`[data-card-id="${lastMove.source}"]`) : null;
+  const targetRect = target.getBoundingClientRect();
+  const sourceRect = source?.getBoundingClientRect();
+  const startX = sourceRect ? sourceRect.left + sourceRect.width / 2 : targetRect.left + targetRect.width / 2;
+  const startY = sourceRect ? sourceRect.top + sourceRect.height / 2 : Math.max(72, targetRect.top - 120);
+  const endX = targetRect.left + targetRect.width / 2;
+  const endY = targetRect.top + targetRect.height / 2;
+  const travelX = endX - startX;
+  const travelY = endY - startY;
+  const distance = Math.hypot(travelX, travelY);
+  const angle = Math.atan2(travelY, travelX) * 180 / Math.PI;
+  const [icon] = MOVE_META[lastMove.kind] || ["◆"];
+  const result = COMBAT_RESULTS[lastMove.outcome] || COMBAT_RESULTS.hit;
+
+  playedMoveId = lastMove.id;
+  source?.classList.add("fx-attacker");
+  if (lastMove.killerKnown && source) source.classList.add("fx-known-killer");
+  target.classList.add(lastMove.outcome === "blocked" ? "fx-blocked" : "fx-hit");
+  if (lastMove.targetDied) target.classList.add("fx-killed");
+  if (lastMove.sourceDied && source) source.classList.add("fx-killed");
+
+  const killerCue = lastMove.killerKnown && source
+    ? `<div class="killer-caption known"><span>HUNG THỦ</span><strong>${lastMove.sourceLabel}</strong></div>`
+    : lastMove.mysteryKiller
+      ? `<div class="mystery-assailant"><span class="mystery-mark">?</span><strong>BỊ KẺ GIẤU MẶT HÃM HẠI</strong><small>Danh tính kẻ ra tay chưa được công khai</small></div>`
+      : "";
+  layer.innerHTML = `<div class="combat-trail fx-${lastMove.kind}"></div>
+    <div class="combat-projectile fx-${lastMove.kind}"><span>${icon}</span></div>
+    <div class="combat-impact outcome-${lastMove.outcome || "hit"}"><i></i><strong>${result}</strong></div>
+    ${killerCue}`;
+  layer.style.setProperty("--start-x", `${startX}px`);
+  layer.style.setProperty("--start-y", `${startY}px`);
+  layer.style.setProperty("--end-x", `${endX}px`);
+  layer.style.setProperty("--end-y", `${endY}px`);
+  layer.style.setProperty("--travel-x", `${travelX}px`);
+  layer.style.setProperty("--travel-y", `${travelY}px`);
+  layer.style.setProperty("--distance", `${distance}px`);
+  layer.style.setProperty("--angle", `${angle}deg`);
 }
 
 function activeForSeat() {
@@ -504,13 +603,15 @@ function commandDockMarkup() {
 }
 
 function render() {
-  document.body.className = `duel-only scene-${visualScene()}`;
+  const targeting = interaction && (state.phase.startsWith("day-") || state.phase === "night-plan") ? " targeting-active" : "";
+  document.body.className = `duel-only scene-${visualScene()}${targeting}`;
   const topbar = `<header class="topbar"><div class="brand"><span class="brand-mark">TF</span>TWOFOLD</div><span class="round">Local playtest · Vòng ${state.round}</span><span class="phase-chip">${roundTitle()}</span><div class="seat-toggle"><span class="human-seat">A · BẠN</span><span class="bot-seat ${botNeedsTurn() ? "thinking" : ""}"><i></i>B · BOT</span></div><button class="reset" type="button" data-reset>Reset</button></header>`;
   const arena = arenaMarkup();
   const history = historyMarkup();
   const body = `<div class="play-grid">${arena}<div class="side-rail">${history}${commandDockMarkup()}</div></div>`;
-  app.innerHTML = `<div class="shell">${topbar}${body}</div>`;
+  app.innerHTML = `<div class="shell">${topbar}${body}<div class="combat-fx-layer" aria-hidden="true"></div></div>`;
   syncConditionalFields();
+  requestAnimationFrame(playCombatEffect);
   if (!dawnActive) scheduleBot();
   scheduleNightResolution();
 }
@@ -647,9 +748,13 @@ document.addEventListener("click", (event) => {
     moveTimer = null;
     clearTimeout(resolutionTimer);
     resolutionTimer = null;
+    clearTimeout(nightReplayTimer);
+    nightReplayTimer = null;
     clearTimeout(dawnTimer);
     dawnTimer = null;
     dawnActive = false;
+    playedMoveId = null;
+    moveSequence = 0;
     clearTimeout(botTimer);
     botTimer = null;
     feedback = "Ván mới đã sẵn sàng.";
