@@ -708,6 +708,7 @@ function directTargetIds() {
 function presentationClassFor(cardId) {
   if (travelingCardId === cardId) return "card-travel-arrival";
   if (!actionPresentation) return "";
+  if (!actionPresentation) return "";
   if (actionPresentation.type === "council-resolution" && actionPresentation.stage === "voter" && actionPresentation.voterId === cardId) return "presentation-pulse presentation-source";
   const step = actionPresentation.type === "night-staging"
     ? actionPresentation.steps[actionPresentation.index]
