@@ -21,7 +21,13 @@ body { position: relative; margin: 0; min-width: 320px; min-height: 100vh; overf
 body::before, body::after { content: ""; position: fixed; inset: 0; pointer-events: none; }
 body::before { z-index: 0; background: radial-gradient(circle at 50% -10%, var(--sky-glow) 0, var(--sky-mid) 38%, var(--sky-base) 82%); opacity: 1; transition: background 1.1s ease, opacity .8s ease; }
 body::after { z-index: 20; opacity: 0; }
-body.scene-purge { --sky-glow: #6b2026; --sky-mid: #241216; --sky-base: #0d080a; }
+.round-intro-overlay { position: fixed; z-index: 100; inset: 0; display: grid; place-items: center; padding: 24px; background: rgba(5,6,8,.68); backdrop-filter: blur(5px); }
+.round-intro-card { display: grid; justify-items: center; gap: 12px; width: min(560px,100%); padding: 40px 44px; border: 1px solid rgba(255,222,150,.7); border-radius: 18px; background: radial-gradient(circle at 50% 0, rgba(255,216,126,.3), transparent 58%), rgba(28,24,18,.97); box-shadow: 0 0 0 1px rgba(255,228,169,.12), 0 24px 80px rgba(0,0,0,.72), 0 0 55px rgba(239,185,74,.24); text-align: center; animation: round-intro-in .7s cubic-bezier(.16,.86,.22,1) both; }
+.round-intro-kicker { color: #f5cc78; font-size: 12px; font-weight: 950; letter-spacing: .18em; }
+.round-intro-card strong { color: #fff1c9; font: 900 clamp(30px,5vw,54px)/1 Georgia,serif; letter-spacing: .04em; text-shadow: 0 3px 18px rgba(245,192,81,.3); }
+.round-intro-card p { max-width: 420px; margin: 0; color: #d5cdbd; font-size: 14px; line-height: 1.55; }
+.round-intro-card .primary { margin-top: 8px; min-height: 46px; padding: 10px 20px; border: 1px solid #f0cf84; border-radius: 8px; background: #e8bd62; color: #161108; font-weight: 900; }
+@keyframes round-intro-in { from { opacity: 0; transform: scale(.9) translateY(18px); } to { opacity: 1; transform: scale(1) translateY(0); } }
 .scene-purge .phase-chip { border: 1px solid rgba(255,100,90,.55); background: #551b21; color: #ffd0c9; box-shadow: 0 0 24px rgba(214,70,63,.35); }
 .scene-purge .center-table { border-color: rgba(214,70,63,.34); background: radial-gradient(circle at center, rgba(169,42,48,.3) 0 18%, transparent 19%), linear-gradient(90deg, transparent 49.8%, rgba(224,101,91,.2) 50%, transparent 50.2%), linear-gradient(180deg, rgba(67,24,30,.86), rgba(19,10,14,.96)); box-shadow: inset 0 0 72px rgba(0,0,0,.62), 0 0 48px rgba(214,70,63,.18); }
 .purge-panel { border-color: rgba(224,103,92,.72); background: radial-gradient(circle at 50% 0, rgba(196,61,53,.3), transparent 60%), rgba(31,10,14,.95); box-shadow: 0 0 30px rgba(196,61,53,.22); text-align: center; place-items: center; }
