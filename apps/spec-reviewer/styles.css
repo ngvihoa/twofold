@@ -84,7 +84,7 @@ body {
   line-height: 1.5;
   text-rendering: optimizeLegibility;
 }
-button, input, select { font: inherit; }
+button, input, select, textarea { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
 a { color: inherit; }
 button { color: inherit; }
@@ -445,8 +445,20 @@ dialog[open] { animation: dialog-in .35s cubic-bezier(.16,1,.3,1) both; }
 .role-facts div { padding: .8rem; background: var(--surface); }
 .role-facts dt { color: var(--muted); font-size: .66rem; }
 .role-facts dd { margin: .2rem 0 0; font-size: .83rem; font-weight: 720; }
-.dialog-actions { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; }
+.dialog-actions { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; padding-top: 1rem; border-top: 1px solid var(--line); }
+.dialog-actions > .button { flex: 0 0 auto; }
+.dialog-secondary-actions { display: flex; flex-wrap: wrap; gap: .85rem; align-items: center; margin-left: auto; }
 .source-link { color: var(--accent-strong); font-size: .8rem; font-weight: 700; text-underline-offset: .2em; }
+.role-note-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .65rem; margin: 1.6rem 0 1rem; padding: 1rem; background: color-mix(in srgb, var(--accent) 7%, var(--surface-2)); border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line)); border-radius: 10px; }
+.role-note-heading { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.role-note-form label { color: var(--text); font-size: .76rem; font-weight: 780; }
+.role-note-heading a { color: var(--accent-strong); font-size: .68rem; font-weight: 720; text-underline-offset: .2em; }
+.role-note-form textarea { grid-column: 1 / -1; width: 100%; min-height: 96px; padding: .75rem; color: var(--text); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; resize: vertical; line-height: 1.45; }
+.role-note-form textarea:focus { border-color: var(--accent); outline: 2px solid color-mix(in srgb, var(--accent) 28%, transparent); outline-offset: 0; }
+.role-note-actions { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: .7rem; }
+.role-note-actions .button { min-width: 108px; }
+.role-note-form [role="status"] { color: var(--muted); font-size: .7rem; }
+.role-note-form button:disabled { opacity: .55; cursor: wait; }
 
 .selection-page { min-height: 100dvh; }
 .review-header { position: sticky; top: 0; color: var(--text); background: color-mix(in srgb, var(--surface) 92%, transparent); border-bottom-color: var(--line); backdrop-filter: blur(14px); }
@@ -489,6 +501,54 @@ dialog[open] { animation: dialog-in .35s cubic-bezier(.16,1,.3,1) both; }
 .selection-empty h2 { margin: 0; font-size: clamp(2rem, 5vw, 4rem); letter-spacing: -.05em; }
 .selection-empty > p:not(.section-kicker) { color: var(--muted); }
 
+.notes-main { padding-block: clamp(3rem, 7vw, 6rem) 8rem; }
+.notes-intro { display: flex; align-items: end; justify-content: space-between; gap: 2rem; }
+.notes-intro h1 { margin: 0; font-size: clamp(3.2rem, 8vw, 7.8rem); font-weight: 570; letter-spacing: -.07em; line-height: .9; }
+.notes-intro > div > p:last-child { max-width: 58ch; margin: 1.4rem 0 0; color: var(--muted); }
+.notes-total { display: grid; min-width: 110px; padding: 1rem; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); text-align: right; }
+.notes-total strong { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 2.2rem; line-height: 1; }
+.notes-total span { color: var(--muted); font-size: .72rem; }
+.workspace-panel { display: grid; grid-template-columns: minmax(220px, .8fr) minmax(320px, 1.2fr); gap: 1rem 2rem; align-items: end; margin-top: 3rem; padding: 1.2rem; background: color-mix(in srgb, var(--accent) 9%, var(--surface)); border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); border-radius: var(--radius); }
+.workspace-panel h2 { margin: 0; font-size: 1rem; }
+.workspace-panel p { margin: .3rem 0 0; color: var(--muted); font-size: .76rem; }
+.workspace-form label { display: block; margin-bottom: .35rem; color: var(--muted); font-size: .7rem; font-weight: 720; }
+.workspace-form > div { display: grid; grid-template-columns: 1fr auto; gap: .5rem; }
+.workspace-form input, .notes-filters input, .notes-filters select, .note-composer select, .note-composer textarea { width: 100%; color: var(--text); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+.workspace-form input, .notes-filters input, .notes-filters select, .note-composer select { min-height: 44px; padding: 0 .75rem; }
+.sync-status { grid-column: 1 / -1; min-height: 1.2em; }
+.sync-status[data-status="synced"] { color: var(--village); }
+.sync-status[data-status="error"] { color: var(--werewolf); }
+.note-composer { display: grid; grid-template-columns: minmax(220px, .72fr) minmax(320px, 1.28fr); gap: 2rem; margin-top: 1rem; padding: clamp(1.3rem, 4vw, 2.6rem); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.note-composer h2 { max-width: 10ch; margin: 0; font-size: clamp(2rem, 4vw, 3.6rem); letter-spacing: -.055em; line-height: .95; }
+.note-composer form { display: grid; gap: .45rem; }
+.note-composer label, .notes-filters label span { color: var(--muted); font-size: .7rem; font-weight: 720; }
+.note-composer textarea { min-height: 150px; padding: .75rem; resize: vertical; line-height: 1.5; }
+.note-form-actions { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: .35rem; }
+#note-feedback { color: var(--muted); font-size: .75rem; }
+.notes-browser { margin-top: clamp(4rem, 8vw, 7rem); }
+.notes-browser-heading { display: flex; align-items: end; justify-content: space-between; gap: 1rem; }
+.notes-browser-heading h2 { margin: 0; font-size: clamp(2.2rem, 5vw, 4.8rem); letter-spacing: -.06em; line-height: .95; }
+.notes-browser-heading .section-kicker { margin-bottom: .7rem; }
+.notes-filters { display: grid; grid-template-columns: minmax(260px, 1fr) minmax(170px, .3fr) minmax(220px, .4fr); gap: .7rem; margin-top: 2rem; padding: .8rem; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.notes-filters label { display: grid; gap: .3rem; }
+.notes-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; margin-top: 1rem; }
+.note-card { min-width: 0; padding: 1.1rem; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.note-card-meta { display: flex; align-items: start; justify-content: space-between; gap: 1rem; color: var(--muted); font-size: .7rem; }
+.note-card-meta a { color: var(--accent-strong); font-weight: 750; text-underline-offset: .2em; }
+.note-card-meta time { flex: 0 0 auto; }
+.note-card-workflow { display: flex; align-items: center; justify-content: space-between; gap: .7rem; margin-top: .9rem; }
+.note-card-workflow label { color: var(--muted); font-size: .68rem; font-weight: 720; }
+.note-status-select { min-height: 34px; padding: 0 2rem 0 .65rem; color: var(--text); background: var(--surface-2); border: 1px solid var(--line); border-radius: 999px; font-size: .7rem; font-weight: 760; cursor: pointer; }
+.note-status-select.status-todo { border-color: color-mix(in srgb, var(--accent) 58%, var(--line)); }
+.note-status-select.status-in_progress { border-color: color-mix(in srgb, var(--phase-night) 65%, var(--line)); }
+.note-status-select.status-cancelled { color: var(--muted); text-decoration: line-through; }
+.note-status-select:disabled { opacity: .55; cursor: wait; }
+.note-card-body { min-height: 3em; margin: 1rem 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.note-card-actions { display: flex; gap: .9rem; padding-top: .75rem; border-top: 1px solid var(--line); }
+.note-card-actions button { color: var(--muted); font-size: .72rem; }
+.note-card-actions .note-delete:hover { color: var(--werewolf); }
+.notes-browser .selection-empty { margin-top: 1rem; }
+
 @keyframes hero-settle { from { opacity: 0; transform: scale(1.08); } to { opacity: 1; transform: scale(1.025); } }
 @keyframes skeleton { to { background-position: -200% 0; } }
 @keyframes bar-in { from { opacity: 0; transform: translate(-50%, 20px); } }
@@ -516,9 +576,14 @@ dialog[open] { animation: dialog-in .35s cubic-bezier(.16,1,.3,1) both; }
   .filter-row, .filter-row-secondary { grid-template-columns: 1fr; }
   .role-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dialog-role-art { min-height: 310px; max-height: 45dvh; }
+  .dialog-actions { align-items: stretch; }
+  .dialog-actions > .button { width: 100%; }
+  .dialog-secondary-actions { width: 100%; justify-content: space-between; margin-left: 0; }
   .selected-role-grid { grid-template-columns: 1fr; }
   .selection-toolbar { position: static; grid-template-columns: 1fr; }
   .selection-actions { justify-content: start; flex-wrap: wrap; }
+  .workspace-panel, .note-composer { grid-template-columns: 1fr; }
+  .notes-list { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 520px) {
@@ -548,6 +613,10 @@ dialog[open] { animation: dialog-in .35s cubic-bezier(.16,1,.3,1) both; }
   .selection-intro h1 { font-size: clamp(3rem, 15vw, 4.8rem); }
   .selected-role-card { grid-template-columns: 92px minmax(0, 1fr); }
   .selected-role-gameplay div { grid-template-columns: 58px minmax(0, 1fr); }
+  .notes-intro { display: grid; }
+  .notes-total { width: 100%; text-align: left; }
+  .workspace-form > div, .notes-filters { grid-template-columns: 1fr; }
+  .notes-browser-heading { align-items: start; }
 }
 
 @media (prefers-reduced-motion: reduce) {

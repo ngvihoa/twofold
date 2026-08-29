@@ -18,6 +18,8 @@
     "dev:spec": "node packages/cli/bin/twofold.mjs dev spec-reviewer",
     "dev:atlas": "node packages/cli/bin/twofold.mjs dev spec-reviewer",
     "dev:game-flow": "node packages/cli/bin/twofold.mjs dev spec-reviewer",
+    "env:link:spec": "pnpm --filter @twofold/spec-reviewer vercel:link",
+    "env:pull:spec": "pnpm --filter @twofold/spec-reviewer env:pull",
     "check": "node packages/cli/bin/twofold.mjs check",
     "routes": "node packages/cli/bin/twofold.mjs routes",
     "check:roles": "node packages/cli/bin/twofold.mjs check spec-reviewer",

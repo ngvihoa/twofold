@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Ghi chú review specification của Twofold." />
+    <title>Review notes | Twofold</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/styles.css?v=20260829-3" />
+  </head>
+  <body class="selection-page notes-page">
+    <a class="skip-link" href="#notes-list">Đến danh sách note</a>
+
+    <header class="site-header review-header">
+      <a class="brand" href="/" aria-label="Quay lại Twofold Role Atlas">
+        <span class="brand-mark" aria-hidden="true">TF</span>
+        <span>ROLE ATLAS</span>
+      </a>
+      <nav class="main-nav" aria-label="Điều hướng notes">
+        <a href="/#role-explorer">Tất cả role</a>
+        <a href="/shortlist.html">Shortlist</a>
+        <button class="text-button" id="theme-toggle" type="button">Đổi giao diện</button>
+      </nav>
+    </header>
+
+    <main class="notes-main section-shell">
+      <section class="notes-intro" aria-labelledby="notes-title">
+        <div>
+          <p class="section-kicker">Specification review</p>
+          <h1 id="notes-title">Review notes</h1>
+          <p>Ghi lại câu hỏi, quyết định và điểm cần chỉnh trong lúc review role.</p>
+        </div>
+        <div class="notes-total" aria-live="polite"><strong id="notes-count">0</strong><span>note</span></div>
+      </section>
+
+      <section class="workspace-panel" aria-labelledby="workspace-title">
+        <div>
+          <h2 id="workspace-title">Đồng bộ thiết bị</h2>
+          <p id="workspace-description">Nhập workspace token được cấu hình trên Vercel. Token chỉ được lưu trong trình duyệt này.</p>
+        </div>
+        <form id="workspace-form" class="workspace-form">
+          <label for="workspace-token">Workspace token</label>
+          <div>
+            <input id="workspace-token" name="workspaceToken" type="password" autocomplete="off" placeholder="Dán token dùng chung" />
+            <button class="button button-dark" type="submit">Lưu & đồng bộ</button>
+          </div>
+        </form>
+        <p class="sync-status" id="sync-status" role="status"></p>
+      </section>
+
+      <section class="note-composer" aria-labelledby="composer-title">
+        <div>
+          <p class="section-kicker">Note mới</p>
+          <h2 id="composer-title">Ghi lại khi ý còn nóng</h2>
+        </div>
+        <form id="note-form">
+          <label for="note-role">Gắn với role</label>
+          <select id="note-role" name="roleId"><option value="">Note chung</option></select>
+          <label for="note-status">Trạng thái</label>
+          <select id="note-status" name="status">
+            <option value="todo">Todo</option>
+            <option value="in_progress">In progress</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+          <label for="note-body">Nội dung</label>
+          <textarea id="note-body" name="body" rows="5" maxlength="5000" required placeholder="Ví dụ: Cần làm rõ thời điểm kỹ năng được kích hoạt..."></textarea>
+          <div class="note-form-actions">
+            <span id="note-feedback" role="status"></span>
+            <button class="button button-primary" type="submit">Lưu note</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="notes-browser" aria-labelledby="notes-list-title">
+        <div class="notes-browser-heading">
+          <div><p class="section-kicker">Đã lưu</p><h2 id="notes-list-title">Tất cả notes</h2></div>
+          <button class="button selection-copy" id="export-notes" type="button">Export JSON</button>
+        </div>
+        <div class="notes-filters">
+          <label for="notes-search"><span>Tìm nội dung</span><input id="notes-search" type="search" autocomplete="off" placeholder="Tìm note hoặc tên role" /></label>
+          <label for="notes-status-filter"><span>Trạng thái</span><select id="notes-status-filter"><option value="all">Tất cả trạng thái</option><option value="todo">Todo</option><option value="in_progress">In progress</option><option value="cancelled">Cancelled</option></select></label>
+          <label for="notes-role-filter"><span>Role</span><select id="notes-role-filter"><option value="all">Tất cả role</option><option value="general">Note chung</option></select></label>
+        </div>
+        <div id="notes-empty" class="selection-empty" hidden>
+          <p class="section-kicker">Chưa có note</p>
+          <h2>Trang giấy đang trống</h2>
+          <p>Thêm note chung ở trên hoặc mở chi tiết một role để ghi chú đúng ngữ cảnh.</p>
+        </div>
+        <div id="notes-list" class="notes-list" aria-live="polite"></div>
+      </section>
+    </main>
+
+    <footer class="site-footer section-shell">
+      <p><strong>Twofold Review Notes</strong> đồng bộ qua workspace dùng chung.</p>
+      <a href="/">Quay lại Role Atlas</a>
+    </footer>
+
+    <script type="module" src="/notes.js?v=20260829-3"></script>
+  </body>
+</html>

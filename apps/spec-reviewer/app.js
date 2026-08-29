@@ -1,3 +1,5 @@
+import { createNote, subscribeNotes } from "./lib/note-store.js?v=20260829-3";
+
 const FACTIONS = [
   { id: "all", label: "Tất cả phe" },
   { id: "village", label: "Dân Làng", color: "var(--village)" },
@@ -40,6 +42,7 @@ const INITIAL_SUGGESTION_IDS = [
 const FIT_ORDER = new Map(FITS.map((item, index) => [item.id, index]));
 const state = { roles: [], stage: "main", faction: "all", fit: "all", mechanic: "all", search: "", sort: "recommended" };
 const selected = new Set(JSON.parse(localStorage.getItem("twofold-role-shortlist") || "[]"));
+let reviewNotes = [];
 let cardObserver;
 
 const $ = (selector, scope = document) => scope.querySelector(selector);
@@ -255,6 +258,7 @@ function openRole(roleId) {
   const role = state.roles.find((item) => item.id === roleId);
   if (!role) return;
   const isSelected = selected.has(role.id);
+  const noteCount = reviewNotes.filter((note) => note.roleId === role.id).length;
   $("#dialog-content").innerHTML = `
     <div class="dialog-role-layout" style="--faction-color:${factionColor(role.factionId)}" data-role-id="${role.id}">
       <div class="dialog-role-art">${canShowArtwork(role) ? imageMarkup(role) : `<div class="dialog-role-placeholder">${escapeHtml(initials(role.name))}</div>`}</div>
@@ -272,9 +276,23 @@ function openRole(roleId) {
         </dl>
         <p>${escapeHtml(role.scopeNote || recommendationReason(role))}</p>
         ${role.relation ? `<p><strong>Quan hệ role:</strong> ${escapeHtml(role.relation)}</p>` : ""}
+        <form class="role-note-form" data-role-note-form="${role.id}">
+          <div class="role-note-heading">
+            <label for="role-note-${role.id}">Note khi review</label>
+            ${noteCount ? `<a href="/notes">${noteCount} note đã lưu</a>` : ""}
+          </div>
+          <textarea id="role-note-${role.id}" name="body" rows="3" maxlength="5000" required placeholder="Ghi câu hỏi hoặc điểm cần chỉnh..."></textarea>
+          <div class="role-note-actions">
+            <span data-role-note-feedback role="status"></span>
+            <button class="button button-primary" type="submit">Lưu note</button>
+          </div>
+        </form>
         <div class="dialog-actions">
           <button class="button button-dark" type="button" data-select-role="${role.id}" aria-pressed="${isSelected}">${isSelected ? "Bỏ khỏi shortlist" : "Thêm vào shortlist"}</button>
-          <a class="source-link" href="${wikiUrl(role.pageTitle)}" target="_blank" rel="noreferrer">Xem role trên wiki</a>
+          <div class="dialog-secondary-actions">
+            <a class="source-link" href="/notes">Tất cả notes</a>
+            <a class="source-link" href="${wikiUrl(role.pageTitle)}" target="_blank" rel="noreferrer">Nguồn wiki ↗</a>
+          </div>
         </div>
       </div>
     </div>`;
@@ -388,6 +406,8 @@ async function loadRoles() {
     renderFilters();
     renderRoles();
     saveShortlist();
+    const requestedRole = new URL(location.href).searchParams.get("role");
+    if (requestedRole && validIds.has(requestedRole)) openRole(requestedRole);
   } catch (error) {
     console.error(error);
     $("#error-state").hidden = false;
@@ -407,6 +427,24 @@ document.addEventListener("click", (event) => {
   } else if (openButton) openRole(openButton.dataset.openRole);
   else if (selectButton) toggleSelection(selectButton.dataset.selectRole);
   else if (removeButton) toggleSelection(removeButton.dataset.removeShortlist);
+});
+
+document.addEventListener("submit", async (event) => {
+  const form = event.target.closest("[data-role-note-form]");
+  if (!form) return;
+  event.preventDefault();
+  const feedback = $("[data-role-note-feedback]", form);
+  const submitButton = $('button[type="submit"]', form);
+  submitButton.disabled = true;
+  try {
+    await createNote({ body: new FormData(form).get("body"), roleId: form.dataset.roleNoteForm });
+    form.reset();
+    feedback.textContent = "Đã lưu note.";
+  } catch (error) {
+    feedback.textContent = error.message;
+  } finally {
+    submitButton.disabled = false;
+  }
 });
 
 $("#role-search").addEventListener("input", (event) => { state.search = event.target.value; renderRoles(); });
@@ -440,4 +478,5 @@ for (const dialog of $$('dialog')) {
 
 const savedTheme = localStorage.getItem("twofold-theme");
 if (savedTheme) document.documentElement.dataset.theme = savedTheme;
+subscribeNotes(({ notes }) => { reviewNotes = notes; });
 loadRoles();
