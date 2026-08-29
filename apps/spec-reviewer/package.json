@@ -7,7 +7,7 @@
     "dev": "python3 -m http.server 4173",
     "start": "python3 -m http.server 4173",
     "build": "echo 'Static build ready'",
-    "check": "node scripts/check-role-data.mjs",
+    "check": "node --test scripts/check-role-data.mjs game-flow-demo/engine.test.mjs",
     "annotate:roles": "node scripts/annotate-role-gameplay.mjs",
     "demo:chat": "node game-flow-demo/cli.mjs"
   }
