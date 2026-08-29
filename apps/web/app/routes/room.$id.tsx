@@ -4,6 +4,10 @@ import { CardRole } from '@twofold/shared-types';
 import { Copy, Check, UserCheck, Shield, Sparkles, Swords } from 'lucide-react';
 
 export const Route = createFileRoute('/room/$id')({
+  validateSearch: (search: Record<string, unknown>) => ({
+    role: search.role === 'HOST' ? ('HOST' as const) : ('GUEST' as const),
+    name: typeof search.name === 'string' ? search.name : 'Người chơi',
+  }),
   component: RoomLobbyComponent,
 });
 
@@ -49,7 +53,7 @@ function RoomLobbyComponent() {
   React.useEffect(() => {
     if (countdown === null) return;
     if (countdown === 0) {
-      navigate({ to: `/play/${roomId}` });
+      navigate({ to: '/play/$id', params: { id: roomId } });
       return;
     }
 
@@ -167,4 +171,3 @@ function RoomLobbyComponent() {
     </div>
   );
 }
-

@@ -57,7 +57,11 @@ export function parseCliArgs(rawArgs = process.argv.slice(2)) {
 
   // Fallback: If no explicit filter was passed with --filter/-F/-f/-<shorten>, but we have a positional argument
   // for commands like `dev` or `check` where positional specifies project target:
-  if (!filter && positional.length > 0 && ["dev", "start", "check", "test", "build"].includes(feature)) {
+  if (
+    !filter &&
+    positional.length > 0 &&
+    ["dev", "start", "check", "test", "build", "routes", "route", "routes:generate"].includes(feature)
+  ) {
     filter = positional.shift();
   }
 
@@ -69,4 +73,3 @@ export function parseCliArgs(rawArgs = process.argv.slice(2)) {
     raw: rawArgs,
   };
 }
-

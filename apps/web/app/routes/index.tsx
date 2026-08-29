@@ -20,8 +20,9 @@ function HomeComponent() {
     const generatedCode = Math.random().toString(36).substring(2, 8).toUpperCase();
     setTimeout(() => {
       navigate({
-        to: `/room/${generatedCode}`,
-        search: { role: 'HOST', name: hostName } as any,
+        to: '/room/$id',
+        params: { id: generatedCode },
+        search: { role: 'HOST', name: hostName },
       });
     }, 400);
   };
@@ -30,8 +31,9 @@ function HomeComponent() {
     e.preventDefault();
     if (!roomCode.trim()) return;
     navigate({
-      to: `/room/${roomCode.trim().toUpperCase()}`,
-      search: { role: 'GUEST', name: joinName } as any,
+      to: '/room/$id',
+      params: { id: roomCode.trim().toUpperCase() },
+      search: { role: 'GUEST', name: joinName },
     });
   };
 
@@ -174,4 +176,3 @@ function HomeComponent() {
     </div>
   );
 }
-

@@ -6,6 +6,7 @@ import { checkCommand } from "./commands/check.mjs";
 import { createCommand } from "./commands/create.mjs";
 import { runCommand } from "./commands/run.mjs";
 import { infoCommand } from "./commands/info.mjs";
+import { routesCommand } from "./commands/routes.mjs";
 import { log, colors } from "./utils/logger.mjs";
 
 export async function runCli(argv = process.argv.slice(2)) {
@@ -25,6 +26,12 @@ export async function runCli(argv = process.argv.slice(2)) {
     case "check":
     case "test":
       await checkCommand(filter);
+      break;
+
+    case "routes":
+    case "route":
+    case "routes:generate":
+      await routesCommand(filter);
       break;
 
     case "create":
@@ -67,6 +74,7 @@ ${colors.bold}DANH SÁCH TÍNH NĂNG (<feat>):${colors.reset}
   ${colors.bold}list, ls${colors.reset}                       Liệt kê tất cả apps & packages và alias rút gọn
   ${colors.bold}dev${colors.reset}                            Chạy dev server cho project chỉ định (hoặc mặc định)
   ${colors.bold}check${colors.reset}                          Chạy kiểm tra dữ liệu/tests toàn monorepo hoặc project
+  ${colors.bold}routes [project]${colors.reset}               Generate TanStack Router route tree (mặc định: web)
   ${colors.bold}create <app|package> <name>${colors.reset}   Tự động scaffold app/package mới theo chuẩn
   ${colors.bold}run <script>${colors.reset}                   Chạy một script tùy ý trong project
   ${colors.bold}info${colors.reset}                           Xem thông tin roadmap và trạng thái dự án
@@ -89,6 +97,10 @@ ${colors.bold}VÍ DỤ:${colors.reset}
   ${colors.dim}# Kiểm tra dữ liệu roles của spec-reviewer hoặc toàn bộ repo${colors.reset}
   pnpm tf check -sr
   pnpm tf check
+
+  ${colors.dim}# Generate type-safe route tree cho web${colors.reset}
+  pnpm tf routes
+  pnpm tf routes web
 
   ${colors.dim}# Tạo một app hoặc package mới${colors.reset}
   pnpm tf create app admin-portal "Admin dashboard"

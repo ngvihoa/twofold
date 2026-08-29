@@ -1,6 +1,5 @@
 import {
   Outlet,
-  ScrollRestoration,
   createRootRoute,
   HeadContent,
   Scripts,
@@ -90,10 +89,8 @@ function RootComponent() {
           <Outlet />
         </main>
 
-        <ScrollRestoration />
         <Scripts />
       </body>
     </html>
   );
 }
-
