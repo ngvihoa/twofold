@@ -76,6 +76,6 @@ Bảo vệ chỉ công khai vị trí có khiên. Role của mục tiêu và v�
 
 Sau Ban ngày, hai bên bí mật khóa lệnh đêm. Khi cả hai đã chọn, card nguồn bước lên và lộ role nhưng mục tiêu vẫn được giữ kín. Hai bên sau đó mới chọn khiên; card được bảo hộ tiến về giữa sân nhưng không lật. Bàn giữ trạng thái khoảng 3,2 giây rồi xử lý đồng thời; pha Bình minh tiếp tục khóa thao tác thêm 3 giây để công khai kết quả. Khiên chặn một hiệu ứng đêm bất lợi gồm cắn, độc hoặc soi.
 
-Từ Vòng 6, mỗi bên mở khóa card chiến thuật **Huyết Nguyệt**. Card này dùng Main Order để tấn công một role đối thủ đã lộ, vẫn bị khiên chặn và hồi lại sau hai vòng. Nó tạo áp lực cuối game khi các role attack ban đầu đã chết hoặc hết charge, nhưng vẫn giữ giới hạn một nguồn loại bỏ trong vòng.
+Từ Vòng 6, mỗi bên mở khóa card chiến thuật **Huyết Nguyệt**. Card này dùng Main Order để tấn công một role đối thủ đã lộ, vẫn bị khiên chặn và hồi lại sau hai vòng. Nó tạo áp lực cuối game khi các role attack ban đầu đã chết hoặc hết charge, nhưng vẫn giữ giới hạn một nguồn loại bỏ trong pha đêm. Quyền loại bỏ của Ban ngày và Ban đêm được tính riêng theo giới hạn một hành động chính trong mỗi pha.
 
 Lệnh `chat` tạo snapshot công khai ngắn để gửi nguyên văn vào cuộc trò chuyện. Mỗi người chỉ cần giữ bí mật tay riêng của mình và gửi action; một người chạy CLI làm trọng tài/state keeper.

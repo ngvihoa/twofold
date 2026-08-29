@@ -2,6 +2,11 @@
   "name": "twofold-monorepo",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@10.28.2",
+  "engines": {
+    "node": ">=22.12.0",
+    "pnpm": ">=10.0.0"
+  },
   "description": "Twofold Monorepo - 1v1 Turn-based Strategy Game",
   "workspaces": [
     "apps/*",
@@ -14,6 +19,7 @@
     "dev:atlas": "node packages/cli/bin/twofold.mjs dev spec-reviewer",
     "dev:game-flow": "node packages/cli/bin/twofold.mjs dev spec-reviewer",
     "check": "node packages/cli/bin/twofold.mjs check",
+    "routes": "node packages/cli/bin/twofold.mjs routes",
     "check:roles": "node packages/cli/bin/twofold.mjs check spec-reviewer",
     "create": "node packages/cli/bin/twofold.mjs create",
     "list": "node packages/cli/bin/twofold.mjs list",

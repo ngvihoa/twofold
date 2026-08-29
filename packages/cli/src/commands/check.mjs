@@ -12,7 +12,8 @@ export async function checkCommand(target) {
       log.error(`Workspace '${target}' not found.`);
       return;
     }
-    await runCheckForWorkspace(selected);
+    const success = await runCheckForWorkspace(selected);
+    if (!success) process.exitCode = 1;
     return;
   }
 
@@ -49,7 +50,14 @@ async function runCheckForWorkspace(workspace) {
     ? "check"
     : workspace.scripts["check:roles"]
     ? "check:roles"
-    : "test";
+    : workspace.scripts.test
+    ? "test"
+    : null;
+
+  if (!checkKey) {
+    log.error(`[${workspace.shortName}] No check, check:roles, or test script found.`);
+    return false;
+  }
 
   const cmd = workspace.scripts[checkKey];
   log.info(`Checking ${colors.bold}${workspace.name}${colors.reset} (${workspace.relativePath})...`);
@@ -68,4 +76,3 @@ async function runCheckForWorkspace(workspace) {
     return false;
   }
 }
-

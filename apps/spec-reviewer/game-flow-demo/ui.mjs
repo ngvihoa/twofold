@@ -1,4 +1,4 @@
-import { availableRoleGuesses, createGame, dispatch, privateView, publicView, ROLE_DEFS, SPECIAL_CARD } from "./engine.mjs?rev=round6-special-v1";
+import { availableRoleGuesses, createGame, dispatch, privateView, publicView, ROLE_DEFS, SPECIAL_CARD } from "./engine.mjs?rev=phase-action-budget-v2";
 
 const ROLE_ART = {
   villager: "../assets/game/wwo-reference/dan-lang.png",

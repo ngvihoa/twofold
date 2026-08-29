@@ -273,7 +273,13 @@ function submitCouncil(state, action) {
 function advanceDay(state, seat) {
   if (checkWinner(state)) return;
   state.phase = seat === "A" ? "day-B" : "night-plan";
-  if (state.phase === "night-plan") addLog(state, "Hai bên bí mật khóa lệnh đêm. Mục tiêu chưa công khai.");
+  if (state.phase === "night-plan") {
+    // The removal budget is phase-scoped: a Day action must not consume the
+    // separate Main Order that each player receives at Night.
+    state.players.A.eliminationSpent = false;
+    state.players.B.eliminationSpent = false;
+    addLog(state, "Hai bên bí mật khóa lệnh đêm. Mục tiêu chưa công khai.");
+  }
 }
 
 function submitDay(state, action) {
