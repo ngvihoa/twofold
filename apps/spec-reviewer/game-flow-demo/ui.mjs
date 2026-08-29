@@ -1109,7 +1109,7 @@ function arenaMarkup() {
   const isSetup = state.phase.startsWith("setup-");
   return `<section class="arena">
     ${boardMarkup(otherSeat(seat), "Đối thủ")}
-    <div class="center-table ${hasRevealedCards ? "" : "center-empty"} ${isSetup ? "setup-center" : ""}">${revealedLaneMarkup(otherSeat(seat))}${revealedLaneMarkup(seat)}${isSetup ? `<div class="setup-center-command">${controlMarkup()}</div>` : ""}</div>
+    <div class="center-table ${hasRevealedCards ? "" : "center-empty"} ${isSetup ? "setup-center" : ""}">${revealedLaneMarkup(otherSeat(seat))}${revealedLaneMarkup(seat)}${isSetup ? `<div class="setup-center-command">${controlMarkup()}</div>` : commandDockMarkup()}</div>
     ${boardMarkup(seat, "Tay của bạn")}
   </section>`;
 }
@@ -1125,7 +1125,7 @@ function render() {
   document.body.className = `duel-only scene-${visualScene()}${dawnStage}${targeting}`;
   const topbar = `<header class="topbar"><div class="brand"><span class="brand-mark">TF</span>TWOFOLD</div><span class="round">Local playtest · Vòng ${state.round}</span><span class="phase-chip">${roundTitle()}</span><div class="seat-toggle"><span class="human-seat">A · BẠN</span><span class="bot-seat ${botNeedsTurn() ? "thinking" : ""}"><i></i>B · BOT</span></div><button class="reset" type="button" data-reset>Reset</button></header>`;
   const arena = arenaMarkup();
-  const body = `<div class="play-grid"><div class="arena-wrap">${arena}${commandDockMarkup()}</div></div>`;
+  const body = `<div class="play-grid"><div class="arena-wrap">${arena}</div></div>`;
   app.innerHTML = `<div class="shell">${topbar}${body}<div class="combat-fx-layer" aria-hidden="true"></div></div>`;
   syncConditionalFields();
   requestAnimationFrame(playCombatEffect);
