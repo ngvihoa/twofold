@@ -21,7 +21,7 @@ npm run prototype:chat -- --seat=A --seed=twofold-01
 Khi local server đang chạy, mở:
 
 ```text
-http://127.0.0.1:4173/prototypes/chat-playtest/ui.html
+http://127.0.0.1:4173/game-flow-demo/ui.html
 ```
 
 Bố cục A — Bàn đối đầu là phương án duy nhất đã được giữ lại. Trên desktop, toàn bộ bàn được khóa trong một màn hình: khu trái chỉ gồm đội B, card đã lộ ở giữa và đội A; diễn biến nằm góc phải trên, còn hướng dẫn/thao tác được neo ở góc phải dưới. Toàn bộ state vẫn chỉ nằm trong bộ nhớ của tab.

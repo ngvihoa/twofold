@@ -18,6 +18,97 @@ Ba trụ cột thiết kế:
 - **Đánh lừa:** khiến đối thủ diễn giải sai ý đồ hoặc vai trò.
 - **Cam kết:** mỗi lựa chọn có hậu quả; không hoàn tác sau khi xác nhận.
 
+---
+
+## Cấu trúc Monorepo
+
+Repository được tổ chức theo kiến trúc Monorepo để tách biệt rõ ràng giữa công cụ đặc tả & thẩm định vai trò (PO prototype), game client Web Alpha và các gói logic cốt lõi dùng chung:
+
+```text
+twofold/
+├── apps/
+│   ├── spec-reviewer/               # [PO SPEC & REVIEW] Công cụ tra cứu, đặc tả và review 92 vai trò
+│   │   ├── assets/                  # Artwork tham chiếu và UI banner
+│   │   ├── data/                    # roles.json (92 roles dataset)
+│   │   ├── scripts/                 # Data checkers & annotation scripts
+│   │   ├── index.html               # Trang Role Atlas chính & bộ test
+│   │   ├── shortlist.html           # Trang Shortlist Review phục vụ họp thống nhất luật
+│   │   └── package.json             # @twofold/spec-reviewer
+│   └── web/                         # [UPCOMING] Web Alpha Client chính thức (target 07/09/2026)
+│       └── package.json             # @twofold/web
+├── packages/
+│   ├── cli/                         # Centralized Monorepo Management CLI (tf / twofold)
+│   │   └── package.json             # @twofold/cli
+│   ├── game-core/                   # Shared ruleset v0.1 & turn state machine
+│   │   └── package.json             # @twofold/game-core
+│   └── shared-types/                # Shared data schemas & type definitions
+│       └── package.json             # @twofold/shared-types
+├── bin/                             # CLI executable shortcuts (./bin/tf, ./bin/twofold)
+├── docs/                            # Game design docs, ADRs & Project management
+│   ├── decisions/                   # Architectural & game rule decision records
+│   ├── game-design/                 # Flow, rules, roles draft
+│   └── project-management/          # Roadmap, task tracker
+├── pnpm-workspace.yaml              # Cấu hình workspace
+└── package.json                     # Root package scripts
+```
+
+---
+
+## Centralized CLI (`tf` / `twofold`)
+
+Monorepo được trang bị công cụ CLI tập trung (`@twofold/cli`) với format chuẩn hóa:
+
+```bash
+pnpm tf <feat> [--filter <project_name> | -<shorten>]
+```
+
+### Bảng tra cứu Mã rút gọn (Aliases)
+
+| Project | Location | Tên đầy đủ | Mã rút gọn (`-<short>`) |
+|---|---|---|---|
+| **Spec Reviewer** | `apps/spec-reviewer` | `spec-reviewer` | `-sr` |
+| **Web Alpha Client** | `apps/web` | `web` | `-w` |
+| **Game Core** | `packages/game-core` | `game-core` | `-gc` |
+| **Shared Types** | `packages/shared-types` | `shared-types` | `-st` |
+| **CLI** | `packages/cli` | `cli` | `-c` |
+
+### Các lệnh phổ biến
+
+```bash
+# Xem danh sách tất cả apps, packages và alias rút gọn
+pnpm tf list
+
+# Khởi chạy Spec Reviewer của PO bằng filter hoặc mã rút gọn
+pnpm tf dev --filter spec-reviewer
+pnpm tf dev -sr
+
+# Chạy kiểm tra dữ liệu roles / tests
+pnpm tf check -sr
+pnpm tf check # Kiểm tra toàn bộ monorepo
+
+# Mở rộng tạo app mới hoặc package mới nhanh chóng (Scaffolding)
+pnpm tf create app admin-portal "Admin management dashboard"
+pnpm tf create package game-net "Networking synchronization layer"
+
+# Xem tổng quan dự án & roadmap Alpha
+pnpm tf info
+```
+
+---
+
+## Hướng dẫn Chạy Nhanh Spec Reviewer
+
+1. Khởi chạy dev server:
+   ```bash
+   npm run dev
+   # hoặc: ./bin/tf dev spec-reviewer
+   ```
+2. Mở trình duyệt:
+   - `http://localhost:4173/` → Tra cứu 92 vai trò, lọc phe và xem bộ 10 role gợi ý.
+   - `http://localhost:4173/shortlist.html` → Review và sao chép danh sách role đã chọn cho buổi họp.
+
+---
+
 ## Phạm vi Web Alpha
 
 Alpha cần chứng minh được vòng chơi chính, không phải là sản phẩm thương mại hoàn chỉnh.
@@ -66,24 +157,6 @@ Các chi tiết chưa chốt được ghi rõ là “cần xác nhận” hoặc
 
 Cả ba cùng review luật và playtest theo vòng lặp: **Thiết kế → Prototype → Chơi → Học → Sửa**.
 
-## Cấu trúc tài liệu
-
-```text
-.
-├── README.md
-├── assets/
-├── docs/
-│   ├── decisions/
-│   ├── game-design/
-│   │   ├── core-gameplay-v0.1.md
-│   │   ├── game-flow-v0.1.md
-│   │   └── roles-draft.md
-│   └── project-management/
-│       ├── roadmap.md
-│       └── task-tracker.md
-└── .gitignore
-```
-
 ## Cách làm việc với tài liệu
 
 1. Mỗi thay đổi luật phải cập nhật tài liệu game design tương ứng.
@@ -102,7 +175,7 @@ Cả ba cùng review luật và playtest theo vòng lặp: **Thiết kế → Pr
 
 ## Bắt đầu từ đâu
 
-- Game Designer/PO: đọc `docs/game-design/` và xử lý các câu hỏi mở ưu tiên cao.
+- Game Designer/PO: đọc `docs/game-design/` và tra cứu role tại `apps/spec-reviewer`.
 - UI/UX Game: chuyển `game-flow-v0.1.md` thành screen/state inventory và prototype.
 - Developer: dùng flow làm đầu vào cho state machine, room/realtime POC và reconnect.
 - Cả team: theo `docs/project-management/roadmap.md` và cập nhật `task-tracker.md` trong mỗi buổi sync.

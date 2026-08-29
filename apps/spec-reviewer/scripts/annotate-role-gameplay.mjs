@@ -1,6 +1,10 @@
 import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const dataPath = process.argv[2] || "data/roles.json";
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const appRoot = path.resolve(__dirname, "..");
+const dataPath = process.argv[2] ? path.resolve(process.cwd(), process.argv[2]) : path.resolve(appRoot, "data/roles.json");
 const roles = JSON.parse(fs.readFileSync(dataPath, "utf8"));
 
 const factionCodes = {

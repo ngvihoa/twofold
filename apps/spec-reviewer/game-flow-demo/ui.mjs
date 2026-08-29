@@ -1,15 +1,15 @@
 import { availableRoleGuesses, createGame, dispatch, privateView, publicView, ROLE_DEFS, SPECIAL_CARD } from "./engine.mjs?rev=round6-special-v1";
 
 const ROLE_ART = {
-  villager: "../../assets/game/wwo-reference/dan-lang.png",
-  wolf: "../../assets/game/wwo-reference/ma-soi-thuong.png",
-  seer: "../../assets/game/wwo-reference/tien-tri.png",
-  guard: "../../assets/game/wwo-reference/bao-ve.png",
-  witch: "../../assets/game/wwo-reference/phu-thuy.webp",
-  shooter: "../../assets/game/wwo-reference/xa-thu.webp",
-  avenger: "../../assets/game/wwo-reference/ke-bao-thu.png",
-  priest: "../../assets/game/wwo-reference/muc-su.png",
-  wolfguard: "../../assets/game/wwo-reference/soi-ho-ve.webp",
+  villager: "../assets/game/wwo-reference/dan-lang.png",
+  wolf: "../assets/game/wwo-reference/ma-soi-thuong.png",
+  seer: "../assets/game/wwo-reference/tien-tri.png",
+  guard: "../assets/game/wwo-reference/bao-ve.png",
+  witch: "../assets/game/wwo-reference/phu-thuy.webp",
+  shooter: "../assets/game/wwo-reference/xa-thu.webp",
+  avenger: "../assets/game/wwo-reference/ke-bao-thu.png",
+  priest: "../assets/game/wwo-reference/muc-su.png",
+  wolfguard: "../assets/game/wwo-reference/soi-ho-ve.webp",
 };
 
 const ROLE_PHASE = {

@@ -1,0 +1,12 @@
+{
+  "name": "@twofold/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Twofold Web Alpha Client",
+  "type": "module",
+  "scripts": {
+    "dev": "echo 'Web client under development for Web Alpha (Target: 2026-09-07)'",
+    "build": "echo 'Build script placeholder'"
+  }
+}
+

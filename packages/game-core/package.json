@@ -1,0 +1,12 @@
+{
+  "name": "@twofold/game-core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Twofold Core Game Logic, State Machine & Rules v0.1",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "echo 'Game core test placeholder'"
+  }
+}
+
