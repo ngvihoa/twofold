@@ -66,6 +66,7 @@ const MOVE_META = {
 };
 
 const COMBAT_KINDS = new Set(["attack", "poison", "purify", "shoot", "bloodmoon"]);
+const ACTION_EFFECT_KINDS = new Set([...COMBAT_KINDS, "inspect", "defend", "accuse"]);
 const COMBAT_RESULTS = {
   kill: "HẠ GỤC",
   blocked: "BỊ CHẶN",
@@ -88,9 +89,13 @@ let interaction = null;
 let lastMove = null;
 let moveTimer = null;
 let resolutionTimer = null;
-let nightReplayTimer = null;
 let dawnTimer = null;
 let dawnActive = false;
+let dawnPresentation = null;
+let actionTimer = null;
+let actionPresentation = null;
+let travelingCardId = null;
+let deferredCombatMoveId = null;
 let moveSequence = 0;
 let playedMoveId = null;
 const deathReasons = new Map();
@@ -149,7 +154,7 @@ function botAction() {
     if (!guard?.uses.guard) return { type: "defense.submit", seat: "B", pass: true };
     const choices = living("B").filter((card) => card.id !== state.players.B.lastGuardTarget);
     const target = choices.find((card) => card.revealed) || choices[state.round % choices.length];
-    return { type: "defense.submit", seat: "B", pass: false, target: target.id };
+    return { type: "defense.submit", seat: "B", pass: false, source: guard.id, target: target.id };
   }
   if (state.phase === "night-plan") {
     const targets = living("A");
@@ -175,8 +180,30 @@ function runBotTurn() {
   if (!botNeedsTurn()) return;
   try {
     const action = botAction();
-    state = dispatch(state, action);
-    if (action.type !== "setup.submit") showMove(action, "B");
+    const beforeState = structuredClone(state);
+    const nextState = dispatch(state, action);
+    if (action.type === "setup.submit") {
+      state = nextState;
+    } else if (action.type === "council.submit" && beforeState.phase === "council" && nextState.phase !== "council") {
+      const councilSteps = [
+        { actor: "A", action: beforeState.players.A.council ? { type: "council.submit", seat: "A", ...beforeState.players.A.council } : null },
+        { actor: "B", action },
+      ].filter((step) => step.action?.kind === "accuse");
+      if (councilSteps.length) {
+        startCouncilResolution(beforeState, nextState, councilSteps);
+        return;
+      }
+      state = nextState;
+    } else if (action.type === "night.submit" && beforeState.phase === "night-plan" && nextState.phase === "dusk-defense") {
+      startNightStaging(beforeState, nextState);
+      return;
+    } else if (action.type === "day.submit") {
+      startActionPresentation(action, "B", beforeState, nextState);
+      return;
+    } else {
+      state = nextState;
+      showMove(action, "B");
+    }
     feedback = "BOT B đã khóa hành động.";
   } catch (error) {
     feedback = `BOT lỗi: ${error.message}`;
@@ -185,45 +212,353 @@ function runBotTurn() {
 }
 
 function scheduleBot() {
-  if (dawnActive || !botNeedsTurn() || botTimer) return;
+  if (dawnActive || actionPresentation || lastMove || !botNeedsTurn() || botTimer) return;
   botTimer = setTimeout(runBotTurn, 2400);
+}
+
+function copyPresentationSource(action, resolvedState) {
+  if (!action.source) return;
+  const current = cardState(action.source, state);
+  const resolved = cardState(action.source, resolvedState);
+  if (current && resolved) current.revealed = resolved.revealed;
+}
+
+function newlyRevealed(cardId, beforeState, resolvedState) {
+  if (!cardId) return false;
+  const before = cardState(cardId, beforeState);
+  const resolved = cardState(cardId, resolvedState);
+  return Boolean(before && resolved && !before.revealed && resolved.revealed);
+}
+
+function renderWithCardTravel(cardId) {
+  const origin = cardId ? document.querySelector(`[data-card-id="${cardId}"]`) : null;
+  const originRect = origin?.getBoundingClientRect();
+  const ghost = origin?.cloneNode(true);
+  const deferredMoveId = lastMove?.target === cardId && ACTION_EFFECT_KINDS.has(lastMove.kind) ? lastMove.id : null;
+
+  travelingCardId = originRect ? cardId : null;
+  if (originRect && deferredMoveId) deferredCombatMoveId = deferredMoveId;
+  render();
+  travelingCardId = null;
+
+  const destination = cardId ? document.querySelector(`[data-card-id="${cardId}"]`) : null;
+  if (!originRect || !ghost || !destination) {
+    if (deferredCombatMoveId === deferredMoveId) deferredCombatMoveId = null;
+    return false;
+  }
+  const destinationRect = destination.getBoundingClientRect();
+  document.querySelectorAll(".card-travel-ghost, .card-travel-path").forEach((item) => item.remove());
+  ghost.querySelectorAll(".skill-tooltip, .action-hint, .target-hint, .selection-phase").forEach((item) => item.remove());
+  ghost.classList.remove("actionable", "targetable", "selected-card", "presentation-enter", "presentation-pulse");
+  ghost.classList.add("card-travel-ghost");
+  Object.assign(ghost.style, {
+    position: "fixed",
+    zIndex: "90",
+    left: `${originRect.left}px`,
+    top: `${originRect.top}px`,
+    width: `${originRect.width}px`,
+    height: `${originRect.height}px`,
+    margin: "0",
+    pointerEvents: "none",
+    transformOrigin: "top left",
+  });
+  document.body.append(ghost);
+
+  const travelX = destinationRect.left - originRect.left;
+  const travelY = destinationRect.top - originRect.top;
+  const scaleX = destinationRect.width / originRect.width;
+  const scaleY = destinationRect.height / originRect.height;
+  const duration = 4200;
+  const path = document.createElement("div");
+  const pathStartX = originRect.left + originRect.width / 2;
+  const pathStartY = originRect.top + originRect.height / 2;
+  const pathEndX = destinationRect.left + destinationRect.width / 2;
+  const pathEndY = destinationRect.top + destinationRect.height / 2;
+  const pathDistance = Math.hypot(pathEndX - pathStartX, pathEndY - pathStartY);
+  const pathAngle = Math.atan2(pathEndY - pathStartY, pathEndX - pathStartX) * 180 / Math.PI;
+  path.className = "card-travel-path";
+  Object.assign(path.style, {
+    left: `${pathStartX}px`,
+    top: `${pathStartY}px`,
+    width: `${pathDistance}px`,
+    transform: `rotate(${pathAngle}deg)`,
+    animationDuration: `${duration}ms`,
+  });
+  document.body.append(path);
+  ghost.style.setProperty("--travel-x", `${travelX}px`);
+  ghost.style.setProperty("--travel-y", `${travelY}px`);
+  ghost.style.setProperty("--travel-mid-x", `${travelX * .58}px`);
+  ghost.style.setProperty("--travel-mid-y", `${travelY * .58}px`);
+  ghost.style.setProperty("--travel-scale-x", scaleX);
+  ghost.style.setProperty("--travel-scale-y", scaleY);
+  ghost.style.setProperty("--travel-mid-scale-x", 1 + (scaleX - 1) * .58);
+  ghost.style.setProperty("--travel-mid-scale-y", 1 + (scaleY - 1) * .58);
+  ghost.style.animation = `card-ghost-travel ${duration}ms cubic-bezier(.45,0,.2,1) both`;
+  setTimeout(() => {
+    ghost.remove();
+    path.remove();
+    if (deferredCombatMoveId === deferredMoveId) {
+      deferredCombatMoveId = null;
+      requestAnimationFrame(playCombatEffect);
+    }
+  }, duration);
+  return true;
+}
+
+function showPresentationMove(action, actor, options = {}) {
+  showMove(action, actor, options);
+  clearTimeout(moveTimer);
+  moveTimer = null;
+}
+
+function startActionPresentation(action, actor, beforeState, resolvedState) {
+  clearTimeout(actionTimer);
+  state = structuredClone(beforeState);
+  actionPresentation = {
+    type: "action",
+    stage: action.source ? "source" : "outcome",
+    actor,
+    action,
+    beforeState: structuredClone(beforeState),
+    resolvedState,
+  };
+  if (action.source) copyPresentationSource(action, resolvedState);
+  else showPresentationMove(action, actor, { outcomeState: resolvedState });
+  feedback = `Bên ${actor} đang trình diễn hành động. Thao tác tạm khóa.`;
+  if (newlyRevealed(action.source, beforeState, resolvedState)) renderWithCardTravel(action.source);
+  else render();
+  actionTimer = setTimeout(advanceActionPresentation, action.source ? 4700 : 1500);
+}
+
+function advanceActionPresentation() {
+  actionTimer = null;
+  if (!actionPresentation || actionPresentation.type !== "action") return;
+  if (actionPresentation.stage === "source") {
+    const { action, actor, resolvedState } = actionPresentation;
+    const beforeOutcome = structuredClone(state);
+    copyResolvedCard(action.source, resolvedState);
+    copyResolvedCard(action.target, resolvedState);
+    actionPresentation.stage = "outcome";
+    showPresentationMove(action, actor, { revealTarget: true, outcomeState: resolvedState });
+    feedback = `Kết quả hành động của bên ${actor} đang được công bố.`;
+    let targetTravels = false;
+    if (newlyRevealed(action.target, beforeOutcome, resolvedState)) targetTravels = renderWithCardTravel(action.target);
+    else render();
+    actionTimer = setTimeout(advanceActionPresentation, targetTravels ? 8000 : 4200);
+    return;
+  }
+  finishActionPresentation();
+}
+
+function startNightStaging(beforeState, resolvedState) {
+  clearTimeout(actionTimer);
+  state = structuredClone(beforeState);
+  state.players.B.night = structuredClone(resolvedState.players.B.night);
+  actionPresentation = {
+    type: "night-staging",
+    stage: "source",
+    index: -1,
+    steps: [
+      { actor: "A", action: structuredClone(resolvedState.players.A.night) },
+      { actor: "B", action: structuredClone(resolvedState.players.B.night) },
+    ],
+    beforeState: structuredClone(beforeState),
+    resolvedState,
+  };
+  advanceNightStaging();
+}
+
+function advanceNightStaging() {
+  clearTimeout(actionTimer);
+  actionTimer = null;
+  if (!actionPresentation || actionPresentation.type !== "night-staging") return;
+  const nextIndex = actionPresentation.index + 1;
+  if (nextIndex < actionPresentation.steps.length) {
+    actionPresentation.index = nextIndex;
+    const step = actionPresentation.steps[nextIndex];
+    const beforeStep = structuredClone(state);
+    copyPresentationSource(step.action, actionPresentation.resolvedState);
+    showPresentationMove(step.action, step.actor);
+    feedback = `Lệnh đêm của bên ${step.actor} đang bước lên sân (${nextIndex + 1}/2).`;
+    if (newlyRevealed(step.action.source, beforeStep, actionPresentation.resolvedState)) renderWithCardTravel(step.action.source);
+    else render();
+    actionTimer = setTimeout(advanceNightStaging, 4800);
+    return;
+  }
+  finishActionPresentation();
+}
+
+function startCouncilResolution(beforeState, resolvedState, steps) {
+  clearTimeout(actionTimer);
+  const sequence = steps.flatMap((step) => [
+    ...step.action.voters.map((cardId, index) => ({ type: "voter", actor: step.actor, cardId, voterIndex: index, voterTotal: step.action.voters.length })),
+    { type: "verdict", actor: step.actor, action: step.action },
+  ]);
+  actionPresentation = {
+    type: "council-resolution",
+    stage: "voter",
+    index: -1,
+    sequence,
+    action: null,
+    voterId: null,
+    actor: "A",
+    beforeState: structuredClone(beforeState),
+    resolvedState,
+  };
+  state = structuredClone(beforeState);
+  advanceCouncilResolution();
+}
+
+function advanceCouncilResolution() {
+  clearTimeout(actionTimer);
+  actionTimer = null;
+  if (!actionPresentation || actionPresentation.type !== "council-resolution") return;
+  const nextIndex = actionPresentation.index + 1;
+  if (nextIndex >= actionPresentation.sequence.length) return finishActionPresentation();
+
+  const beforeStep = structuredClone(state);
+  const step = actionPresentation.sequence[nextIndex];
+  actionPresentation.index = nextIndex;
+  actionPresentation.actor = step.actor;
+  if (step.type === "voter") {
+    actionPresentation.stage = "voter";
+    actionPresentation.voterId = step.cardId;
+    actionPresentation.action = null;
+    copyResolvedCard(step.cardId, actionPresentation.resolvedState);
+    lastMove = null;
+    feedback = `Hội đồng bên ${step.actor}: người bỏ phiếu ${step.voterIndex + 1}/${step.voterTotal} đang lộ diện.`;
+    let voterTravels = false;
+    if (newlyRevealed(step.cardId, beforeStep, actionPresentation.resolvedState)) voterTravels = renderWithCardTravel(step.cardId);
+    else render();
+    actionTimer = setTimeout(advanceCouncilResolution, voterTravels ? 4700 : 1800);
+    return;
+  }
+
+  actionPresentation.stage = "outcome";
+  actionPresentation.voterId = null;
+  actionPresentation.action = step.action;
+  copyResolvedCard(step.action.target, actionPresentation.resolvedState);
+  showPresentationMove(step.action, step.actor, { revealTarget: true, outcomeState: actionPresentation.resolvedState });
+  feedback = `Hội đồng bên ${step.actor} đang công bố phán quyết treo cổ.`;
+  let targetTravels = false;
+  if (newlyRevealed(step.action.target, beforeStep, actionPresentation.resolvedState)) targetTravels = renderWithCardTravel(step.action.target);
+  else render();
+  actionTimer = setTimeout(advanceCouncilResolution, targetTravels ? 8400 : 4700);
+}
+
+function finishActionPresentation() {
+  if (!actionPresentation) return;
+  state = actionPresentation.resolvedState;
+  actionPresentation = null;
+  clearTimeout(actionTimer);
+  actionTimer = null;
+  clearTimeout(moveTimer);
+  moveTimer = null;
+  lastMove = null;
+  feedback = "Trình diễn đã hoàn tất. Bạn có thể tiếp tục.";
+  render();
 }
 
 function runNightResolution() {
   resolutionTimer = null;
-  if (state.phase !== "night-resolution") return;
-  const ownAction = state.players.A.night;
-  const opponentAction = state.players.B.night;
+  if (state.phase !== "night-resolution" || dawnPresentation) return;
+  const beforeState = structuredClone(state);
+  const ownAction = structuredClone(state.players.A.night);
+  const opponentAction = structuredClone(state.players.B.night);
   try {
-    state = dispatch(state, { type: "night.resolve" });
-    const combatMoves = [
+    const resolvedState = dispatch(state, { type: "night.resolve" });
+    const moves = [
       { action: ownAction, actor: "A" },
       { action: opponentAction, actor: "B" },
-    ].filter(({ action }) => action && COMBAT_KINDS.has(moveKind(action)));
-    const replayMoves = combatMoves.length ? combatMoves : [{ action: opponentAction, actor: "B" }];
-    showMove(replayMoves[0].action, replayMoves[0].actor, { revealTarget: true });
-    clearTimeout(nightReplayTimer);
-    nightReplayTimer = replayMoves[1] ? setTimeout(() => {
-      nightReplayTimer = null;
-      showMove(replayMoves[1].action, replayMoves[1].actor, { revealTarget: true });
-      render();
-    }, 1450) : null;
+    ].filter(({ action }) => action && moveKind(action) !== "pass");
+    dawnPresentation = {
+      stage: "opening",
+      index: -1,
+      moves,
+      beforeState,
+      resolvedState,
+    };
+    state = beforeState;
     dawnActive = true;
+    lastMove = null;
+    clearTimeout(moveTimer);
+    moveTimer = null;
     clearTimeout(dawnTimer);
-    dawnTimer = setTimeout(() => {
-      dawnActive = false;
-      dawnTimer = null;
-      render();
-    }, replayMoves.length > 1 ? 4300 : 3200);
-    feedback = "Bình minh đã phán xét toàn bộ lệnh đêm.";
+    dawnTimer = setTimeout(advanceDawnPresentation, 1700);
+    feedback = "Bình minh đang hé lộ. Mọi thao tác tạm khóa.";
   } catch (error) {
     feedback = `Lỗi xử lý đêm: ${error.message}`;
   }
   render();
 }
 
+function copyResolvedCard(cardId, resolvedState) {
+  if (!cardId) return;
+  const current = cardState(cardId, state);
+  const resolved = cardState(cardId, resolvedState);
+  if (!current || !resolved) return;
+  current.alive = resolved.alive;
+  current.revealed = resolved.revealed;
+  current.uses = structuredClone(resolved.uses);
+}
+
+function applyDawnMove({ action }, presentation) {
+  copyResolvedCard(action.source, presentation.resolvedState);
+  copyResolvedCard(action.target, presentation.resolvedState);
+
+  const targetBefore = cardState(action.target, presentation.beforeState);
+  if (targetBefore?.role !== "avenger" || cardState(action.target, presentation.resolvedState)?.alive) return;
+  const revengeTarget = presentation.beforeState.players[action.target[0]].revengeTarget;
+  if (!revengeTarget || cardState(revengeTarget, presentation.resolvedState)?.alive) return;
+  copyResolvedCard(revengeTarget, presentation.resolvedState);
+  deathReasons.set(revengeTarget, {
+    short: "BỊ KÉO THEO BÁO THÙ",
+    detail: `${action.target} bị hạ và kích hoạt lời nguyền báo thù lên ${revengeTarget}.`,
+  });
+}
+
+function advanceDawnPresentation() {
+  dawnTimer = null;
+  if (!dawnPresentation) return;
+
+  const nextIndex = dawnPresentation.index + 1;
+  if (nextIndex < dawnPresentation.moves.length) {
+    dawnPresentation.index = nextIndex;
+    dawnPresentation.stage = "reveal";
+    const move = dawnPresentation.moves[nextIndex];
+    const beforeMove = structuredClone(state);
+    applyDawnMove(move, dawnPresentation);
+    showPresentationMove(move.action, move.actor, {
+      revealTarget: true,
+      outcomeState: dawnPresentation.resolvedState,
+    });
+    feedback = `Bình minh đang công bố kết quả ${nextIndex + 1}/${dawnPresentation.moves.length}.`;
+    const travelId = [move.action.target, move.action.source]
+      .find((cardId) => newlyRevealed(cardId, beforeMove, dawnPresentation.resolvedState));
+    let cardTravels = false;
+    if (travelId) cardTravels = renderWithCardTravel(travelId);
+    else render();
+    dawnTimer = setTimeout(advanceDawnPresentation, cardTravels ? 8000 : 4200);
+    return;
+  }
+
+  state = dawnPresentation.resolvedState;
+  dawnPresentation.stage = "complete";
+  lastMove = null;
+  clearTimeout(moveTimer);
+  moveTimer = null;
+  feedback = "Trời đã sáng. Bàn đấu đã cập nhật xong.";
+  render();
+  dawnTimer = setTimeout(() => {
+    dawnActive = false;
+    dawnPresentation = null;
+    dawnTimer = null;
+    render();
+  }, 1900);
+}
+
 function scheduleNightResolution() {
-  if (state.phase !== "night-resolution" || resolutionTimer) return;
+  if (state.phase !== "night-resolution" || resolutionTimer || dawnPresentation || lastMove) return;
   resolutionTimer = setTimeout(runNightResolution, 3200);
 }
 
@@ -240,8 +575,8 @@ function publicCardLabel(id) {
   return card?.role && card.role !== "?" ? `${id} · ${card.role}` : id;
 }
 
-function cardState(id) {
-  return id ? state.players[id[0]]?.board.find((card) => card.id === id) : null;
+function cardState(id, stateRef = state) {
+  return id ? stateRef.players[id[0]]?.board.find((card) => card.id === id) : null;
 }
 
 function deathReasonFor(kind, outcome, action) {
@@ -257,13 +592,28 @@ function deathReasonFor(kind, outcome, action) {
   return null;
 }
 
-function showMove(action, actor, { revealTarget = false } = {}) {
+function moveExplanationFor(kind, outcome, action) {
+  if (kind === "attack") return outcome === "blocked"
+    ? `${action.target} sống sót vì đã có khiên; Ma sói vẫn lộ diện do đã ra đòn.`
+    : `Ma sói lộ diện vì đã tấn công ${action.target}.`;
+  if (kind === "poison") return outcome === "blocked"
+    ? `${action.target} sống sót vì đã có khiên; Phù thủy vẫn lộ diện do đã dùng độc.`
+    : `Phù thủy lộ diện vì đã dùng độc lên ${action.target}.`;
+  if (kind === "inspect") return `Tiên tri soi kín ${action.target}; kết quả chỉ được ghi vào ghi chú riêng của người ra lệnh.`;
+  if (kind === "defend") return `Bảo vệ dựng khiên công khai tại ${action.target}; role của mục tiêu và Bảo vệ vẫn được giữ kín.`;
+  if (kind === "accuse") return `${action.voters?.join(", ") || "Ba nhân vật"} cùng bỏ phiếu treo ${action.target}.`;
+  if (kind === "bloodmoon" && outcome === "blocked") return `${action.target} sống sót vì đã có khiên bảo vệ.`;
+  return null;
+}
+
+function showMove(action, actor, { revealTarget = false, outcomeState = state } = {}) {
   const kind = moveKind(action);
   const hiddenNightTarget = action.type === "night.submit" && !revealTarget && action.target;
   const sourceVisible = action.source && (actor === seat || publicView(state).board[actor]?.find((card) => card.id === action.source)?.role !== "?");
   const resolvedCombat = COMBAT_KINDS.has(kind) && action.target && !hiddenNightTarget;
-  const targetDied = resolvedCombat && !cardState(action.target)?.alive;
-  const sourceDied = resolvedCombat && action.source && !cardState(action.source)?.alive;
+  const targetDied = resolvedCombat && !cardState(action.target, outcomeState)?.alive;
+  const sourceDied = resolvedCombat && action.source && !cardState(action.source, outcomeState)?.alive;
+  const councilSucceeded = kind === "accuse" && action.target && !cardState(action.target, outcomeState)?.alive;
   const outcome = !resolvedCombat
     ? null
     : targetDied
@@ -274,6 +624,7 @@ function showMove(action, actor, { revealTarget = false } = {}) {
   const killerKnown = Boolean(actor !== seat && targetDied && sourceVisible);
   const mysteryKiller = Boolean(actor !== seat && targetDied && !sourceVisible);
   const deathReason = resolvedCombat && (targetDied || sourceDied) ? deathReasonFor(kind, outcome, action) : null;
+  const explanation = hiddenNightTarget ? null : moveExplanationFor(kind, outcome, action);
   if (targetDied && deathReason) deathReasons.set(action.target, deathReason);
   if (sourceDied && deathReason) deathReasons.set(action.source, deathReason);
   if (kind === "revive" && action.target) deathReasons.delete(action.target);
@@ -290,18 +641,21 @@ function showMove(action, actor, { revealTarget = false } = {}) {
     target: hiddenNightTarget ? null : action.target || null,
     hiddenTarget: Boolean(hiddenNightTarget),
     targetLabel: hiddenNightTarget ? "Mục tiêu bí mật" : publicCardLabel(action.target),
+    voters: action.voters ? [...action.voters] : [],
     targetDied,
     sourceDied,
+    councilSucceeded,
     outcome,
     killerKnown,
     mysteryKiller,
     deathReason,
+    explanation,
   };
   clearTimeout(moveTimer);
   moveTimer = setTimeout(() => {
     lastMove = null;
     render();
-  }, 3800);
+  }, 4700);
 }
 
 function actionForOwnCard(card) {
@@ -341,6 +695,26 @@ function directTargetIds() {
   return new Set();
 }
 
+function presentationClassFor(cardId) {
+  if (travelingCardId === cardId) return "card-travel-arrival";
+  if (!actionPresentation) return "";
+  if (actionPresentation.type === "council-resolution" && actionPresentation.stage === "voter" && actionPresentation.voterId === cardId) return "presentation-pulse presentation-source";
+  const step = actionPresentation.type === "night-staging"
+    ? actionPresentation.steps[actionPresentation.index]
+    : { action: actionPresentation.action };
+  const action = step?.action;
+  if (!action) return "";
+  const isSource = actionPresentation.stage === "source" && action.source === cardId;
+  const resolvedCard = cardState(cardId, actionPresentation.resolvedState);
+  const isOutcome = actionPresentation.stage === "outcome"
+    && (action.target === cardId || action.source === cardId && resolvedCard && !resolvedCard.alive);
+  if (!isSource && !isOutcome) return "";
+  const beforeCard = cardState(cardId, actionPresentation.beforeState);
+  const entersCenter = Boolean(resolvedCard?.revealed && !beforeCard?.revealed);
+  if (!entersCenter) return `presentation-pulse presentation-${isSource ? "source" : "outcome"}`;
+  return `presentation-enter presentation-${isSource ? "source" : "outcome"} from-${cardId[0].toLowerCase()}`;
+}
+
 function cardMarkup(card, isOwn, setupIndex = -1) {
   const isSetup = setupIndex >= 0;
   const secret = isOwn ? privateCard(card.id) : null;
@@ -369,7 +743,8 @@ function cardMarkup(card, isOwn, setupIndex = -1) {
       : isOwn ? "Đang ẩn" : "Đang sống";
   const moveSource = lastMove?.source === card.id;
   const moveTarget = lastMove?.target === card.id;
-  return `<article class="role-card faction-${faction} phase-${phase} ${isSetup ? "setup-card" : ""} ${directAction ? "actionable" : ""} ${targetable ? "targetable" : ""} ${selected ? "selected-card" : ""} ${moveSource ? "move-source" : ""} ${moveTarget ? "move-target" : ""} ${card.staged ? "staged" : ""} ${card.alive ? "" : "dead"} ${isRevealed ? "revealed" : "hidden-role"} ${card.shielded ? "shielded" : ""}" data-card-id="${card.id}" ${isSetup ? `draggable="true" data-setup-card="${card.id}"` : ""} ${directAction ? `data-direct-source="${card.id}" data-direct-kind="${directAction.kind}"` : ""} ${targetable ? `data-direct-target="${card.id}"` : ""}>
+  const presentationClass = presentationClassFor(card.id);
+  return `<article class="role-card faction-${faction} phase-${phase} ${isSetup ? "setup-card" : ""} ${directAction ? "actionable" : ""} ${targetable ? "targetable" : ""} ${selected ? "selected-card" : ""} ${moveSource ? "move-source" : ""} ${moveTarget ? "move-target" : ""} ${presentationClass} ${card.staged ? "staged" : ""} ${card.alive ? "" : "dead"} ${isRevealed ? "revealed" : "hidden-role"} ${card.shielded ? "shielded" : ""}" data-card-id="${card.id}" ${isSetup ? `draggable="true" data-setup-card="${card.id}"` : ""} ${directAction ? `data-direct-source="${card.id}" data-direct-kind="${directAction.kind}"` : ""} ${targetable ? `data-direct-target="${card.id}"` : ""}>
     <div class="card-shell">
       <header class="card-head"><strong class="role-name" title="${shownName}">${shownName}</strong><span class="phase-rune" title="Pha kỹ năng">${phaseMark}</span></header>
       <div class="art-window">
@@ -419,18 +794,20 @@ function moveReplayMarkup() {
   if (!lastMove) return "";
   const [icon, label] = MOVE_META[lastMove.kind] || ["◆", lastMove.kind];
   return `<div class="move-replay move-${lastMove.actor.toLowerCase()}" aria-live="polite">
+    ${dawnPresentation?.stage === "reveal" ? `<span class="dawn-replay-progress">BÌNH MINH · KẾT QUẢ ${dawnPresentation.index + 1}/${dawnPresentation.moves.length}</span>` : ""}
+    ${actionPresentation?.type === "night-staging" ? `<span class="dawn-replay-progress turn-replay-progress">LỆNH ĐÊM · ${actionPresentation.index + 1}/2 · A → B</span>` : actionPresentation?.type === "action" ? `<span class="dawn-replay-progress turn-replay-progress">BÊN ${actionPresentation.actor} · ĐANG GIẢI QUYẾT</span>` : ""}
     <span class="move-actor">${lastMove.actor === seat ? "BẠN" : "BOT B"}</span>
     <span class="move-card">${lastMove.sourceLabel}</span>
     <span class="move-icon">${icon}</span>
     <span class="move-card target">${lastMove.target || lastMove.hiddenTarget ? lastMove.targetLabel : label}</span>
     <strong>${label}</strong>
     ${lastMove.outcome ? `<span class="move-result result-${lastMove.outcome}">${COMBAT_RESULTS[lastMove.outcome]}</span>` : ""}
-    ${lastMove.deathReason ? `<span class="move-reason"><b>VÌ SAO?</b> ${lastMove.deathReason.detail}</span>` : ""}
+    ${lastMove.deathReason ? `<span class="move-reason"><b>VÌ SAO?</b> ${lastMove.deathReason.detail}</span>` : lastMove.explanation ? `<span class="move-reason move-explanation"><b>DIỄN GIẢI</b> ${lastMove.explanation}</span>` : ""}
   </div>`;
 }
 
 function playCombatEffect() {
-  if (!lastMove?.target || !COMBAT_KINDS.has(lastMove.kind) || playedMoveId === lastMove.id) return;
+  if (!lastMove?.target || !ACTION_EFFECT_KINDS.has(lastMove.kind) || playedMoveId === lastMove.id || deferredCombatMoveId === lastMove.id) return;
   const layer = document.querySelector(".combat-fx-layer");
   const target = document.querySelector(`[data-card-id="${lastMove.target}"]`);
   if (!layer || !target) return;
@@ -452,6 +829,39 @@ function playCombatEffect() {
   const result = COMBAT_RESULTS[lastMove.outcome] || COMBAT_RESULTS.hit;
 
   playedMoveId = lastMove.id;
+  document.body.dataset.lastEffect = lastMove.kind;
+  layer.style.setProperty("--start-x", `${startX}px`);
+  layer.style.setProperty("--start-y", `${startY}px`);
+  layer.style.setProperty("--end-x", `${endX}px`);
+  layer.style.setProperty("--end-y", `${endY}px`);
+  layer.style.setProperty("--reason-x", `${reasonX}px`);
+  layer.style.setProperty("--reason-y", `${reasonY}px`);
+  layer.style.setProperty("--travel-x", `${travelX}px`);
+  layer.style.setProperty("--travel-y", `${travelY}px`);
+  layer.style.setProperty("--distance", `${distance}px`);
+  layer.style.setProperty("--angle", `${angle}deg`);
+
+  if (lastMove.kind === "inspect") {
+    source?.classList.add("fx-seer-source");
+    target.classList.add("fx-inspected");
+    layer.innerHTML = `<div class="seer-beam"></div><div class="seer-lens"><span>◉</span><strong>TIÊN TRI ĐANG SOI</strong><small>${lastMove.targetLabel}</small></div><div class="seer-scanline"></div>`;
+    return;
+  }
+
+  if (lastMove.kind === "defend") {
+    source?.classList.add("fx-guard-source");
+    target.classList.add("fx-defended");
+    layer.innerHTML = `<div class="shield-dome"><i></i><span>◈</span><strong>KHIÊN ĐÃ ĐẶT</strong><small>${lastMove.targetLabel}</small></div><div class="shield-ripple"></div>`;
+    return;
+  }
+
+  if (lastMove.kind === "accuse") {
+    target.classList.add("fx-condemned");
+    lastMove.voters.forEach((id) => document.querySelector(`[data-card-id="${id}"]`)?.classList.add("fx-voter"));
+    layer.innerHTML = `<div class="vote-council"><span>3 PHIẾU ĐÃ KHÓA</span><strong>${lastMove.voters.join(" · ")}</strong></div>${lastMove.councilSucceeded ? `<div class="gallows-rope"><i></i><span>⚖</span><strong>PHÁN QUYẾT TREO CỔ</strong><small>${lastMove.targetLabel}</small></div>` : `<div class="council-failed"><span>⚖</span><strong>BUỘC TỘI KHÔNG THÀNH</strong><small>${lastMove.targetLabel} sống sót</small></div>`}`;
+    return;
+  }
+
   source?.classList.add("fx-attacker");
   if (lastMove.killerKnown && source) source.classList.add("fx-known-killer");
   target.classList.add(lastMove.outcome === "blocked" ? "fx-blocked" : "fx-hit");
@@ -466,24 +876,19 @@ function playCombatEffect() {
   const reasonCue = lastMove.deathReason
     ? `<div class="combat-death-reason"><span>${lastMove.deathReason.short}</span><strong>${lastMove.deathReason.detail}</strong></div>`
     : "";
+  const skillCue = lastMove.kind === "shoot"
+    ? `<div class="muzzle-flash"><i></i><strong>ĐOÀNG!</strong></div>`
+    : lastMove.kind === "purify"
+      ? `<div class="holy-sigil"><i>✦</i><strong>THANH TẨY ${lastMove.targetLabel}</strong></div>`
+      : "";
   layer.innerHTML = `<div class="combat-trail fx-${lastMove.kind}"></div>
     <div class="combat-projectile fx-${lastMove.kind}"><span>${icon}</span></div>
     <div class="combat-impact outcome-${lastMove.outcome || "hit"}"><i></i><strong>${result}</strong></div>
-    ${killerCue}${reasonCue}`;
-  layer.style.setProperty("--start-x", `${startX}px`);
-  layer.style.setProperty("--start-y", `${startY}px`);
-  layer.style.setProperty("--end-x", `${endX}px`);
-  layer.style.setProperty("--end-y", `${endY}px`);
-  layer.style.setProperty("--reason-x", `${reasonX}px`);
-  layer.style.setProperty("--reason-y", `${reasonY}px`);
-  layer.style.setProperty("--travel-x", `${travelX}px`);
-  layer.style.setProperty("--travel-y", `${travelY}px`);
-  layer.style.setProperty("--distance", `${distance}px`);
-  layer.style.setProperty("--angle", `${angle}deg`);
+    ${skillCue}${killerCue}${reasonCue}`;
 }
 
 function activeForSeat() {
-  if (dawnActive) return false;
+  if (dawnActive || actionPresentation) return false;
   if (state.phase.startsWith("setup-")) return state.phase === `setup-${seat}`;
   if (state.phase === "council" || state.phase === "dusk-defense" || state.phase === "night-plan" || state.phase === "final-duel") return true;
   return state.phase === `day-${seat}`;
@@ -568,7 +973,25 @@ function historyMarkup() {
 
 function battlefieldActionMarkup() {
   if (state.phase.startsWith("setup-") || state.phase === "ended") return controlMarkup();
-  if (dawnActive) return `<div class="battle-action dawn-reveal"><span class="dawn-sun">☀</span><p class="battle-step">Bình minh công khai</p><strong>Phán xét đang được hé lộ</strong><p>Nhịp đấu tạm chậm lại để bạn theo dõi card vừa lộ, lá bị hạ và kết quả của khiên.</p></div>`;
+  if (dawnActive) {
+    const presentation = dawnPresentation;
+    if (presentation?.stage === "complete") return `<div class="battle-action dawn-reveal dawn-complete"><span class="dawn-sun">☀</span><p class="battle-step">Bình minh hoàn tất</p><strong>Trời đã sáng</strong><p>Bàn đấu đã cập nhật xong. Lượt tiếp theo sẽ mở ngay sau tín hiệu này.</p></div>`;
+    if (presentation?.stage === "reveal") return `<div class="battle-action dawn-reveal dawn-step"><span class="dawn-lock">THAO TÁC ĐANG KHÓA</span><p class="battle-step">Kết quả ${presentation.index + 1}/${presentation.moves.length}</p><strong>Đang công bố từng lệnh</strong><p>Các lệnh đã được khóa đồng thời; đây là thứ tự trình bày để bạn theo dõi nguyên nhân và kết quả.</p></div>`;
+    return `<div class="battle-action dawn-reveal dawn-opening"><span class="dawn-sun">◒</span><span class="dawn-lock">THAO TÁC ĐANG KHÓA</span><p class="battle-step">Chuyển giao ngày đêm</p><strong>Bình minh đang hé lộ</strong><p>${presentation?.moves.length || 0} lệnh đêm sẽ lần lượt được công bố. Khoan hành động cho tới khi trời sáng hẳn.</p></div>`;
+  }
+  if (actionPresentation) {
+    if (actionPresentation.type === "council-resolution") {
+      const sequenceStep = actionPresentation.sequence[actionPresentation.index];
+      if (actionPresentation.stage === "voter") return `<div class="battle-action turn-presentation presentation-${actionPresentation.actor.toLowerCase()}"><span class="dawn-lock">THAO TÁC ĐANG KHÓA</span><p class="battle-step">Hội đồng bên ${actionPresentation.actor}</p><strong>${sequenceStep?.voterIndex + 1}/${sequenceStep?.voterTotal} người bỏ phiếu đang lộ diện</strong><p>${actionPresentation.voterId} đang từ từ bước lên sân. Phán quyết chỉ diễn ra sau khi đủ ba người.</p></div>`;
+      return `<div class="battle-action turn-presentation presentation-${actionPresentation.actor.toLowerCase()}"><span class="dawn-lock">THAO TÁC ĐANG KHÓA</span><p class="battle-step">Đủ 3 phiếu · Hội đồng bên ${actionPresentation.actor}</p><strong>Đang công bố phán quyết treo cổ</strong><p>Ba người bỏ phiếu đã hiện diện; mục tiêu và kết quả được xử lý ở nhịp cuối.</p></div>`;
+    }
+    if (actionPresentation.type === "night-staging") {
+      const step = actionPresentation.steps[actionPresentation.index];
+      return `<div class="battle-action turn-presentation presentation-night"><span class="dawn-lock">THAO TÁC ĐANG KHÓA</span><p class="battle-step">Lệnh đêm ${actionPresentation.index + 1}/2 · A → B</p><strong>Bên ${step?.actor || "A"} đang bước lên sân</strong><p>Từng nguồn lệnh được di chuyển và lộ riêng. Bên B chỉ xuất hiện sau khi hoạt cảnh của A kết thúc.</p></div>`;
+    }
+    const stage = actionPresentation.stage === "source" ? "Đang đưa nhân vật lên sân" : "Đang công bố kết quả";
+    return `<div class="battle-action turn-presentation presentation-${actionPresentation.actor.toLowerCase()}"><span class="dawn-lock">THAO TÁC ĐANG KHÓA</span><p class="battle-step">Bên ${actionPresentation.actor} đang hành động</p><strong>${stage}</strong><p>Nguồn lệnh di chuyển trước; mục tiêu, lộ bài và thương vong chỉ xuất hiện ở nhịp kế tiếp.</p></div>`;
+  }
   if (state.phase === "night-resolution") return `<div class="battle-action night-verdict"><span class="verdict-moon">☾</span><strong>Lệnh đã lên sân</strong><p>Nguồn và vị trí có khiên đang hiển thị. Mục tiêu vẫn bí mật; bình minh phán xét sau 3,2 giây.</p></div>`;
   if (botNeedsTurn() || !activeForSeat() || alreadyLocked()) return `<div class="battle-action bot-battle"><span class="bot-orbit" aria-hidden="true"></span><strong>BOT B đang cân nhắc</strong><p>Bạn có khoảng 1,7 giây để nhìn trạng thái bàn trước khi bot đi.</p></div>`;
   if (state.phase === "council") {
@@ -602,7 +1025,11 @@ function battlefieldActionMarkup() {
 }
 
 function roundTitle() {
-  if (dawnActive) return `VÒNG ${state.round} · BÌNH MINH PHÁN XÉT`;
+  if (dawnPresentation?.stage === "complete") return `VÒNG ${state.round} · TRỜI ĐÃ SÁNG`;
+  if (dawnPresentation?.stage === "reveal") return `BÌNH MINH · KẾT QUẢ ${dawnPresentation.index + 1}/${dawnPresentation.moves.length}`;
+  if (dawnActive) return `VÒNG ${state.round} · BÌNH MINH ĐANG HÉ LỘ`;
+  if (actionPresentation?.type === "night-staging") return `VÒNG ${state.round} · LỆNH ĐÊM ${actionPresentation.index + 1}/2 · A → B`;
+  if (actionPresentation) return `VÒNG ${state.round} · BÊN ${actionPresentation.actor} ĐANG HÀNH ĐỘNG`;
   if (state.phase === "council") return `VÒNG ${state.round} · HỘI ĐỒNG TREO CỔ`;
   if (state.phase === "day-A") return `VÒNG ${state.round} · BAN NGÀY — LƯỢT CỦA BẠN`;
   if (state.phase === "day-B") return `VÒNG ${state.round} · BAN NGÀY — BOT HÀNH ĐỘNG`;
@@ -640,7 +1067,8 @@ function commandDockMarkup() {
 
 function render() {
   const targeting = interaction && (state.phase.startsWith("day-") || state.phase === "night-plan") ? " targeting-active" : "";
-  document.body.className = `duel-only scene-${visualScene()}${targeting}`;
+  const dawnStage = dawnPresentation ? ` dawn-stage-${dawnPresentation.stage}` : "";
+  document.body.className = `duel-only scene-${visualScene()}${dawnStage}${targeting}`;
   const topbar = `<header class="topbar"><div class="brand"><span class="brand-mark">TF</span>TWOFOLD</div><span class="round">Local playtest · Vòng ${state.round}</span><span class="phase-chip">${roundTitle()}</span><div class="seat-toggle"><span class="human-seat">A · BẠN</span><span class="bot-seat ${botNeedsTurn() ? "thinking" : ""}"><i></i>B · BOT</span></div><button class="reset" type="button" data-reset>Reset</button></header>`;
   const arena = arenaMarkup();
   const history = historyMarkup();
@@ -679,15 +1107,23 @@ function submitAction(form) {
         : { type: "day.submit", seat, kind, source: sourceFor(kind === "mark" ? "avenger" : "priest"), target: data.get("dayTarget") };
   else if (state.phase === "dusk-defense") action = kind === "pass"
     ? { type: "defense.submit", seat, pass: true }
-    : { type: "defense.submit", seat, pass: false, target: data.get("defendTarget") };
+    : { type: "defense.submit", seat, pass: false, source: sourceFor("guard"), target: data.get("defendTarget") };
   else if (state.phase === "night-plan") action = kind === "pass"
     ? { type: "night.submit", seat, kind }
     : { type: "night.submit", seat, kind, source: sourceFor(kind === "attack" ? "wolf" : kind === "inspect" ? "seer" : "witch"), target: data.get("nightTarget") };
   else action = { type: "final.submit", seat, guess: data.get("finalGuess") };
 
   try {
-    state = dispatch(state, action);
-    showMove(action, seat);
+    const beforeState = structuredClone(state);
+    const nextState = dispatch(state, action);
+    if (action.type === "day.submit") {
+      interaction = null;
+      handVisible = true;
+      startActionPresentation(action, seat, beforeState, nextState);
+      return;
+    }
+    state = nextState;
+    if (action.type !== "night.submit" && action.type !== "council.submit") showMove(action, seat);
     feedback = "Lựa chọn hợp lệ và đã khóa.";
     handVisible = true;
   } catch (error) {
@@ -698,10 +1134,20 @@ function submitAction(form) {
 
 function commitDirectAction(action) {
   try {
-    state = dispatch(state, action);
-    showMove(action, "A");
+    const beforeState = structuredClone(state);
+    const nextState = dispatch(state, action);
+    if (action.type === "day.submit") {
+      interaction = null;
+      handVisible = true;
+      startActionPresentation(action, "A", beforeState, nextState);
+      return;
+    }
+    state = nextState;
+    if (action.type !== "night.submit" && action.type !== "council.submit") showMove(action, "A");
     interaction = null;
-    feedback = "Hành động đã khóa. BOT B đang suy nghĩ.";
+    feedback = action.type === "night.submit"
+      ? "Lệnh đêm của A đã khóa bí mật. Chờ B chọn xong để trình diễn A → B."
+      : "Hành động đã khóa. BOT B đang suy nghĩ.";
   } catch (error) {
     feedback = error.message;
   }
@@ -719,7 +1165,7 @@ function chooseDirectTarget(target) {
     return render();
   }
   if (interaction.kind === "protect") return commitDirectAction({ type: "council.submit", seat: "A", kind: "protect", source: interaction.source, target });
-  if (interaction.kind === "defend") return commitDirectAction({ type: "defense.submit", seat: "A", pass: false, target });
+  if (interaction.kind === "defend") return commitDirectAction({ type: "defense.submit", seat: "A", pass: false, source: interaction.source || sourceFor("guard"), target });
   if (state.phase.startsWith("day-")) return commitDirectAction({ type: "day.submit", seat: "A", kind: interaction.kind, source: interaction.source, target });
   return commitDirectAction({ type: "night.submit", seat: "A", kind: interaction.kind, source: interaction.source, target });
 }
@@ -784,12 +1230,18 @@ document.addEventListener("click", (event) => {
     moveTimer = null;
     clearTimeout(resolutionTimer);
     resolutionTimer = null;
-    clearTimeout(nightReplayTimer);
-    nightReplayTimer = null;
     clearTimeout(dawnTimer);
     dawnTimer = null;
     dawnActive = false;
+    dawnPresentation = null;
+    clearTimeout(actionTimer);
+    actionTimer = null;
+    actionPresentation = null;
+    travelingCardId = null;
+    deferredCombatMoveId = null;
+    document.querySelectorAll(".card-travel-ghost, .card-travel-path").forEach((item) => item.remove());
     playedMoveId = null;
+    delete document.body.dataset.lastEffect;
     moveSequence = 0;
     deathReasons.clear();
     clearTimeout(botTimer);
