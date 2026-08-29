@@ -11,7 +11,7 @@
 - Tiên tri có trạng thái soi phe sáng/phe bóng tối; mục tiêu phe sáng bị khóa soi lại, mục tiêu bóng tối có thể bị kết liễu lần hai.
 - Bảo vệ không giới hạn charge, không tự bảo vệ, không được lặp cùng lá ở hai đêm liên tiếp.
 - UI thêm presentation **Bình minh đầu tiên / Vòng 1 bắt đầu** sau khi hai bên khóa đội hình, trước `day-A`, để giải thích A đi trước và Vòng 1 chưa có Vote.
-
+- Layout bỏ right rail khỏi màn hình chơi mặc định; ẩn diễn biến công khai và đưa action dock xuống dưới bàn đấu để mở rộng không gian quan sát.
 ## Kiểm tra
 
 - `node --check` cho `engine.mjs` và `ui.mjs`: PASS.
