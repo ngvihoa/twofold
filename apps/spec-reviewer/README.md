@@ -30,6 +30,7 @@ apps/spec-reviewer/
 ├── lib/note-store.js        # Cache, outbox và sync phía trình duyệt
 ├── notes/index.html         # Trang /notes
 ├── notes.js                 # UI quản lý notes
+├── notes-widget.js          # Widget ghi chú nhanh nhúng được vào mọi trang HTML
 ├── index.html               # Giao diện chính Role Atlas
 ├── shortlist.html           # Giao diện xem danh sách đã chọn
 ├── app.js                   # Logic render, tìm kiếm và lọc vai trò
@@ -79,3 +80,15 @@ pnpm --filter @twofold/spec-reviewer dev:vercel
 Sau khi env trên Vercel thay đổi, chỉ cần chạy lại `pnpm env:pull:spec`. Có thể dùng `env:pull:development`, `env:pull:preview` hoặc `env:pull:production` trong workspace khi cần tách file theo environment.
 
 `pnpm --filter @twofold/spec-reviewer dev` vẫn chạy static server nhẹ; note sẽ được giữ local nhưng API đồng bộ không hoạt động trong chế độ đó.
+
+## Widget ghi chú nhanh (notes-widget)
+
+`notes-widget.js` là script nhúng được vào **bất kỳ trang HTML nào** được serve từ spec-reviewer. Khi import, nó tự hiển thị nút nổi "Ghi chú" ở góc phải dưới; PO nhấn vào sẽ mở modal ghi chú (nội dung, trạng thái, tùy chọn kèm ngữ cảnh trang hiện tại). Note lưu qua cùng `lib/note-store.js` nên xuất hiện ngay trên trang `/notes` và đồng bộ theo workspace token hiện có.
+
+Cách nhúng vào một trang:
+
+```html
+<script type="module" src="/notes-widget.js?v=20260829-3"></script>
+```
+
+Widget tự chứa CSS (prefix `tfnw-`) với fallback biến màu, nên chạy được cả trên trang không load `styles.css` (ví dụ `game-flow-demo/ui.html`); khi trang có design system thì widget tự theo theme sáng/tối. Import hai lần trên cùng một trang không bị nhân đôi widget (có cờ `window.__twofoldNotesWidget`).
