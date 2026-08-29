@@ -179,3 +179,23 @@ Cả ba cùng review luật và playtest theo vòng lặp: **Thiết kế → Pr
 - UI/UX Game: chuyển `game-flow-v0.1.md` thành screen/state inventory và prototype.
 - Developer: dùng flow làm đầu vào cho state machine, room/realtime POC và reconnect.
 - Cả team: theo `docs/project-management/roadmap.md` và cập nhật `task-tracker.md` trong mỗi buổi sync.
+
+## Role Atlas
+
+Project có một công cụ local để khám phá và shortlist toàn bộ 92 role tham khảo từ Wiki WWO Vietnamese.
+
+```bash
+npm run dev
+```
+
+Mở [http://localhost:4173](http://localhost:4173). Công cụ hỗ trợ:
+
+- lọc theo giai đoạn sử dụng, phe, mechanic và mức độ phù hợp với game 1v1;
+- tìm role bằng tên hoặc mã ổn định như `DL-006`;
+- xem mốc lộ vai, kỹ năng ban ngày, kỹ năng ban đêm, mô tả và link nguồn;
+- chọn không giới hạn, xem nhanh trên khay sticky và mở trang `shortlist.html` để loại dần, sao chép cả mã cho buổi họp;
+- bộ đề xuất 6 role cốt lõi, giữ Tiên Tri thay Thầy Bói và Bảo Vệ thay Bác Sĩ;
+- section Gợi ý role nên test trước luôn phản chiếu shortlist hiện tại và có thể reset về preset 10 role đầu tiên;
+- 19 role Solo giết người hoặc Đặc biệt được tách sang nhóm từ Vòng 6, còn 3 role Solo bỏ phiếu nằm trong nhóm Chưa dùng.
+
+Sau khi làm mới dữ liệu nguồn, chạy `npm run annotate:roles` để gắn lại mã và metadata gameplay. Kiểm tra dữ liệu bằng `npm run check`.
