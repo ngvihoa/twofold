@@ -182,9 +182,17 @@ function submitSetup(state, action) {
   addLog(state, `${action.seat} đã khóa thứ tự đội hình.`);
   if (action.seat === "A") state.phase = "setup-B";
   else {
-    state.phase = "day-A";
-    addLog(state, "Hai đội hình đã lên bàn. Ban ngày Vòng 1 bắt đầu; chưa có Hội đồng.");
+    state.phase = "match-intro";
+    addLog(state, "Hai đội hình đã lên bàn. Vòng 1 sắp bắt đầu; chưa có Hội đồng.");
   }
+}
+
+export function beginRound(state) {
+  if (state.phase !== "match-intro") throw new Error("Chưa sẵn sàng bắt đầu Vòng 1.");
+  const next = clone(state);
+  next.phase = "day-A";
+  addLog(next, "Bình minh đầu tiên. Bên A bắt đầu Ban ngày Vòng 1.");
+  return next;
 }
 
 function purgeRule(round) {
@@ -578,8 +586,9 @@ function submitFinalGuess(state, action) {
 
 export function dispatch(currentState, action) {
   if (currentState.phase === "ended") throw new Error("Ván đấu đã kết thúc.");
-  const state = clone(currentState);
-  if (action.type === "setup.submit") submitSetup(state, action);
+  let state = clone(currentState);
+  if (action.type === "round.begin") state = beginRound(state);
+  else if (action.type === "setup.submit") submitSetup(state, action);
   else if (action.type === "purge.submit") submitPurge(state, action);
   else if (action.type === "council.submit") submitCouncil(state, action);
   else if (action.type === "day.submit") submitDay(state, action);

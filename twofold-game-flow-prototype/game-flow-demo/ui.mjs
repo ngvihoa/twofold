@@ -1,4 +1,4 @@
-import { availableRoleGuesses, createGame, dispatch, privateView, publicView, ROLE_DEFS, SPECIAL_CARD } from "./engine.mjs?rev=round6-special-v1";
+import { availableRoleGuesses, beginRound, createGame, dispatch, privateView, publicView, ROLE_DEFS, SPECIAL_CARD } from "./engine.mjs?rev=round6-special-v1";
 
 const ROLE_ART = {
   villager: "../assets/game/wwo-reference/dan-lang.png",
@@ -1010,6 +1010,7 @@ function battlefieldActionMarkup() {
     return `<div class="battle-action turn-presentation presentation-${actionPresentation.actor.toLowerCase()}"><span class="dawn-lock">THAO TÁC ĐANG KHÓA</span><p class="battle-step">Bên ${actionPresentation.actor} đang hành động</p><strong>${stage}</strong><p>Nguồn lệnh di chuyển trước; mục tiêu, lộ bài và thương vong chỉ xuất hiện ở nhịp kế tiếp.</p></div>`;
   }
   if (state.phase === "night-resolution") return `<div class="battle-action night-verdict"><span class="verdict-moon">☾</span><strong>Lệnh đã lên sân</strong><p>Nguồn và vị trí có khiên đang hiển thị. Mục tiêu vẫn bí mật; bình minh phán xét sau 3,2 giây.</p></div>`;
+  if (state.phase === "match-intro") return `<div class="battle-action round-intro"><p class="battle-step">Vòng 1 bắt đầu</p><strong>Bình minh đầu tiên</strong><p>Hai đội hình đã được khóa. Bên A hành động trước; Vòng 1 chưa mở Vote.</p><button class="primary" type="button" data-begin-round>Bắt đầu Ban ngày</button></div>`;
   if (botNeedsTurn() || !activeForSeat() || alreadyLocked()) return `<div class="battle-action bot-battle"><span class="bot-orbit" aria-hidden="true"></span><strong>BOT B đang cân nhắc</strong><p>Bạn có khoảng 1,7 giây để nhìn trạng thái bàn trước khi bot đi.</p></div>`;
   if (state.phase === "purge") return `<div class="battle-action purge-panel"><p class="battle-step">Thanh trừng · Vòng ${state.round}</p><strong>${["Cắt bỏ", "Đảo chiến tuyến", "Ép lộ diện", "Khóa mạch"][(state.round - 6) % 4]}</strong><p>Hai bên bắt buộc chọn. Màu đỏ báo hiệu bàn đấu đã bước vào giai đoạn thanh trừng.</p></div>`;
   if (interaction?.kind === "purge" || interaction?.kind === "purge-swap") return `<div class="battle-action purge-panel"><p class="battle-step">Thanh trừng · Vòng ${state.round}</p><strong>${["Cắt bỏ", "Đảo chiến tuyến", "Ép lộ diện", "Khóa mạch"][(state.round - 6) % 4]}</strong><p>${interaction.kind === "purge-swap" ? "Chọn một lá đối thủ để đổi vị trí." : "Chọn một lá phe mình. Hai bên bắt buộc hoàn tất lựa chọn."}</p><button class="battle-cancel" type="button" data-direct-cancel>Hủy chọn</button></div>`;
@@ -1052,6 +1053,7 @@ function roundTitle() {
   if (dawnActive) return `VÒNG ${state.round} · BÌNH MINH ĐANG HÉ LỘ`;
   if (actionPresentation?.type === "night-staging") return `VÒNG ${state.round} · LỆNH ĐÊM ${actionPresentation.index + 1}/2 · A → B`;
   if (actionPresentation) return `VÒNG ${state.round} · BÊN ${actionPresentation.actor} ĐANG HÀNH ĐỘNG`;
+  if (state.phase === "match-intro") return `VÒNG 1 · BÌNH MINH ĐẦU TIÊN`;
   if (state.phase === "council") return `VÒNG ${state.round} · HỘI ĐỒNG TREO CỔ`;
   if (state.phase === "day-A") return `VÒNG ${state.round} · BAN NGÀY — LƯỢT CỦA BẠN`;
   if (state.phase === "day-B") return `VÒNG ${state.round} · BAN NGÀY — BOT HÀNH ĐỘNG`;
@@ -1064,6 +1066,7 @@ function roundTitle() {
 
 function visualScene() {
   if (dawnActive) return "dawn";
+  if (state.phase === "match-intro") return "dawn";
   if (state.phase === "purge") return "purge";
   if (state.phase === "dusk-defense") return "dusk";
   if (state.phase === "night-plan" || state.phase === "night-resolution") return "night";
@@ -1233,7 +1236,17 @@ document.addEventListener("click", (event) => {
     interaction = { kind: "bloodmoon", source: null };
     return render();
   }
-  if (event.target.closest("[data-direct-pass]")) return directPass();
+  if (event.target.closest("[data-begin-round]")) {
+    state = beginRound(state);
+    feedback = "Bình minh đã mở. Chọn hành động Ban ngày.";
+    return render();
+  }
+  const purgeButton = event.target.closest("[data-purge-start]");
+  if (purgeButton) {
+    const rule = ["cut", "swap", "reveal", "lock"][(state.round - 6) % 4];
+    interaction = { kind: "purge", rule, target: null, swapTarget: null };
+    return render();
+  }
   if (state.phase === "purge") {
     const rule = ["cut", "swap", "reveal", "lock"][(state.round - 6) % 4];
     interaction = { kind: "purge", rule, target: null, swapTarget: null };
