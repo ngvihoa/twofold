@@ -7,6 +7,7 @@
 - **Khám phá & phân loại role (`index.html`)**: Xem toàn bộ 92 vai trò theo phe (Phe Dân Làng, Phe Ma Sói, Solo...), mức độ ưu tiên (`core`, `prototype`, `consider`, `adapt`, `later`, `event`) và giai đoạn xuất hiện (`main`, `round6`, `hold`).
 - **Gợi ý bộ test**: Cung cấp cấu hình 10 vai trò khởi đầu cho các đợt playtest Alpha.
 - **Role Shortlist Review (`shortlist.html`)**: Cho phép PO & Game Designer chọn lọc danh sách vai trò mong muốn, xem tổng hợp và sao chép định dạng text để mang vào các buổi họp thống nhất luật game.
+- **Game Flow Demo (`game-flow-demo/ui.html`)**: Prototype tương tác 1v1 để review trực tiếp nhịp Hội đồng → Ban ngày → Khóa lệnh đêm → Chạng vạng → Bình minh, gồm bot B và card đặc biệt từ Vòng 6.
 
 ## Cấu trúc thư mục
 
@@ -22,6 +23,7 @@ apps/spec-reviewer/
 │   ├── annotate-role-gameplay.mjs  # Tự động gán mã và kỹ năng ngày/đêm
 │   ├── extract-wwo-roles.mjs       # Script trích xuất vai trò từ nguồn wikitext
 │   └── prepare-role-art.mjs        # Chuẩn bị asset hình ảnh tham chiếu
+├── game-flow-demo/          # Spec demo game flow 1v1 chạy local
 ├── index.html               # Giao diện chính Role Atlas
 ├── shortlist.html           # Giao diện xem danh sách đã chọn
 ├── app.js                   # Logic render, tìm kiếm và lọc vai trò
@@ -45,3 +47,5 @@ pnpm --filter @twofold/spec-reviewer check
 # hoặc
 npm run --prefix apps/spec-reviewer check
 ```
+
+Sau khi dev server chạy, mở `http://127.0.0.1:4173/game-flow-demo/ui.html` để playtest spec game flow.
