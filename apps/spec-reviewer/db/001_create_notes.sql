@@ -3,7 +3,7 @@ create table if not exists notes (
   workspace_id text not null,
   role_id text,
   body text not null check (char_length(body) between 1 and 5000),
-  status text not null default 'todo' check (status in ('todo', 'in_progress', 'cancelled')),
+  status text not null default 'todo' check (status in ('todo', 'in_progress', 'cancelled', 'done')),
   revision integer not null default 1 check (revision > 0),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),

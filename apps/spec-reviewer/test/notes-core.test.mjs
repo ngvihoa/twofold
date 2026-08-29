@@ -28,7 +28,8 @@ test("note input is normalized and validated", () => {
   assert.throws(() => parseNoteInput({ id: "bad", body: "Note" }), /ID note/);
   assert.throws(() => parseNoteInput({ id, body: "   " }), /Nội dung note/);
   assert.throws(() => parseNoteInput({ id, body: "Note", roleId: "../role" }), /Role của note/);
-  assert.throws(() => parseNoteInput({ id, body: "Note", status: "done" }), /Trạng thái note/);
+  assert.equal(parseNoteInput({ id, body: "Note", status: "done" }).status, "done");
+  assert.throws(() => parseNoteInput({ id, body: "Note", status: "archived" }), /Trạng thái note/);
 });
 
 test("updates and deletes require a positive revision", () => {

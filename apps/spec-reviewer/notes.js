@@ -6,7 +6,7 @@ import {
   subscribeNotes,
   syncNotes,
   updateNote,
-} from "/lib/note-store.js?v=20260829-3";
+} from "/lib/note-store.js?v=20260829-4";
 
 const $ = (selector, scope = document) => scope.querySelector(selector);
 const state = { roles: [], notes: [], search: "", roleFilter: "all", statusFilter: "all" };
@@ -15,6 +15,7 @@ const STATUSES = [
   { id: "todo", label: "Todo" },
   { id: "in_progress", label: "In progress" },
   { id: "cancelled", label: "Cancelled" },
+  { id: "done", label: "Done" },
 ];
 
 function roleFor(id) {
@@ -46,7 +47,7 @@ function filteredNotes() {
 function noteCard(note) {
   const role = roleFor(note.roleId);
   const article = document.createElement("article");
-  article.className = "note-card";
+  article.className = `note-card status-${note.status}`;
   article.dataset.noteId = note.id;
 
   const meta = document.createElement("div");
@@ -111,7 +112,18 @@ async function loadRoles() {
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   state.roles = await response.json();
   fillRoleSelect($("#note-role"));
+  fillRoleSelect($("#edit-note-role"));
   fillRoleSelect($("#notes-role-filter"), true);
+}
+
+function openEditNote(note) {
+  $("#edit-note-id").value = note.id;
+  $("#edit-note-role").value = note.roleId || "";
+  $("#edit-note-status").value = note.status;
+  $("#edit-note-body").value = note.body;
+  $("#edit-note-feedback").textContent = "";
+  $("#note-edit-dialog").showModal();
+  $("#edit-note-body").focus();
 }
 
 function acceptSharedToken() {
@@ -162,14 +174,40 @@ $("#notes-list").addEventListener("click", async (event) => {
   if (editButton) {
     const note = state.notes.find((item) => item.id === editButton.dataset.editNote);
     if (!note) return;
-    const body = prompt("Sửa nội dung note", note.body);
-    if (body == null || body.trim() === note.body) return;
-    await updateNote(note.id, { body, roleId: note.roleId });
+    openEditNote(note);
   } else if (deleteButton) {
     const note = state.notes.find((item) => item.id === deleteButton.dataset.deleteNote);
     if (!note || !confirm("Xóa note này? Note vẫn có thể được khôi phục từ database.")) return;
     await deleteNote(note.id);
   }
+});
+
+$("#note-edit-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const data = new FormData(form);
+  const submitButton = $('button[type="submit"]', form);
+  submitButton.disabled = true;
+  try {
+    await updateNote(data.get("id"), {
+      body: data.get("body"),
+      roleId: data.get("roleId") || null,
+      status: data.get("status"),
+    });
+    $("#note-edit-dialog").close();
+  } catch (error) {
+    $("#edit-note-feedback").textContent = error.message;
+  } finally {
+    submitButton.disabled = false;
+  }
+});
+
+document.addEventListener("click", (event) => {
+  if (event.target.closest("[data-close-note-edit]")) $("#note-edit-dialog").close();
+});
+
+$("#note-edit-dialog").addEventListener("click", (event) => {
+  if (event.target === event.currentTarget) event.currentTarget.close();
 });
 
 $("#notes-list").addEventListener("change", async (event) => {

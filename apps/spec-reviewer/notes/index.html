@@ -6,7 +6,7 @@
     <meta name="description" content="Ghi chú review specification của Twofold." />
     <title>Review notes | Twofold</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="/styles.css?v=20260829-3" />
+    <link rel="stylesheet" href="/styles.css?v=20260829-4" />
   </head>
   <body class="selection-page notes-page">
     <a class="skip-link" href="#notes-list">Đến danh sách note</a>
@@ -61,6 +61,7 @@
             <option value="todo">Todo</option>
             <option value="in_progress">In progress</option>
             <option value="cancelled">Cancelled</option>
+            <option value="done">Done</option>
           </select>
           <label for="note-body">Nội dung</label>
           <textarea id="note-body" name="body" rows="5" maxlength="5000" required placeholder="Ví dụ: Cần làm rõ thời điểm kỹ năng được kích hoạt..."></textarea>
@@ -78,7 +79,7 @@
         </div>
         <div class="notes-filters">
           <label for="notes-search"><span>Tìm nội dung</span><input id="notes-search" type="search" autocomplete="off" placeholder="Tìm note hoặc tên role" /></label>
-          <label for="notes-status-filter"><span>Trạng thái</span><select id="notes-status-filter"><option value="all">Tất cả trạng thái</option><option value="todo">Todo</option><option value="in_progress">In progress</option><option value="cancelled">Cancelled</option></select></label>
+          <label for="notes-status-filter"><span>Trạng thái</span><select id="notes-status-filter"><option value="all">Tất cả trạng thái</option><option value="todo">Todo</option><option value="in_progress">In progress</option><option value="cancelled">Cancelled</option><option value="done">Done</option></select></label>
           <label for="notes-role-filter"><span>Role</span><select id="notes-role-filter"><option value="all">Tất cả role</option><option value="general">Note chung</option></select></label>
         </div>
         <div id="notes-empty" class="selection-empty" hidden>
@@ -95,6 +96,35 @@
       <a href="/">Quay lại Role Atlas</a>
     </footer>
 
-    <script type="module" src="/notes.js?v=20260829-3"></script>
+    <dialog class="note-edit-dialog" id="note-edit-dialog" aria-labelledby="note-edit-title">
+      <button class="dialog-close" type="button" data-close-note-edit aria-label="Đóng form sửa note">Đóng</button>
+      <form id="note-edit-form">
+        <header>
+          <p class="section-kicker">Chỉnh sửa todo</p>
+          <h2 id="note-edit-title">Sửa note</h2>
+        </header>
+        <input id="edit-note-id" name="id" type="hidden" />
+        <label for="edit-note-role">Gắn với role</label>
+        <select id="edit-note-role" name="roleId"><option value="">Note chung</option></select>
+        <label for="edit-note-status">Trạng thái</label>
+        <select id="edit-note-status" name="status">
+          <option value="todo">Todo</option>
+          <option value="in_progress">In progress</option>
+          <option value="cancelled">Cancelled</option>
+          <option value="done">Done</option>
+        </select>
+        <label for="edit-note-body">Nội dung</label>
+        <textarea id="edit-note-body" name="body" rows="7" maxlength="5000" required></textarea>
+        <div class="note-edit-actions">
+          <span id="edit-note-feedback" role="status"></span>
+          <div>
+            <button class="button selection-copy" type="button" data-close-note-edit>Hủy</button>
+            <button class="button button-primary" type="submit">Lưu thay đổi</button>
+          </div>
+        </div>
+      </form>
+    </dialog>
+
+    <script type="module" src="/notes.js?v=20260829-4"></script>
   </body>
 </html>

@@ -37,6 +37,9 @@ test("note store supports local CRUD while no workspace token is configured", as
   assert.equal(listNotes()[0].body, "Review cả hai kỹ năng");
   assert.equal(listNotes()[0].status, "in_progress");
 
+  await updateNote(created.id, { status: "done" });
+  assert.equal(listNotes()[0].status, "done");
+
   await deleteNote(created.id);
   assert.deepEqual(listNotes(), []);
 });

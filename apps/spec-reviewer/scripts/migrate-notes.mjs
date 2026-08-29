@@ -22,16 +22,12 @@ await sql`
 
 await sql`alter table notes add column if not exists status text not null default 'todo'`;
 
-const constraints = await sql`
-  select 1 from pg_constraint where conname = 'notes_status_check'
+await sql`alter table notes drop constraint if exists notes_status_check`;
+await sql`
+  alter table notes
+    add constraint notes_status_check
+    check (status in ('todo', 'in_progress', 'cancelled', 'done'))
 `;
-if (!constraints.length) {
-  await sql`
-    alter table notes
-      add constraint notes_status_check
-      check (status in ('todo', 'in_progress', 'cancelled'))
-  `;
-}
 
 await sql`
   create index if not exists notes_workspace_updated_idx
@@ -42,4 +38,4 @@ await sql`
     on notes (workspace_id, status, updated_at desc)
 `;
 
-console.log("Notes database is up to date: todo, in_progress, cancelled.");
+console.log("Notes database is up to date: todo, in_progress, cancelled, done.");

@@ -61,7 +61,7 @@ Sau khi dev server chạy, mở `http://127.0.0.1:4173/game-flow-demo/ui.html` �
 Notes dùng Vercel Function làm API và Neon-compatible Postgres làm nguồn dữ liệu chính. `localStorage` chỉ là cache và outbox để PO vẫn ghi được khi tạm mất mạng.
 
 1. Tạo một Postgres database từ Vercel Marketplace (khuyến nghị Neon) và bảo đảm project có biến `DATABASE_URL`.
-2. Chạy lần lượt [`db/001_create_notes.sql`](db/001_create_notes.sql) và [`db/002_add_note_status.sql`](db/002_add_note_status.sql) trong SQL console. Database mới chỉ cần `001`; database đã có bảng notes chạy thêm `002`.
+2. Chạy lần lượt migrations trong `db/` bằng SQL console. Database mới chỉ cần `001`; database đã có bảng notes chạy thêm `002`, rồi `003` để hỗ trợ trạng thái Done.
 3. Sinh token dùng chung, ví dụ `openssl rand -hex 32`, rồi đặt giá trị đó vào biến môi trường `NOTES_WORKSPACE_TOKEN` trên Vercel.
 4. Deploy lại project. Mở `/notes`, nhập token một lần trên mỗi thiết bị rồi nhấn **Lưu & đồng bộ**.
 

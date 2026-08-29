@@ -1,7 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 
 export const MAX_NOTE_LENGTH = 5000;
-export const NOTE_STATUSES = ["todo", "in_progress", "cancelled"];
+export const NOTE_STATUSES = ["todo", "in_progress", "cancelled", "done"];
 
 export function workspaceId(token) {
   return createHash("sha256").update(token).digest("hex");

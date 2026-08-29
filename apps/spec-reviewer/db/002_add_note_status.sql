@@ -8,7 +8,7 @@ begin
   ) then
     alter table notes
       add constraint notes_status_check
-      check (status in ('todo', 'in_progress', 'cancelled'));
+      check (status in ('todo', 'in_progress', 'cancelled', 'done'));
   end if;
 end $$;
 

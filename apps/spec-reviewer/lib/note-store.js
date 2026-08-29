@@ -2,7 +2,7 @@ const CACHE_KEY = "twofold-notes:v1";
 const OUTBOX_KEY = "twofold-notes-outbox:v1";
 const TOKEN_KEY = "twofold-notes-workspace-token";
 const API_URL = "/api/notes";
-export const NOTE_STATUSES = ["todo", "in_progress", "cancelled"];
+export const NOTE_STATUSES = ["todo", "in_progress", "cancelled", "done"];
 
 const listeners = new Set();
 const inFlightOperationIds = new Set();

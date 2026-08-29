@@ -1,4 +1,4 @@
-import { createNote, subscribeNotes } from "./lib/note-store.js?v=20260829-3";
+import { createNote, subscribeNotes } from "./lib/note-store.js?v=20260829-4";
 
 const FACTIONS = [
   { id: "all", label: "Tất cả phe" },
