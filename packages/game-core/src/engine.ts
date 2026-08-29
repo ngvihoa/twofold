@@ -1,5 +1,5 @@
 import {
-  Card,
+  Card as LegacyCard,
   CardRole,
   CardStatus,
   PlayerId,
@@ -12,6 +12,16 @@ import {
   WinReason,
 } from '@twofold/shared-types';
 import { STANDARD_DECK } from './roles';
+import {
+  CardEffectKind,
+  type CardId,
+  type GameCard,
+  createInitialCard,
+  hasCardEffect,
+  isCardAlive,
+  isCardRevealed,
+  transitionCard,
+} from './cards';
 
 export interface NightActionRecord {
   playerId: PlayerId;
@@ -23,12 +33,32 @@ export interface MasterGameState {
   roundNumber: number;
   currentPhase: TurnPhase;
   activeTurnPlayer: PlayerId | null; // Cho pha Day (A -> B)
-  cardsA: Card[];
-  cardsB: Card[];
+  cardsA: GameCard[];
+  cardsB: GameCard[];
   nightActions: NightActionRecord[];
   logs: EventLogEntry[];
   winner: PlayerId | null;
   winReason: WinReason | null;
+}
+
+/** Adapter tạm cho shared-types/web v0.1; authoritative card state vẫn ở game-core. */
+function toLegacyCardStatus(card: GameCard): CardStatus {
+  if (!isCardAlive(card)) return CardStatus.DEAD;
+  if (hasCardEffect(card, CardEffectKind.PROTECTION)) return CardStatus.PROTECTED;
+  return isCardRevealed(card) ? CardStatus.REVEALED : CardStatus.HIDDEN;
+}
+
+function toLegacyCard(card: GameCard): LegacyCard {
+  return {
+    id: card.id,
+    index: card.position - 1,
+    owner: card.owner,
+    role: card.role.id,
+    status: toLegacyCardStatus(card),
+    skillUsedDay: false,
+    skillUsedNight: false,
+    skillUsedTotal: 0,
+  };
 }
 
 export class GameEngine {
@@ -43,26 +73,12 @@ export class GameEngine {
       roundNumber: 1,
       currentPhase: TurnPhase.DAY,
       activeTurnPlayer: PlayerId.PLAYER_A, // Host A đi trước theo v0.1
-      cardsA: rolesA.map((role, idx) => ({
-        id: `A_${idx}`,
-        index: idx,
-        owner: PlayerId.PLAYER_A,
-        role,
-        status: CardStatus.HIDDEN,
-        skillUsedDay: false,
-        skillUsedNight: false,
-        skillUsedTotal: 0,
-      })),
-      cardsB: rolesB.map((role, idx) => ({
-        id: `B_${idx}`,
-        index: idx,
-        owner: PlayerId.PLAYER_B,
-        role,
-        status: CardStatus.HIDDEN,
-        skillUsedDay: false,
-        skillUsedNight: false,
-        skillUsedTotal: 0,
-      })),
+      cardsA: rolesA.map((role, index) =>
+        createInitialCard(PlayerId.PLAYER_A, index + 1, role)
+      ),
+      cardsB: rolesB.map((role, index) =>
+        createInitialCard(PlayerId.PLAYER_B, index + 1, role)
+      ),
       nightActions: [],
       logs: [
         {
@@ -93,15 +109,15 @@ export class GameEngine {
    */
   public getPlayerView(playerId: PlayerId, opponentConnected = true): PlayerGameView {
     const isPlayerA = playerId === PlayerId.PLAYER_A;
-    const myCards = isPlayerA ? this.state.cardsA : this.state.cardsB;
+    const myCards = (isPlayerA ? this.state.cardsA : this.state.cardsB).map(toLegacyCard);
     const opponentCards = isPlayerA ? this.state.cardsB : this.state.cardsA;
 
     const publicOpponentCards: PublicCard[] = opponentCards.map((c) => ({
       id: c.id,
-      index: c.index,
+      index: c.position - 1,
       owner: c.owner,
-      status: c.status,
-      role: c.status === CardStatus.REVEALED ? c.role : null,
+      status: toLegacyCardStatus(c),
+      role: isCardRevealed(c) ? c.role.id : null,
     }));
 
     return {
@@ -130,19 +146,20 @@ export class GameEngine {
     const opponentCards = actor === PlayerId.PLAYER_A ? this.state.cardsB : this.state.cardsA;
     const targetCard = opponentCards[targetIndex];
 
-    if (!targetCard || targetCard.status === CardStatus.DEAD) {
+    if (!targetCard || !isCardAlive(targetCard)) {
       throw new Error('Mục tiêu không hợp lệ hoặc đã chết!');
     }
 
-    const isCorrect = targetCard.role === guessedRole;
+    const isCorrect = targetCard.role.id === guessedRole;
 
     if (isCorrect) {
-      targetCard.status = CardStatus.DEAD;
+      const eliminatedCard = transitionCard(targetCard, { type: 'ELIMINATE' });
+      opponentCards[targetIndex] = eliminatedCard;
       this.addLog(
         actor,
         `${actor === PlayerId.PLAYER_A ? 'Người chơi A' : 'Người chơi B'} đã Treo cổ chính xác lá số ${targetIndex + 1} (${guessedRole})! Lá bài bị loại.`,
-        targetCard.id,
-        targetCard.id
+        eliminatedCard.id,
+        eliminatedCard.id
       );
     } else {
       this.addLog(
@@ -178,8 +195,8 @@ export class GameEngine {
    * Kiểm tra điều kiện thắng / thua
    */
   public checkWinCondition(): PlayerId | null {
-    const aliveA = this.state.cardsA.filter((c) => c.status !== CardStatus.DEAD).length;
-    const aliveB = this.state.cardsB.filter((c) => c.status !== CardStatus.DEAD).length;
+    const aliveA = this.state.cardsA.filter(isCardAlive).length;
+    const aliveB = this.state.cardsB.filter(isCardAlive).length;
 
     if (aliveA === 0 && aliveB === 0) {
       // Cả 2 cùng hết bài -> Hòa hoặc xử lý theo rule
@@ -210,8 +227,8 @@ export class GameEngine {
   private addLog(
     actor: PlayerId | null,
     message: string,
-    revealedCardId?: string,
-    eliminatedCardId?: string
+    revealedCardId?: CardId,
+    eliminatedCardId?: CardId
   ): void {
     this.state.logs.push({
       id: `log_${Date.now()}_${this.state.logs.length}`,

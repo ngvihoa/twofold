@@ -20,6 +20,19 @@ Sau migration, thứ tự nguồn sự thật cần là:
 
 `spec-reviewer` nên import `game-core` sau khi port hoàn tất để tránh duy trì hai engine độc lập.
 
+### 1.1. Frontend state machine
+
+Frontend sẽ sử dụng `@xstate/react` để điều phối workflow và presentation state. XState phía client không phải authoritative rules engine và không được tự quyết định kết quả game.
+
+Phân chia responsibility:
+
+- `packages/game-core`: validate action, resolve rule, chuyển authoritative game phase và tạo kết quả.
+- Server/WebSocket layer: giữ room state, gọi `game-core` và gửi player-specific snapshot/event.
+- `@xstate/react`: điều phối trạng thái UI như đang chọn action, đã submit, chờ đối thủ, reveal animation, Dawn presentation, modal và retry/error.
+- React components: render từ snapshot của server kết hợp presentation state của XState.
+
+Frontend machine phải reconcile được với server snapshot sau reconnect hoặc khi nhận state mới. Không giả định client transition luôn thành công trước khi server xác nhận.
+
 ## 2. Tóm tắt khác biệt với v0.1
 
 | Nhóm | Ruleset demo v0.2 | Trạng thái v0.1 hiện tại | Mức ảnh hưởng |
@@ -97,19 +110,39 @@ interface RoleDefinition {
 }
 ```
 
-Web không tự suy luận faction hoặc khả năng hành động từ tên role.
-
-### 3.3. Resource kỹ năng
-
-Thay `skillUsedDay`, `skillUsedNight`, `skillUsedTotal` bằng charge theo ability:
+Runtime state được khởi tạo riêng cho từng card instance, nhưng ownership nằm dưới role:
 
 ```ts
-type AbilityResources = Partial<Record<AbilityId, number>>;
+interface RoleState {
+  id: RoleId;
+  abilities: AbilityState[];
+}
 ```
 
-| Ability | Charge ban đầu |
-|---|---:|
-| Guard | 3 |
+Không lưu runtime ability state trong `ROLE_DEFINITIONS`, vì hai card cùng role phải có state độc lập.
+
+Web không tự suy luận faction hoặc khả năng hành động từ tên role.
+
+### 3.3. Ability state
+
+Thay `skillUsedDay`, `skillUsedNight`, `skillUsedTotal` bằng state riêng theo từng ability. Ability có giới hạn dùng giữ `remainingUses`; ability có memory giữ state chuyên biệt thay vì ép mọi ability thành một con số.
+
+```ts
+type AbilityState =
+  | {
+      abilityId: 'GUARD_PROTECT';
+      lastTarget: { cardId: CardId; round: number } | null;
+    }
+  | { abilityId: 'SEER_INSPECT'; remainingUses: number }
+  | { abilityId: 'WITCH_REVIVE'; remainingUses: number }
+  | { abilityId: 'WEREWOLF_ATTACK' }
+  | { abilityId: 'AVENGER_MARK' }
+  // Các ability state còn lại...
+```
+
+| Ability | Giới hạn/state ban đầu |
+|---|---|
+| Guard | Không giới hạn lượt; `lastTarget: null` |
 | Seer inspect | 3 |
 | Witch revive | 1 |
 | Witch poison | 1 |
@@ -119,35 +152,86 @@ type AbilityResources = Partial<Record<AbilityId, number>>;
 | Werewolf attack | Không giới hạn |
 | Avenger mark | Không giới hạn, chỉ một mark đang hoạt động |
 
+Guard chỉ bị cấm chọn cùng target ở hai vòng liên tiếp. State lưu cả target và round của lần dùng gần nhất; nếu Guard pass hoặc không đặt khiên một vòng thì record tự trở nên cũ và target trước có thể được chọn lại mà không cần reset command.
+
 ---
 
 ## 4. Card State
 
-### 4.1. Trạng thái trực giao
+> **Tiến độ:** Đã triển khai model nội bộ trong `packages/game-core` ngày 29/08/2026; tổng quát hóa effect source/Council lock và chuyển runtime ability state về dưới `RoleState` ngày 30/08/2026. Guard hiện không có charge, chỉ giữ target/round gần nhất. Chưa migrate `packages/shared-types` hoặc `apps/web`; core đang giữ legacy projection tạm thời cho contract v0.1.
 
-Không dùng một enum duy nhất để biểu diễn toàn bộ trạng thái. Một lá có thể vừa lộ, vừa sống và vừa được bảo vệ.
+### 4.1. Runtime state
+
+Runtime state chỉ chứa lifecycle và visibility. Discriminated union đảm bảo card chết luôn lộ role ở cả compile time.
 
 ```ts
-interface CardState {
+type CardRuntimeState =
+  | { life: 'ALIVE'; visibility: 'HIDDEN' | 'REVEALED' }
+  | { life: 'DEAD'; visibility: 'REVEALED' };
+
+interface GameCard {
   id: CardId;
   position: number;
   owner: PlayerId;
-  role: RoleId;
+  role: RoleState;
 
-  alive: boolean;
-  revealed: boolean;
-  shielded: boolean;
-
-  resources: AbilityResources;
-  councilCooldown: number;
+  state: CardRuntimeState;
+  effects: CardEffectState[];
 }
 ```
 
-Nếu UI cần `HIDDEN`, `REVEALED` hoặc `DEAD`, giá trị này được derive từ state thay vì lưu trong master state.
+Card và role có hai transition layer độc lập:
 
-Rule bắt buộc: card chết luôn được công khai role.
+```ts
+transitionCard(card, cardCommand);
+transitionRole(role, {
+  type: 'ABILITY_USED',
+  abilityId,
+  targetId,
+  round,
+});
+```
 
-### 4.2. Card identity
+Card command chỉ gồm `REVEAL`, `ELIMINATE`, `REVIVE`, `APPLY_EFFECT`, `REMOVE_EFFECT`, `CLEAR_EFFECTS`; không chứa command riêng cho Guard hoặc role khác. `ABILITY_USED` làm giảm `remainingUses` đối với ability hữu hạn, hoặc ghi `lastTarget` đối với Guard.
+
+Event log mô tả kết quả đã xảy ra sẽ dùng past-tense wording riêng ở lớp resolution, ví dụ `CARD_REVEALED` hoặc `EFFECT_APPLIED`.
+
+### 4.2. Active effects
+
+Protection không thuộc `CardRuntimeState`. Đây là effect do ability khác tạo ra và được lưu cùng các effect đang tác động lên target card.
+
+```ts
+interface CardEffectState {
+  id: string;
+  kind: CardEffectKind;
+  source:
+    | {
+        type: 'ABILITY';
+        abilityId: AbilityId;
+        cardId: CardId;
+        playerId: PlayerId;
+      }
+    | {
+        type: 'RULE';
+        rule: 'FAILED_COUNCIL';
+      };
+  appliedRound: number;
+  expires:
+    | {
+        type: 'AFTER_PHASE';
+        phase: 'NIGHT_RESOLUTION' | 'COUNCIL_RESOLUTION';
+        round: number;
+      }
+    | { type: 'WHEN_TRIGGERED' }
+    | { type: 'PERMANENT' };
+}
+```
+
+Một card có thể chứa nhiều effect đồng thời, kể cả nhiều effect cùng loại nếu có ID khác nhau. `source` giữ provenance từ ability/resource hoặc từ game rule. Khi thêm effect mới, mở rộng `CardEffectKind` hoặc union effect thay vì thêm field mới vào card.
+
+`councilCooldown` không còn là field riêng. Một lần buộc tội sai áp dụng effect `COUNCIL_LOCK` có source rule `FAILED_COUNCIL` và expiry `AFTER_PHASE/COUNCIL_RESOLUTION` cho ba voter liên quan. Khiên và dấu Báo thù dùng `AFTER_PHASE/NIGHT_RESOLUTION`, nên effect vẫn tồn tại trong lúc resolve đêm rồi mới được cleanup.
+
+### 4.3. Card identity
 
 Chuẩn hóa ID theo prototype:
 
@@ -160,15 +244,15 @@ B1…B10
 - Sau khi setup khóa, ID không được đổi trong suốt trận.
 - Không dùng song song format `A_0` và `A1`.
 
-### 4.3. State không thuộc card
+### 4.4. State không thuộc card
 
-Các trạng thái sau đặt ở player hoặc round state:
+Ownership đã chốt:
 
-- `lastGuardTarget`
-- `revengeTarget`
-- `bloodMoonReadyRound`
-- pending Council, Night và Defense order
-- private Seer intel
+- Guard target memory nằm trong `GUARD_PROTECT` ability state dưới `RoleState` của source card.
+- Revenge target được biểu diễn bằng `REVENGE_MARK` effect trên target card.
+- Blood Moon không thuộc board card; unlock/cooldown nằm trong player special-ability state.
+- Pending Council, Night và Defense order nằm trong player submission của game phase.
+- Private Seer intel là knowledge của player và vẫn tồn tại nếu Seer chết.
 
 ---
 
@@ -177,7 +261,7 @@ Các trạng thái sau đặt ở player hoặc round state:
 ```ts
 interface PlayerGameState {
   id: PlayerId;
-  board: CardState[];
+  board: GameCard[];
 
   setupLocked: boolean;
 
@@ -188,9 +272,7 @@ interface PlayerGameState {
   defenseOrder: DefenseOrder | null;
   finalGuess: RoleId | null;
 
-  lastGuardTarget: CardId | null;
-  revengeTarget: CardId | null;
-  bloodMoonReadyRound: number;
+  specialAbilities: PlayerSpecialAbilityState[];
 
   privateIntel: PrivateIntelEntry[];
 }
@@ -372,7 +454,7 @@ Night resolution dùng pipeline xác định:
 
 1. Snapshot mọi order đã khóa.
 2. Validate lại source và target.
-3. Consume charge.
+3. Consume `remainingUses` nếu ability có giới hạn.
 4. Kiểm tra shield.
 5. Sinh effect/result.
 6. Gom pending deaths.
@@ -385,7 +467,7 @@ Night resolution dùng pipeline xác định:
 Rule lấy từ prototype:
 
 - Khiên chặn attack, poison, inspect và Blood Moon.
-- Charge vẫn bị trừ nếu effect bị khiên chặn.
+- `remainingUses` vẫn bị trừ nếu effect bị khiên chặn; Guard không có charge để trừ.
 - Source vẫn thực hiện action nếu chết trong cùng resolution.
 - Hai board cùng hết bài tạo kết quả hòa.
 - Witch revive giữ target ở trạng thái công khai.
@@ -517,6 +599,23 @@ Web không được:
 
 Layout và animation từ demo có thể tái sử dụng, nhưng presentation state phải tách khỏi authoritative game state.
 
+### 13.1. XState integration
+
+Web dùng `@xstate/react` làm state machine layer cho frontend. Dự kiến tách ít nhất hai machine:
+
+1. `gameSessionMachine`: connection, reconnect, snapshot synchronization, submit action và server rejection.
+2. `gamePresentationMachine`: selection flow, Council/Dusk/Dawn sequence, animation lock và modal state.
+
+Authoritative `GamePhase` từ server là input để machine reconcile, không phải state do frontend tự tăng. Khi refresh hoặc reconnect, machine phải có thể khởi tạo lại hoàn toàn từ `PlayerGameView` gần nhất.
+
+Không đưa vào XState phía frontend:
+
+- kiểm tra target có hợp lệ theo role;
+- tính hit, shield hoặc death;
+- consume resource;
+- chọn winner;
+- tự động chuyển authoritative round/phase.
+
 ---
 
 ## 14. Test Strategy
@@ -555,7 +654,7 @@ Layout và animation từ demo có thể tái sử dụng, nhưng presentation s
 ### PR 1 — Shared types v0.2
 
 - [x] Role và deck mới.
-- [ ] Card state trực giao.
+- [ ] Migrate Card State contract sau khi game-core model ổn định.
 - [ ] Phase mới.
 - [ ] Action union mới.
 - [ ] Public/private view.
@@ -564,11 +663,14 @@ Layout và animation từ demo có thể tái sử dụng, nhưng presentation s
 
 ### PR 2 — Game core v0.2
 
+- [x] Card runtime state và active-effect collection nội bộ.
+- [x] Role-owned ability state và generic `ABILITY_USED` transition.
+- [x] Legacy projection để chưa tác động frontend web.
 - [ ] Port engine prototype sang TypeScript.
 - [ ] Tách role definition, validation và resolution.
 - [ ] Server-owned night resolution.
 - [ ] Sửa Final Duel ở mọi death boundary.
-- [ ] Sửa consecutive guard behavior theo quyết định đã chốt.
+- [x] Guard không giới hạn charge; chỉ khóa target vừa bảo vệ liên tiếp.
 - [ ] Thêm unit, transition và information-leak tests.
 
 ### PR 3 — Spec reviewer adapter
@@ -581,6 +683,9 @@ Layout và animation từ demo có thể tái sử dụng, nhưng presentation s
 
 ### PR 4 — Web integration
 
+- [ ] Cài và cấu hình `xstate` cùng `@xstate/react`.
+- [ ] Tạo `gameSessionMachine` và `gamePresentationMachine`.
+- [ ] Reconcile machine từ authoritative `PlayerGameView` sau reconnect/state update.
 - [ ] Setup reorder thật.
 - [ ] Render player view mới.
 - [ ] Action panel theo phase.
@@ -601,7 +706,7 @@ Layout và animation từ demo có thể tái sử dụng, nhưng presentation s
 | ID | Câu hỏi | Khuyến nghị hiện tại | Trạng thái |
 |---|---|---|---|
 | RULE-001 | Wolf Guard protection có độc lập với accusation không? | Có, dùng reaction order riêng | Chưa chốt |
-| RULE-002 | Pass một vòng có reset hạn chế không guard cùng target liên tiếp không? | Có reset; chỉ cấm đúng hai vòng guard liên tiếp | Chưa chốt |
+| RULE-002 | Pass một vòng có gỡ hạn chế guard cùng target không? | Có; Guard không có charge, lưu target/round gần nhất và chỉ cấm cùng target ở hai vòng liên tiếp, không cần reset command | Đã chốt 30/08/2026 |
 | RULE-003 | Final Duel có kích hoạt sau mọi resolution tạo trạng thái 1–1 không? | Có | Chưa chốt |
 | RULE-004 | Có bỏ hoàn toàn Calamity để chỉ giữ Blood Moon không? | Có trong v0.2 | Chưa chốt |
 | RULE-005 | Card source chết trong cùng Night resolution có còn resolve action không? | Có, resolve từ snapshot order | Chưa chốt |
