@@ -7,10 +7,11 @@ import { createCommand } from "./commands/create.mjs";
 import { runCommand } from "./commands/run.mjs";
 import { infoCommand } from "./commands/info.mjs";
 import { routesCommand } from "./commands/routes.mjs";
+import { envCommand } from "./commands/env.mjs";
 import { log, colors } from "./utils/logger.mjs";
 
 export async function runCli(argv = process.argv.slice(2)) {
-  const { feature, filter, positional } = parseCliArgs(argv);
+  const { feature, filter, positional, flags } = parseCliArgs(argv);
 
   switch (feature) {
     case "list":
@@ -47,6 +48,10 @@ export async function runCli(argv = process.argv.slice(2)) {
       await infoCommand();
       break;
 
+    case "env":
+      await envCommand(positional, filter, flags);
+      break;
+
     case "help":
     case "--help":
     case "-h":
@@ -78,6 +83,7 @@ ${colors.bold}DANH SÁCH TÍNH NĂNG (<feat>):${colors.reset}
   ${colors.bold}create <app|package> <name>${colors.reset}   Tự động scaffold app/package mới theo chuẩn
   ${colors.bold}run <script>${colors.reset}                   Chạy một script tùy ý trong project
   ${colors.bold}info${colors.reset}                           Xem thông tin roadmap và trạng thái dự án
+  ${colors.bold}env pull${colors.reset}                       Pull environment variables từ Vercel về project (${colors.cyan}-i${colors.reset} để chọn từ menu)
   ${colors.bold}help${colors.reset}                           Hiển thị hướng dẫn này
 
 ${colors.bold}CÁC CÁCH CHỈ ĐỊNH PROJECT (Filter / Shorten):${colors.reset}
@@ -101,6 +107,9 @@ ${colors.bold}VÍ DỤ:${colors.reset}
   ${colors.dim}# Generate type-safe route tree cho web${colors.reset}
   pnpm tf routes
   pnpm tf routes web
+
+  ${colors.dim}# Pull env tương tác: chọn project và environment từ menu${colors.reset}
+  pnpm tf env pull -i
 
   ${colors.dim}# Tạo một app hoặc package mới${colors.reset}
   pnpm tf create app admin-portal "Admin dashboard"

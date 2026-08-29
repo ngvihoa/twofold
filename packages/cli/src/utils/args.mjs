@@ -35,7 +35,7 @@ export function parseCliArgs(rawArgs = process.argv.slice(2)) {
     if (arg.startsWith("-") && arg.length > 1 && !arg.startsWith("--")) {
       // Single dash argument like -sr, -gc, -web, etc.
       const flagVal = arg.slice(1);
-      if (!["h", "v", "d", "a"].includes(flagVal)) {
+      if (!["h", "v", "d", "a", "i"].includes(flagVal)) {
         filter = flagVal;
       } else {
         flags[flagVal] = true;
