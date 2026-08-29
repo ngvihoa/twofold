@@ -8,7 +8,7 @@
 - Commit trước khi làm: `51f454d`
 - Commit implementation: cùng commit với record này
 - Conversation/task source: owner phản hồi sân giữa quá chật theo chiều rộng và khối thông tin không nên chiếm một hàng dưới cùng
-- Trạng thái: Hoàn thành
+- Trạng thái: Bị thay thế bởi `2026-08-30-003-restore-two-column-gameplay.md` theo phản hồi trực tiếp của owner
 
 ## Yêu cầu
 
@@ -113,3 +113,7 @@ Không có failure được quan sát trong phạm vi test đã chạy.
 ## Giới hạn bằng chứng
 
 Visual review xác minh desktop 1440×800 ở setup và Ban ngày V1. Chưa human-playtest ở Vòng muộn và chưa visual-review trên thiết bị thật dưới 900px; responsive behavior mới được kiểm tra tĩnh qua CSS.
+
+## Kết quả sau review owner
+
+Owner không chọn phương án full-width/HUD nổi vì muốn quay lại bố cục hai cột và giữ thumbnail card nhỏ, ổn định. Implementation này được giữ làm bằng chứng phương án đã thử, nhưng CSS/markup của nó bị thay thế ngay ở record `003`.

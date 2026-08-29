@@ -68,7 +68,7 @@ button:disabled { cursor: not-allowed; opacity: .42; }
 .board-title { display: flex; align-items: end; justify-content: space-between; margin: 0 0 8px; }
 .board-title h2 { margin: 0; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; }
 .board-title span { color: var(--muted); font-size: 10px; }
-.card-row { display: grid; grid-template-columns: repeat(10, minmax(72px, 1fr)); justify-content: stretch; gap: clamp(6px, .75vw, 12px); min-height: 142px; padding: 14px clamp(4px, 1.5vw, 22px); perspective: 1200px; }
+.card-row { display: grid; grid-template-columns: repeat(10, minmax(62px,82px)); justify-content: center; gap: 7px; min-height: 142px; padding: 14px 0; perspective: 1200px; }
 .role-card { --frame: #856d45; --frame-dark: #2e271c; --advance: 0px; position: relative; min-height: 118px; overflow: visible; border: 1px solid color-mix(in srgb, var(--frame) 65%, #fff 10%); border-radius: 7px; background: linear-gradient(145deg, color-mix(in srgb, var(--frame) 88%, #fff 12%), var(--frame-dark)); box-shadow: 0 4px 9px rgba(0,0,0,.48), inset 0 0 0 1px rgba(255,255,255,.12); isolation: isolate; transform: translateY(var(--advance)); transition: transform .25s ease, box-shadow .16s ease; }
 .role-card:hover { z-index: 3; transform: translateY(calc(var(--advance) - 3px)) rotateX(2deg); box-shadow: 0 9px 18px rgba(0,0,0,.6), inset 0 0 0 1px rgba(255,255,255,.16); }
 .role-card.faction-village { --frame: #a97c38; --frame-dark: #312619; }
@@ -163,9 +163,9 @@ button:disabled { cursor: not-allowed; opacity: .42; }
 .center-table::before, .center-table::after { content: ""; position: absolute; left: 8%; width: 84%; height: 1px; background: linear-gradient(90deg, transparent, rgba(220,193,133,.16), transparent); }
 .center-table::before { top: 27%; }
 .center-table::after { bottom: 27%; }
-.center-table.center-empty { grid-template-rows: repeat(2, minmax(76px,1fr)); min-height: 230px; padding-block: 12px; }
-.center-table.center-empty .revealed-lane { min-height: 76px; padding: 0; }
-.center-table.center-empty .revealed-cards { min-height: 72px; padding: 0; }
+.center-table.center-empty { grid-template-rows: repeat(2,34px); min-height: 88px; padding-block: 6px; }
+.center-table.center-empty .revealed-lane { min-height: 34px; padding: 0; }
+.center-table.center-empty .revealed-cards { min-height: 32px; padding: 0; }
 .center-table.setup-center { min-height: 178px; border-color: rgba(232,194,111,.22); background: radial-gradient(circle at center, rgba(213,167,71,.2), transparent 52%), linear-gradient(180deg, rgba(43,40,33,.82), rgba(16,18,21,.92)); box-shadow: inset 0 0 58px rgba(0,0,0,.42), 0 0 30px rgba(210,164,76,.08); }
 .setup-center .revealed-lane { opacity: 0; pointer-events: none; }
 .setup-center-command { position: absolute; z-index: 10; inset: 10px 18px; display: grid; place-items: center; }
@@ -287,7 +287,7 @@ button:disabled { cursor: not-allowed; opacity: .42; }
 .lifted-slot small { color: #c8a65f; font-size: 5px; font-weight: 900; letter-spacing: .09em; }
 .lifted-slot.dead { opacity: .42; }
 .revealed-lane { z-index: 4; min-height: 126px; padding: 8px 10px; border: 1px solid rgba(218,183,108,.12); border-radius: 11px; background: rgba(8,10,13,.22); }
-.revealed-cards { display: grid; grid-template-columns: repeat(10,minmax(72px,1fr)); justify-content: stretch; gap: clamp(6px,.75vw,12px); width: 100%; min-width: 0; min-height: 110px; overflow: visible; padding: 5px clamp(4px,1.5vw,22px); }
+.revealed-cards { display: grid; grid-template-columns: repeat(10,minmax(62px,82px)); justify-content: center; gap: 7px; min-width: 0; min-height: 110px; overflow: visible; padding: 5px 0; }
 .revealed-slot { display: grid; min-width: 0; min-height: 110px; }
 .revealed-cards .role-card { width: 100%; min-height: 110px; }
 .revealed-cards .card-shell { grid-template-rows: 17px 1fr 14px; }
@@ -441,13 +441,14 @@ button:disabled { cursor: not-allowed; opacity: .42; }
 .privacy { display: grid; place-items: center; min-height: 126px; border: 1px dashed var(--line); border-radius: 11px; background: #101216; text-align: center; }
 .privacy button { padding: 10px 14px; border-radius: 8px; }
 
-.play-grid { display: block; height: calc(100vh - 86px); min-height: 0; margin-top: 8px; }
-.arena-wrap { height: 100%; min-height: 0; }
-.arena { display: grid; grid-template-rows: auto minmax(230px,1fr) auto; height: 100%; min-height: 0; gap: 8px; }
-.center-table > .command-dock { position: absolute; z-index: 22; right: 16px; bottom: 16px; width: min(390px,calc(100% - 32px)); margin: 0; }
-.center-table > .command-dock .battle-action { width: 100%; padding: 13px 15px; border-color: rgba(232,190,98,.3); background: rgba(10,12,16,.9); box-shadow: 0 12px 34px rgba(0,0,0,.48); }
-.center-table > .command-dock .battle-action strong { max-width: 310px; font-size: 19px; }
-.center-table > .command-dock .battle-action p { font-size: 11px; }
+.play-grid { display: grid; grid-template-columns: minmax(0,1fr) 300px; gap: 12px; height: calc(100vh - 86px); min-height: 0; margin-top: 8px; }
+.arena { height: 100%; min-height: 0; }
+.side-rail { display: flex; flex-direction: column; gap: 10px; height: 100%; min-height: 0; }
+.side-rail .history-panel { flex: 0 1 42%; max-height: 42%; overflow: hidden; }
+.side-rail .command-dock { flex: 1 1 auto; min-height: 0; }
+.side-rail .table-action-stack { height: 100%; }
+.side-rail .battle-action { width: 100%; padding: 14px; }
+.side-rail .battle-action strong { max-width: 250px; font-size: 20px; }
 .board-own { align-self: end; }
 
 @media (max-width: 900px) {
@@ -455,10 +456,11 @@ button:disabled { cursor: not-allowed; opacity: .42; }
   .shell { height: auto; min-height: 100vh; overflow: visible; padding: 12px; }
   .topbar { flex-wrap: wrap; padding-bottom: 10px; }
   .phase-chip { order: 4; width: 100%; margin: 0; text-align: center; }
-  .play-grid { height: auto; }
-  .arena-wrap { height: auto; }
-  .arena { height: auto; }
-  .center-table > .command-dock { position: static; width: 100%; margin-top: 8px; }
+  .play-grid { display: flex; flex-direction: column; height: auto; }
+  .arena, .side-rail { height: auto; }
+  .side-rail { display: flex; }
+  .side-rail .history-panel { max-height: none; overflow: visible; }
+  .side-rail .command-dock { order: -1; width: 100%; }
   .center-table { min-height: 260px; gap: 8px; overflow-x: auto; }
   .center-table.setup-center { min-height: 245px; overflow: visible; }
   .setup-center-command .setup-panel { grid-template-columns: 1fr; text-align: center; }
