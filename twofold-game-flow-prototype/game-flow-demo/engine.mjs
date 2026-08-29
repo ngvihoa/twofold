@@ -220,8 +220,10 @@ function submitPurge(state, action) {
         const enemy = cardById(state, choice.swapTarget);
         const ownIndex = state.players[seat].board.indexOf(card);
         const enemyIndex = state.players[otherSeat(seat)].board.indexOf(enemy);
-        state.players[seat].board[ownIndex] = enemy;
-        state.players[otherSeat(seat)].board[enemyIndex] = card;
+        const ownId = card.id;
+        const enemyId = enemy.id;
+        state.players[seat].board[ownIndex] = { ...enemy, id: ownId };
+        state.players[otherSeat(seat)].board[enemyIndex] = { ...card, id: enemyId };
       }
     }
     state.players.A.purge = null;
@@ -254,8 +256,8 @@ function resolveCouncil(state) {
     const validVotes = voters.filter((card) => card.alive && card.id.startsWith(seat) && ROLE_DEFS[card.role].faction === "village" && card.voteCooldown === 0);
     for (const voter of validVotes) reveal(voter);
     const target = cardById(state, submission.target);
-    const votePower = validVotes.length;
-    const correct = votePower === 3 && target.alive && target.id.startsWith(otherSeat(seat)) && (target.revealed || target.role === submission.guess);
+    const votePower = validVotes.reduce((total, voter) => total + (voter.role === "villager" ? 2 : 1), 0);
+    const correct = votePower >= 3 && target.alive && target.id.startsWith(otherSeat(seat)) && (target.revealed || target.role === submission.guess);
 
     if (correct) {
       const defenderSeat = otherSeat(seat);
@@ -445,6 +447,8 @@ function validateNightAction(state, action) {
   } else if (action.kind === "inspect") {
     const source = validateSource(state, action.seat, action.source, "seer");
     if (source.uses.seer < 1) throw new Error("Tiên tri đã hết lượt soi.");
+    const target = cardById(state, action.target);
+    if (target.seerInspected === "light") throw new Error("Lá phe sáng này đã được soi và không thể soi lại.");
   } else if (action.kind === "poison") {
     const source = validateSource(state, action.seat, action.source, "witch");
     if (source.uses.poison < 1) throw new Error("Phù thủy đã dùng độc.");

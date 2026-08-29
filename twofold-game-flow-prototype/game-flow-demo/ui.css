@@ -73,7 +73,8 @@ button:disabled { cursor: not-allowed; opacity: .42; }
 .role-card.faction-village { --frame: #a97c38; --frame-dark: #312619; }
 .role-card.faction-werewolf { --frame: #67507e; --frame-dark: #211a2a; }
 .role-card.faction-unknown { --frame: #414854; --frame-dark: #161a20; }
-.role-card.dead { opacity: .44; filter: grayscale(.86); }
+.role-card.disabled-target { opacity: .36; filter: grayscale(.8); cursor: not-allowed; }
+.role-card.disabled-target:hover .skill-tooltip { opacity: 1; transform: translate(-50%,0); }
 .role-card.revealed { border-color: #f2c867; box-shadow: 0 0 0 1px rgba(242,200,103,.55), 0 5px 16px rgba(242,184,73,.24); }
 .board-opponent .role-card.revealed { --advance: 12px; }
 .board-own .role-card.revealed { --advance: -12px; }

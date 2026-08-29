@@ -687,22 +687,21 @@ function actionForOwnCard(card) {
   return null;
 }
 
-function votePower(voterIds = []) {
-  return voterIds.reduce((total, id) => {
-    const card = state.players.A.board.find((item) => item.id === id);
-    return total + (card?.alive && card.voteCooldown === 0 && ROLE_DEFS[card.role]?.faction === "village" ? 1 : 0);
-  }, 0);
-}
+const votePower = (voterIds = []) => voterIds.reduce((total, id) => {
+  const card = privateCard(id);
+  return total + (card?.role === "villager" ? 2 : 1);
+}, 0);
 
 function directTargetIds() {
   if (!interaction) return new Set();
-  if (state.phase === "purge" && (interaction?.kind === "purge" || interaction?.kind === "purge-swap")) return new Set((interaction.kind === "purge" ? living("A") : living("B")).map((card) => card.id));
+  if (interaction.kind === "purge") return new Set(living("A").map((card) => card.id));
+  if (interaction.kind === "purge-swap") return new Set(living("B").map((card) => card.id));
   if (["mark", "purify", "attack", "inspect", "poison"].includes(interaction.kind)) return new Set(living("B").map((card) => card.id));
   if (interaction.kind === "bloodmoon") return new Set(living("B").filter((card) => card.revealed).map((card) => card.id));
   if (interaction.kind === "shoot") return new Set(living("B").filter((card) => card.revealed).map((card) => card.id));
   if (interaction.kind === "revive") return new Set(state.players.A.board.filter((card) => !card.alive).map((card) => card.id));
   if (interaction.kind === "defend" || interaction.kind === "protect") return new Set(living("A").map((card) => card.id));
-  if (interaction.kind === "accuse" && votePower(interaction.voters) === 3) return new Set(living("B").map((card) => card.id));
+  if (interaction.kind === "accuse" && interaction.voters.length === 3) return new Set(living("B").map((card) => card.id));
   return new Set();
 }
 
@@ -738,7 +737,8 @@ function cardMarkup(card, isOwn, setupIndex = -1) {
   const phaseMark = phase === "day" ? "☀" : phase === "night" ? "☾" : phase === "both" ? "☀☾" : "◇";
   const shownName = known ? roleName : "Bí danh";
   const directAction = isOwn ? actionForOwnCard(secret) : null;
-  const targetable = directTargetIds().has(card.id);
+  const disabledReason = !isSetup && card.alive && ((roleKey === "seer" && secret?.seerInspected === "light") || (roleKey === "guard" && state.players[seat]?.lastGuardTarget === card.id));
+  const targetable = !disabledReason && directTargetIds().has(card.id);
   const selectedSource = interaction?.source === card.id;
   const selected = selectedSource || interaction?.target === card.id || interaction?.voters?.includes(card.id);
   const selectionPhase = selectedSource && state.phase === "night-plan"
@@ -749,13 +749,15 @@ function cardMarkup(card, isOwn, setupIndex = -1) {
   const deathReason = deathReasons.get(card.id);
   const status = !card.alive
     ? deathReason?.short || "Đã chết"
-    : isRevealed
+    : disabledReason
+      ? roleKey === "seer" ? "Đã soi · Không thể soi lại" : "Đã bảo vệ đêm trước"
+      : isRevealed
       ? `Đã lộ${card.votePower ? " · Có thể vote" : ""}`
       : isOwn ? "Đang ẩn" : "Đang sống";
   const moveSource = lastMove?.source === card.id;
   const moveTarget = lastMove?.target === card.id;
   const presentationClass = presentationClassFor(card.id);
-  return `<article class="role-card faction-${faction} phase-${phase} ${isSetup ? "setup-card" : ""} ${directAction ? "actionable" : ""} ${targetable ? "targetable" : ""} ${selected ? "selected-card" : ""} ${moveSource ? "move-source" : ""} ${moveTarget ? "move-target" : ""} ${presentationClass} ${card.staged ? "staged" : ""} ${card.alive ? "" : "dead"} ${isRevealed ? "revealed" : "hidden-role"} ${card.shielded ? "shielded" : ""}" data-card-id="${card.id}" ${isSetup ? `draggable="true" data-setup-card="${card.id}"` : ""} ${directAction ? `data-direct-source="${card.id}" data-direct-kind="${directAction.kind}"` : ""} ${targetable ? `data-direct-target="${card.id}"` : ""}>
+  return `<article class="role-card faction-${faction} phase-${phase} ${isSetup ? "setup-card" : ""} ${disabledReason ? " disabled-target" : ""} ${directAction ? "actionable" : ""} ${targetable ? "targetable" : ""} ${selected ? "selected-card" : ""} ${moveSource ? "move-source" : ""} ${moveTarget ? "move-target" : ""} ${presentationClass} ${card.staged ? "staged" : ""} ${card.alive ? "" : "dead"} ${isRevealed ? "revealed" : "hidden-role"} ${card.shielded ? "shielded" : ""}" data-card-id="${card.id}" ${isSetup ? `draggable="true" data-setup-card="${card.id}"` : ""} ${directAction ? `data-direct-source="${card.id}" data-direct-kind="${directAction.kind}"` : ""} ${targetable ? `data-direct-target="${card.id}"` : ""}>
     <div class="card-shell">
       <header class="card-head"><strong class="role-name" title="${shownName}">${shownName}</strong><span class="phase-rune" title="Pha kỹ năng">${phaseMark}</span></header>
       <div class="art-window">
@@ -1011,8 +1013,11 @@ function battlefieldActionMarkup() {
   if (botNeedsTurn() || !activeForSeat() || alreadyLocked()) return `<div class="battle-action bot-battle"><span class="bot-orbit" aria-hidden="true"></span><strong>BOT B đang cân nhắc</strong><p>Bạn có khoảng 1,7 giây để nhìn trạng thái bàn trước khi bot đi.</p></div>`;
   if (state.phase === "purge") return `<div class="battle-action purge-panel"><p class="battle-step">Thanh trừng · Vòng ${state.round}</p><strong>${["Cắt bỏ", "Đảo chiến tuyến", "Ép lộ diện", "Khóa mạch"][(state.round - 6) % 4]}</strong><p>Hai bên bắt buộc chọn. Màu đỏ báo hiệu bàn đấu đã bước vào giai đoạn thanh trừng.</p></div>`;
   if (interaction?.kind === "purge" || interaction?.kind === "purge-swap") return `<div class="battle-action purge-panel"><p class="battle-step">Thanh trừng · Vòng ${state.round}</p><strong>${["Cắt bỏ", "Đảo chiến tuyến", "Ép lộ diện", "Khóa mạch"][(state.round - 6) % 4]}</strong><p>${interaction.kind === "purge-swap" ? "Chọn một lá đối thủ để đổi vị trí." : "Chọn một lá phe mình. Hai bên bắt buộc hoàn tất lựa chọn."}</p><button class="battle-cancel" type="button" data-direct-cancel>Hủy chọn</button></div>`;
-  if (state.phase === "council") {
-    if (interaction?.kind === "accuse" && interaction.target) {
+  if (state.phase === "purge") {
+    const purgeRule = ["Cắt bỏ", "Đảo chiến tuyến", "Ép lộ diện", "Khóa mạch"][(state.round - 6) % 4];
+    return `<div class="battle-action purge-panel"><p class="battle-step">Thanh trừng · Vòng ${state.round}</p><strong>${purgeRule}</strong><p>Chọn một lá phe mình. ${purgeRule === "Đảo chiến tuyến" ? "Sau đó chọn lá đối thủ để đổi vị trí." : "Hai bên bắt buộc hoàn tất lựa chọn."}</p></div>`;
+  }
+  if (state.phase === "council") { {
       const guesses = availableRoleGuesses(state, otherSeat(seat));
       return `<div class="battle-action"><p class="battle-step">Bước 3 · Đoán role còn lại của ${interaction.target}</p><div class="role-guess-grid">${guesses.map((key) => `<button type="button" data-direct-guess="${key}">${ROLE_DEFS[key].name}</button>`).join("")}</div><p>Những role đã lộ đủ số lượng trên sân được tự động loại trừ.</p><button class="battle-cancel" type="button" data-direct-cancel>Chọn lại</button></div>`;
     }
@@ -1230,7 +1235,8 @@ document.addEventListener("click", (event) => {
   }
   if (event.target.closest("[data-direct-pass]")) return directPass();
   if (state.phase === "purge") {
-    interaction = { kind: "purge", target: null, swapTarget: null };
+    const rule = ["cut", "swap", "reveal", "lock"][(state.round - 6) % 4];
+    interaction = { kind: "purge", rule, target: null, swapTarget: null };
     return render();
   }
   const councilMode = event.target.closest("[data-council-mode]")?.dataset.councilMode;

@@ -23,6 +23,7 @@ Ví dụ:
 
 | ID | Ngày | Implementation | Trạng thái | Commit/PR |
 |---|---:|---|---|---|
+| [2026-08-29-003](2026-08-29-003-implement-purge-role-loop.md) | 29/08/2026 | Implement Thanh trừng và role loop | Hoàn thành prototype, browser smoke pass | Chưa có |
 | [2026-08-29-002](2026-08-29-002-specify-vote-roles-and-purge.md) | 29/08/2026 | Chốt nhịp Vote, role và Thanh trừng prototype | Hoàn thành thay đổi tài liệu; chưa chỉnh code | Chưa có |
 | [2026-08-29-001](2026-08-29-001-establish-journey-policy.md) | 29/08/2026 | Thiết lập journey bắt buộc cho mọi implementation | Hoàn thành trên working tree, chờ commit | Chưa có do conflict |
 
