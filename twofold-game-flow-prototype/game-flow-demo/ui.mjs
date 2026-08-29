@@ -997,7 +997,7 @@ function battlefieldActionMarkup() {
     return `<div class="battle-action dawn-reveal dawn-opening"><span class="dawn-sun">◒</span><span class="dawn-lock">THAO TÁC ĐANG KHÓA</span><p class="battle-step">Chuyển giao ngày đêm</p><strong>Bình minh đang hé lộ</strong><p>${presentation?.moves.length || 0} lệnh đêm sẽ lần lượt được công bố. Khoan hành động cho tới khi trời sáng hẳn.</p></div>`;
   }
   if (actionPresentation) {
-    if (actionPresentation.type === "council-resolution") {
+    if (actionPresentation?.type === "council-resolution") {
       const sequenceStep = actionPresentation.sequence[actionPresentation.index];
       if (actionPresentation.stage === "voter") return `<div class="battle-action turn-presentation presentation-${actionPresentation.actor.toLowerCase()}"><span class="dawn-lock">THAO TÁC ĐANG KHÓA</span><p class="battle-step">Hội đồng bên ${actionPresentation.actor}</p><strong>${sequenceStep?.voterIndex + 1}/${sequenceStep?.voterTotal} người bỏ phiếu đang lộ diện</strong><p>${actionPresentation.voterId} đang từ từ bước lên sân. Phán quyết chỉ diễn ra sau khi đủ ba người.</p></div>`;
       return `<div class="battle-action turn-presentation presentation-${actionPresentation.actor.toLowerCase()}"><span class="dawn-lock">THAO TÁC ĐANG KHÓA</span><p class="battle-step">Đủ 3 phiếu · Hội đồng bên ${actionPresentation.actor}</p><strong>Đang công bố phán quyết treo cổ</strong><p>Ba người bỏ phiếu đã hiện diện; mục tiêu và kết quả được xử lý ở nhịp cuối.</p></div>`;
@@ -1010,16 +1010,15 @@ function battlefieldActionMarkup() {
     return `<div class="battle-action turn-presentation presentation-${actionPresentation.actor.toLowerCase()}"><span class="dawn-lock">THAO TÁC ĐANG KHÓA</span><p class="battle-step">Bên ${actionPresentation.actor} đang hành động</p><strong>${stage}</strong><p>Nguồn lệnh di chuyển trước; mục tiêu, lộ bài và thương vong chỉ xuất hiện ở nhịp kế tiếp.</p></div>`;
   }
   if (state.phase === "night-resolution") return `<div class="battle-action night-verdict"><span class="verdict-moon">☾</span><strong>Lệnh đã lên sân</strong><p>Nguồn và vị trí có khiên đang hiển thị. Mục tiêu vẫn bí mật; bình minh phán xét sau 3,2 giây.</p></div>`;
-  if (state.phase === "match-intro") return `<div class="round-intro-overlay" role="dialog" aria-modal="true"><div class="round-intro-card"><span class="round-intro-kicker">VÒNG 1 BẮT ĐẦU</span><strong>BÌNH MINH ĐẦU TIÊN</strong><p>Hai đội hình đã được khóa. Bên A hành động trước; Vòng 1 chưa mở Vote.</p><button class="primary" type="button" data-begin-round>BẮT ĐẦU BAN NGÀY</button></div></div>`;
-  if (state.phase === "council") { `<div class="battle-action bot-battle"><span class="bot-orbit" aria-hidden="true"></span><strong>BOT B đang cân nhắc</strong><p>Bạn có khoảng 1,7 giây để nhìn trạng thái bàn trước khi bot đi.</p></div>`;
+  if (botNeedsTurn() || !activeForSeat() || alreadyLocked()) return `<div class="battle-action bot-battle"><span class="bot-orbit" aria-hidden="true"></span><strong>BOT B đang cân nhắc</strong><p>Bạn có khoảng 1,7 giây để nhìn trạng thái bàn trước khi bot đi.</p></div>`;
   if (state.phase === "purge") return `<div class="battle-action purge-panel"><p class="battle-step">Thanh trừng · Vòng ${state.round}</p><strong>${["Cắt bỏ", "Đảo chiến tuyến", "Ép lộ diện", "Khóa mạch"][(state.round - 6) % 4]}</strong><p>Hai bên bắt buộc chọn. Màu đỏ báo hiệu bàn đấu đã bước vào giai đoạn thanh trừng.</p></div>`;
-  if (interaction?.kind === "purge" || interaction?.kind === "purge-swap") return `<div class="battle-action purge-panel"><p class="battle-step">Thanh trừng · Vòng ${state.round}</p><strong>${["Cắt bỏ", "Đảo chiến tuyến", "Ép lộ diện", "Khóa mạch"][(state.round - 6) % 4]}</strong><p>${interaction.kind === "purge-swap" ? "Chọn một lá đối thủ để đổi vị trí." : "Chọn một lá phe mình. Hai bên bắt buộc hoàn tất lựa chọn."}</p><button class="battle-cancel" type="button" data-direct-cancel>Hủy chọn</button></div>`;
-  if (state.phase === "purge") {
-    const purgeRule = ["Cắt bỏ", "Đảo chiến tuyến", "Ép lộ diện", "Khóa mạch"][(state.round - 6) % 4];
-    return `<div class="battle-action purge-panel"><p class="battle-step">Thanh trừng · Vòng ${state.round}</p><strong>${purgeRule}</strong><p>Chọn một lá phe mình. ${purgeRule === "Đảo chiến tuyến" ? "Sau đó chọn lá đối thủ để đổi vị trí." : "Hai bên bắt buộc hoàn tất lựa chọn."}</p></div>`;
-  }
-  if (state.phase === "match-intro") return `<div class="round-intro-overlay" role="dialog" aria-modal="true"><div class="round-intro-card"><span class="round-intro-kicker">VÒNG 1 BẮT ĐẦU</span><strong>BÌNH MINH ĐẦU TIÊN</strong><p>Hai đội hình đã được khóa. Bên A hành động trước; Vòng 1 chưa mở Vote.</p><button class="primary" type="button" data-begin-round>BẮT ĐẦU BAN NGÀY</button></div></div>`;
-  if (actionPresentation.type === "council-resolution") {
+  if (interaction?.kind === "purge" || interaction?.kind === "purge-swap") return `<div class="battle-action purge-panel"><p class="battle-step">Thanh trừng · Vòng ${state.round}</p><strong>${["Cắt bỏ", "Đảo chiến tuyến", "Ép lộ diện", "Khóa mạch"][(state.round - 6) % 4]}</strong><p>${interaction.kind === "purge-swap" ? "Chọn một lá đối thủ để đổi vị trí." : "Chọn một lá phe mình."}</p><button class="battle-cancel" type="button" data-direct-cancel>Hủy chọn</button></div>`;
+  if (state.phase === "council") {
+    if (interaction?.kind === "accuse" && interaction.target) {
+      const guesses = availableRoleGuesses(state, otherSeat(seat));
+      return `<div class="battle-action"><p class="battle-step">Bước 3 · Đoán role còn lại của ${interaction.target}</p><div class="role-guess-grid">${guesses.map((key) => `<button type="button" data-direct-guess="${key}">${ROLE_DEFS[key].name}</button>`).join("")}</div><p>Những role đã lộ đủ số lượng trên sân được tự động loại trừ.</p><button class="battle-cancel" type="button" data-direct-cancel>Chọn lại</button></div>`;
+    }
+    if (interaction?.kind === "accuse") {
       const power = votePower(interaction.voters);
       return `<div class="battle-action"><p class="battle-step">${power === 3 ? "Bước 2 · Chọn một lá đối thủ" : "Bước 1 · Chọn 3 role Dân còn sống"}</p><strong>${power}/3 nhân vật đã chọn</strong><p>${power === 3 ? "Card đã lộ sẽ xử lý ngay; card úp mới cần đoán role." : "Có thể chọn cả card đang úp phía dưới; chúng sẽ lộ khi Hội đồng xử lý."}</p><button class="battle-cancel" type="button" data-direct-cancel>Hủy buộc tội</button></div>`;
     }
@@ -1027,7 +1026,7 @@ function battlefieldActionMarkup() {
     const wolfguard = sourceFor("wolfguard") && privateCard(sourceFor("wolfguard")).uses.rescue > 0;
     return `<div class="battle-action"><p class="battle-step">Hành động phụ · vẫn giữ lượt Ban ngày</p><strong>Lập Hội đồng treo cổ</strong><p>Cần đúng 3 role Dân còn sống; card đang úp vẫn chọn được và sẽ lộ khi xử lý.</p><div class="battle-buttons"><button type="button" data-council-mode="accuse">Chọn 3 người</button>${wolfguard ? `<button type="button" data-council-mode="protect">Bảo kê</button>` : ""}<button type="button" data-direct-pass>Bỏ qua</button></div></div>`;
   }
-  if (state.phase === "final-duel") return `<div class="battle-action"><p class="battle-step">Final Duel</p><strong>Đoán role cuối của BOT</strong><div class="role-guess-grid">${Object.entries(ROLE_DEFS).map(([key, role]) => `<button type="button" data-final-guess="${key}">${role.name}</button>`).join("")}</div></div>`;
+  if (state.phase === "final-duel") return `<div class="battle-action"><p class="battle-step">Final Duel</p><strong>Đoán role cuối của BOT</strong><div class="role-guess-grid">${Object.entries(ROLE_DEFS).map(([key, role]) => `<button type="button" data-final-guess="${key}">${role.name}</button>`).join("")}</div></div>`; `<div class="battle-action"><p class="battle-step">Final Duel</p><strong>Đoán role cuối của BOT</strong><div class="role-guess-grid">${Object.entries(ROLE_DEFS).map(([key, role]) => `<button type="button" data-final-guess="${key}">${role.name}</button>`).join("")}</div></div>`;
   if (interaction) {
     if (interaction.kind === "bloodmoon") return `<div class="battle-action special-order"><p class="battle-step">Card đặc biệt · ${SPECIAL_CARD.name}</p><strong>Chọn một role đối thủ đã lộ</strong><p>Đòn này dùng Main Order, bị khiên chặn và hồi lại sau ${SPECIAL_CARD.cooldownRounds} vòng.</p><button class="battle-cancel" type="button" data-direct-cancel>Hủy chọn</button></div>`;
     const source = state.players.A.board.find((card) => card.id === interaction.source);
