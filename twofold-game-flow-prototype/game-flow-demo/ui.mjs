@@ -1,4 +1,4 @@
-import { availableRoleGuesses, beginRound, createGame, dispatch, privateView, publicView, ROLE_DEFS, SPECIAL_CARD } from "./engine.mjs?rev=round-intro-v3";
+import { availableRoleGuesses, beginRound, createGame, dispatch, privateView, publicView, ROLE_DEFS, SPECIAL_CARD } from "./engine.mjs?rev=round-intro-v4";
 
 const ROLE_ART = {
   villager: "../assets/game/wwo-reference/dan-lang.png",
@@ -998,7 +998,7 @@ function battlefieldActionMarkup() {
     return `<div class="battle-action dawn-reveal dawn-opening"><span class="dawn-sun">◒</span><span class="dawn-lock">THAO TÁC ĐANG KHÓA</span><p class="battle-step">Chuyển giao ngày đêm</p><strong>Bình minh đang hé lộ</strong><p>${presentation?.moves.length || 0} lệnh đêm sẽ lần lượt được công bố. Khoan hành động cho tới khi trời sáng hẳn.</p></div>`;
   }
   if (actionPresentation) {
-    if (actionPresentation?.type === "council-resolution") {
+    if (actionPresentation.type === "council-resolution") {
       const sequenceStep = actionPresentation.sequence[actionPresentation.index];
       if (actionPresentation.stage === "voter") return `<div class="battle-action turn-presentation presentation-${actionPresentation.actor.toLowerCase()}"><span class="dawn-lock">THAO TÁC ĐANG KHÓA</span><p class="battle-step">Hội đồng bên ${actionPresentation.actor}</p><strong>${sequenceStep?.voterIndex + 1}/${sequenceStep?.voterTotal} người bỏ phiếu đang lộ diện</strong><p>${actionPresentation.voterId} đang từ từ bước lên sân. Phán quyết chỉ diễn ra sau khi đủ ba người.</p></div>`;
       return `<div class="battle-action turn-presentation presentation-${actionPresentation.actor.toLowerCase()}"><span class="dawn-lock">THAO TÁC ĐANG KHÓA</span><p class="battle-step">Đủ 3 phiếu · Hội đồng bên ${actionPresentation.actor}</p><strong>Đang công bố phán quyết treo cổ</strong><p>Ba người bỏ phiếu đã hiện diện; mục tiêu và kết quả được xử lý ở nhịp cuối.</p></div>`;
