@@ -1,4 +1,4 @@
-import { availableRoleGuesses, beginRound, createGame, dispatch, privateView, publicView, ROLE_DEFS, SPECIAL_CARD } from "./engine.mjs?rev=flow-v5";
+import { availableRoleGuesses, beginRound, createGame, dispatch, privateView, publicView, ROLE_DEFS, SPECIAL_CARD } from "./engine.mjs?rev=flow-v6";
 
 const ROLE_ART = {
   villager: "../assets/game/wwo-reference/dan-lang.png",
@@ -28,7 +28,7 @@ const ROLE_SKILLS = {
   villager: "Hội đồng · Có thể là một trong 3 người tham gia treo cổ; sẽ lộ diện khi Hội đồng xử lý.",
   wolf: "Ban đêm · Tấn công một lá đối thủ không được khiên che.",
   seer: "Ban đêm · Xem role thật của một lá đối thủ.",
-  guard: "Chạng vạng · Đặt khiên lên một lá đồng minh, tối đa 3 lần.",
+  guard: "Ban đêm · Bảo vệ một lá khác trong đêm. Không thể bảo vệ cùng một lá hai đêm liên tiếp.",
   witch: "Ngày hồi sinh một đồng minh · Đêm đầu độc một đối thủ.",
   shooter: "Ban ngày · Khi đối thủ đã lộ 2 role, bắn một lá đã lộ.",
   avenger: "Ban ngày · Đánh dấu mục tiêu; nếu chết trước bình minh, mục tiêu chết theo.",
@@ -223,7 +223,7 @@ function runBotTurn() {
 
 function scheduleBot() {
   if (dawnActive || actionPresentation || lastMove || !botNeedsTurn() || botTimer) return;
-  botTimer = setTimeout(runBotTurn, 2400);
+  botTimer = setTimeout(runBotTurn, 900);
 }
 
 function copyPresentationSource(action, resolvedState) {
