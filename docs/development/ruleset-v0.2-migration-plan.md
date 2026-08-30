@@ -307,20 +307,26 @@ Bỏ `eliminationSpent`. Budget được mô hình hóa trực tiếp theo phase
 
 ## 6. Game State
 
+> **Tiến độ:** Đã triển khai `GameState` và phase machine thuần TypeScript trong
+> `packages/game-core` ngày 30/08/2026. State machine dùng discriminated union,
+> từ chối transition sai phase và có deterministic test đi từ Setup tới Purge
+> Vòng 6. `pendingResolution` và structured presentation events thuộc DEV-02D,
+> chưa được thêm vào state ở bước này.
+
 ```ts
 interface GameState {
   gameId: string;
   seed: string;
   round: number;
-  phase: GamePhase;
+  phase: GamePhaseState;
 
   players: Record<PlayerId, PlayerState>;
-
-  pendingResolution: PendingResolution | null;
   result: GameResult | null;
-  events: GameEvent[];
 }
 ```
+
+`pendingResolution` và `events` sẽ được thêm khi triển khai resolution pipeline
+và structured presentation events, không tạo placeholder chưa có hành vi.
 
 Không đưa WebSocket connection, reconnect timer hoặc countdown animation vào authoritative game state. Chúng thuộc room/session state.
 
@@ -331,20 +337,20 @@ Không đưa WebSocket connection, reconnect timer hoặc countdown animation v�
 ### 7.1. Phase chuẩn đề xuất
 
 ```ts
-type GamePhase =
-  | 'SETUP'
-  | 'DAY_A'
-  | 'DAY_B'
-  | 'COUNCIL_PLAN'
-  | 'COUNCIL_RESOLUTION'
-  | 'NIGHT_PLAN'
-  | 'DUSK_DEFENSE'
-  | 'NIGHT_RESOLUTION'
-  | 'DAWN'
-  | 'PURGE_PLAN'
-  | 'PURGE_RESOLUTION'
-  | 'FINAL_DUEL'
-  | 'ENDED';
+type GamePhaseState =
+  | { type: 'SETUP' }
+  | { type: 'DAY_A' }
+  | { type: 'DAY_B' }
+  | { type: 'COUNCIL_PLAN' }
+  | { type: 'COUNCIL_RESOLUTION' }
+  | { type: 'NIGHT_PLAN' }
+  | { type: 'DUSK_DEFENSE' }
+  | { type: 'NIGHT_RESOLUTION' }
+  | { type: 'DAWN' }
+  | { type: 'PURGE_PLAN' }
+  | { type: 'PURGE_RESOLUTION' }
+  | { type: 'FINAL_DUEL' }
+  | { type: 'ENDED' };
 ```
 
 ```text

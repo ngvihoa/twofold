@@ -7,8 +7,6 @@ import {
   PlayerGameView,
   PublicCard,
   EventLogEntry,
-  GameAction,
-  ActionType,
   WinReason,
 } from '@twofold/shared-types';
 import { STANDARD_DECK } from './roles';
@@ -27,22 +25,17 @@ import {
   createInitialPlayerState,
   replacePlayerCard,
 } from './players';
+import {
+  type GameState,
+  type GameStateEvent,
+  createInitialGameState,
+  transitionGameState,
+} from './game-state';
+import { getActivePhasePlayer, type GamePhaseState } from './phase-machine';
 
-export interface NightActionRecord {
-  playerId: PlayerId;
-  action: GameAction;
-}
-
-export interface MasterGameState {
-  roomId: string;
-  roundNumber: number;
-  currentPhase: TurnPhase;
-  activeTurnPlayer: PlayerId | null; // Cho pha Day (A -> B)
-  players: Record<PlayerId, PlayerState>;
-  nightActions: NightActionRecord[];
+/** GameState v0.2 kèm public log tạm phục vụ adapter contract v0.1. */
+export interface MasterGameState extends GameState {
   logs: EventLogEntry[];
-  winner: PlayerId | null;
-  winReason: WinReason | null;
 }
 
 /** Adapter tạm cho shared-types/web v0.1; authoritative card state vẫn ở game-core. */
@@ -65,6 +58,31 @@ function toLegacyCard(card: GameCard): LegacyCard {
   };
 }
 
+/** Chiếu phase v0.2 về enum v0.1 cho web trong thời gian migration. */
+function toLegacyTurnPhase(phase: GamePhaseState): TurnPhase {
+  switch (phase.type) {
+    case 'SETUP':
+      return TurnPhase.SETUP;
+    case 'DAY_A':
+    case 'DAY_B':
+    case 'COUNCIL_PLAN':
+    case 'COUNCIL_RESOLUTION':
+    case 'FINAL_DUEL':
+      return TurnPhase.DAY;
+    case 'NIGHT_PLAN':
+    case 'DUSK_DEFENSE':
+    case 'NIGHT_RESOLUTION':
+      return TurnPhase.NIGHT;
+    case 'DAWN':
+      return TurnPhase.DAWN;
+    case 'PURGE_PLAN':
+    case 'PURGE_RESOLUTION':
+      return TurnPhase.CALAMITY;
+    case 'ENDED':
+      return TurnPhase.ENDED;
+  }
+}
+
 export class GameEngine {
   private state: MasterGameState;
 
@@ -72,39 +90,33 @@ export class GameEngine {
     const rolesA = defaultRolesA || this.getDefaultDeck();
     const rolesB = defaultRolesB || this.getDefaultDeck();
 
+    const players: Record<PlayerId, PlayerState> = {
+      [PlayerId.PLAYER_A]: createInitialPlayerState(
+        PlayerId.PLAYER_A,
+        rolesA.map((role, index) =>
+          createInitialCard(PlayerId.PLAYER_A, index + 1, role)
+        )
+      ),
+      [PlayerId.PLAYER_B]: createInitialPlayerState(
+        PlayerId.PLAYER_B,
+        rolesB.map((role, index) =>
+          createInitialCard(PlayerId.PLAYER_B, index + 1, role)
+        )
+      ),
+    };
     this.state = {
-      roomId,
-      roundNumber: 1,
-      currentPhase: TurnPhase.DAY,
-      activeTurnPlayer: PlayerId.PLAYER_A, // Host A đi trước theo v0.1
-      players: {
-        [PlayerId.PLAYER_A]: createInitialPlayerState(
-          PlayerId.PLAYER_A,
-          rolesA.map((role, index) =>
-            createInitialCard(PlayerId.PLAYER_A, index + 1, role)
-          )
-        ),
-        [PlayerId.PLAYER_B]: createInitialPlayerState(
-          PlayerId.PLAYER_B,
-          rolesB.map((role, index) =>
-            createInitialCard(PlayerId.PLAYER_B, index + 1, role)
-          )
-        ),
-      },
-      nightActions: [],
+      ...createInitialGameState(roomId, roomId, players),
       logs: [
         {
           id: `log_${Date.now()}_0`,
           round: 1,
-          phase: TurnPhase.DAY,
+          phase: TurnPhase.SETUP,
           timestamp: Date.now(),
           actor: null,
-          message: 'Trận đấu bắt đầu! Vòng 1 - Ban ngày: Lượt của Người chơi A.',
+          message: 'Trận đấu bắt đầu! Hai người chơi đang khóa thứ tự Setup.',
           isPublic: true,
         },
       ],
-      winner: null,
-      winReason: null,
     };
   }
 
@@ -114,6 +126,11 @@ export class GameEngine {
 
   public getState(): MasterGameState {
     return this.state;
+  }
+
+  /** Gửi một event cấp game/phase vào authoritative state machine. */
+  public send(event: GameStateEvent): void {
+    this.state = transitionGameState(this.state, event);
   }
 
   /**
@@ -134,17 +151,17 @@ export class GameEngine {
     }));
 
     return {
-      roomId: this.state.roomId,
+      roomId: this.state.gameId,
       playerId,
       opponentConnected,
-      currentPhase: this.state.currentPhase,
-      activeTurnPlayer: this.state.activeTurnPlayer,
-      roundNumber: this.state.roundNumber,
+      currentPhase: toLegacyTurnPhase(this.state.phase),
+      activeTurnPlayer: getActivePhasePlayer(this.state.phase),
+      roundNumber: this.state.round,
       myCards,
       opponentCards: publicOpponentCards,
       logs: this.state.logs,
-      winner: this.state.winner,
-      winReason: this.state.winReason,
+      winner: this.state.result?.winner ?? null,
+      winReason: this.state.result?.reason ?? null,
     };
   }
 
@@ -152,7 +169,7 @@ export class GameEngine {
    * Xử lý Treo cổ (Ban ngày): Đoán vai trò của 1 lá đối thủ
    */
   public handleHangAction(actor: PlayerId, targetIndex: number, guessedRole: CardRole): boolean {
-    if (this.state.currentPhase !== TurnPhase.DAY || this.state.activeTurnPlayer !== actor) {
+    if (getActivePhasePlayer(this.state.phase) !== actor) {
       throw new Error('Không phải lượt Ban ngày của bạn!');
     }
 
@@ -194,17 +211,19 @@ export class GameEngine {
    * Chuyển lượt ban ngày: A -> B -> Chuyển sang Ban đêm
    */
   private advanceDayTurn(): void {
-    if (this.state.winner) return;
+    if (this.state.result) return;
 
-    if (this.state.activeTurnPlayer === PlayerId.PLAYER_A) {
-      this.state.activeTurnPlayer = PlayerId.PLAYER_B;
+    if (this.state.phase.type === 'DAY_A') {
+      this.send({ type: 'DAY_ACTION_COMPLETED', playerId: PlayerId.PLAYER_A });
       this.addLog(null, 'Ban ngày: Lượt của Người chơi B.');
     } else {
-      // Cả A và B đã xong Ban ngày -> Chuyển sang Ban đêm
-      this.state.currentPhase = TurnPhase.NIGHT;
-      this.state.activeTurnPlayer = null;
-      this.state.nightActions = [];
-      this.addLog(null, 'Màn đêm buông xuống! Cả hai người chơi chọn hành động bí mật.');
+      this.send({ type: 'DAY_ACTION_COMPLETED', playerId: PlayerId.PLAYER_B });
+      this.addLog(
+        null,
+        this.state.phase.type === 'COUNCIL_PLAN'
+          ? 'Ban ngày hoàn tất. Hai bên bí mật khóa lựa chọn Hội đồng.'
+          : 'Màn đêm buông xuống! Cả hai người chơi chọn hành động bí mật.'
+      );
     }
   }
 
@@ -217,23 +236,27 @@ export class GameEngine {
 
     if (aliveA === 0 && aliveB === 0) {
       // Cả 2 cùng hết bài -> Hòa hoặc xử lý theo rule
-      this.state.currentPhase = TurnPhase.ENDED;
-      this.state.winReason = WinReason.ELIMINATION;
+      this.send({
+        type: 'GAME_ENDED',
+        result: { winner: null, reason: WinReason.ELIMINATION },
+      });
       return null;
     }
 
     if (aliveA === 0) {
-      this.state.winner = PlayerId.PLAYER_B;
-      this.state.winReason = WinReason.ELIMINATION;
-      this.state.currentPhase = TurnPhase.ENDED;
+      this.send({
+        type: 'GAME_ENDED',
+        result: { winner: PlayerId.PLAYER_B, reason: WinReason.ELIMINATION },
+      });
       this.addLog(null, 'Người chơi B đã chiến thắng vì đối thủ hết bài trên sân!');
       return PlayerId.PLAYER_B;
     }
 
     if (aliveB === 0) {
-      this.state.winner = PlayerId.PLAYER_A;
-      this.state.winReason = WinReason.ELIMINATION;
-      this.state.currentPhase = TurnPhase.ENDED;
+      this.send({
+        type: 'GAME_ENDED',
+        result: { winner: PlayerId.PLAYER_A, reason: WinReason.ELIMINATION },
+      });
       this.addLog(null, 'Người chơi A đã chiến thắng vì đối thủ hết bài trên sân!');
       return PlayerId.PLAYER_A;
     }
@@ -249,8 +272,8 @@ export class GameEngine {
   ): void {
     this.state.logs.push({
       id: `log_${Date.now()}_${this.state.logs.length}`,
-      round: this.state.roundNumber,
-      phase: this.state.currentPhase,
+      round: this.state.round,
+      phase: toLegacyTurnPhase(this.state.phase),
       timestamp: Date.now(),
       actor,
       message,

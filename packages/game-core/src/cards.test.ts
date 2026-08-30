@@ -158,6 +158,9 @@ describe('ruleset v0.2 card state', () => {
     const engine = new GameEngine('card-view-test');
     const target = engine.getState().players[PlayerId.PLAYER_B].board[0];
 
+    engine.send({ type: 'SETUP_LOCKED', playerId: PlayerId.PLAYER_A });
+    engine.send({ type: 'SETUP_LOCKED', playerId: PlayerId.PLAYER_B });
+
     engine.handleHangAction(PlayerId.PLAYER_A, 0, target.role.id);
 
     const view = engine.getPlayerView(PlayerId.PLAYER_A);
