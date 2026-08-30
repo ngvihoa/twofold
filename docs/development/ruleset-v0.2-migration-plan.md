@@ -172,7 +172,7 @@ làm mất restriction này.
 
 ## 4. Card State
 
-> **Tiến độ:** Đã triển khai model nội bộ trong `packages/game-core` ngày 29/08/2026; tổng quát hóa effect source/Council lock và chuyển runtime ability state về dưới `RoleState` ngày 30/08/2026. DEV-02A hoàn thành ngày 30/08: lifecycle/visibility độc lập, eliminate/revive giữ visibility và reveal giữ lifecycle. Ngày 30/08, core tách slot `CardId` khỏi `CardInstanceId` bất biến để role/runtime/effect/memory đi theo card vật lý qua Purge SWAP. Chưa migrate `packages/shared-types` hoặc `apps/web`; core đang giữ legacy projection tạm thời cho contract v0.1.
+> **Tiến độ:** Đã triển khai model nội bộ trong `packages/game-core` ngày 29/08/2026; tổng quát hóa effect source/Council lock và chuyển runtime ability state về dưới `RoleState` ngày 30/08/2026. DEV-02A hoàn thành ngày 30/08: lifecycle/visibility độc lập, eliminate/revive giữ visibility và reveal giữ lifecycle. Ngày 30/08, core tách slot `CardId` khỏi `CardInstanceId` bất biến để role/runtime/effect/memory đi theo card vật lý qua Purge SWAP. Contract Zod v0.2 đã được bổ sung trong `packages/shared-types`; `apps/web` chưa migrate và core vẫn giữ legacy projection tạm thời.
 
 ### 4.1. Runtime state
 
@@ -662,11 +662,9 @@ type WinReason =
   | 'DRAW_FINAL_DUEL';
 ```
 
-Trong phạm vi `game-core`, `FinalDuelResultReason.VICTORY` và
-`FinalDuelResultReason.DRAW` đang bổ sung hai reason `FINAL_DUEL` và
-`DRAW_FINAL_DUEL` mà chưa sửa contract legacy trong `packages/shared-types`.
-Legacy projection tạm trả `winReason: null` cho hai reason mới thay vì map sai
-thành `ELIMINATION`; authoritative `GamePlayerView` vẫn giữ reason đầy đủ.
+Contract v0.2 chấp nhận đầy đủ `FINAL_DUEL` và `DRAW_FINAL_DUEL`. Legacy
+projection tạm trả `winReason: null` cho hai reason mới thay vì map sai thành
+`ELIMINATION`; authoritative `GamePlayerView` giữ reason đầy đủ.
 
 Notable cần review:
 
@@ -688,8 +686,9 @@ Không gửi master state trực tiếp cho client.
 > **Tiến độ:** DEV-02C đã triển khai serializer nội bộ tại
 > `packages/game-core/src/player-view.ts`. Serializer tách private/public card,
 > chỉ công khai trạng thái opponent đã khóa submission và loại `effect.id`,
-> `effect.source` khỏi view để không rò Night source. Contract Zod/wire trong
-> `packages/shared-types` vẫn thuộc PR migration tiếp theo.
+> `effect.source` khỏi view để không rò Night source. Contract Zod/wire v0.2 đã
+> được triển khai trong `packages/shared-types/src/game-v2.ts` và được kiểm tra
+> bằng output thật của serializer trong `shared-contract.test.ts`.
 
 `GameEngine` chỉ nhận gameplay mutation qua `dispatch(PlayerGameAction)`.
 `getState()` trả deep snapshot độc lập thay vì reference nội bộ; caller không
@@ -776,8 +775,8 @@ Web chịu trách nhiệm dịch event thành nội dung và animation. Structur
 state synchronization, audit rule và presentation mới phải đọc structured
 event; không được đọc hoặc suy luận gameplay state từ chuỗi log.
 
-`MasterGameState.logs` và `PlayerGameView.logs` chỉ được giữ để contract v0.1
-trong `packages/shared-types` tiếp tục parse được trong thời gian migration:
+`MasterGameState.logs` và legacy player view chỉ được giữ cho adapter v0.1
+trong thời gian consumer migration:
 
 - legacy log **không authoritative** và không đảm bảo phản ánh các action sau
   khi khởi tạo trận;
@@ -790,7 +789,7 @@ trong `packages/shared-types` tiếp tục parse được trong thời gian migr
 - server, test rule và frontend mới không được dùng legacy log cho resolution,
   replay hoặc synchronization;
 - `MasterGameState.logs`, `getPlayerView()` và legacy projection liên quan sẽ bị
-  xóa khi `packages/shared-types` có action/view/event contract v0.2.
+  xóa sau khi server và `apps/web` đã chuyển sang contract v0.2.
 
 Nếu UI cần activity feed, UI tự map các `GameEvent` đã được lọc theo viewer sang
 nội dung bản địa hóa.
@@ -883,12 +882,16 @@ Không đưa vào XState phía frontend:
 ### PR 1 — Shared types v0.2
 
 - [x] Role và deck mới.
-- [ ] Migrate Card State contract để hỗ trợ `DEAD + HIDDEN` theo ADR-0004.
-- [ ] Phase mới.
-- [ ] Action union mới.
-- [ ] Public/private view.
-- [ ] Structured events.
-- [ ] Adapter tạm cho contract v0.1 nếu room/session còn cần.
+- [x] Migrate Card State contract để hỗ trợ `DEAD + HIDDEN` theo ADR-0004.
+- [x] Phase mới.
+- [x] Action union mới.
+- [x] Public/private view với invariant hidden role.
+- [x] Structured events và private Seer-event invariant.
+- [x] Đặt WebSocket v0.2 làm default; giữ schema v0.1 dưới tên `Legacy*`.
+
+> Hoàn thành ngày 30/08/2026. `game-core` dùng trực tiếp shared type cho phase,
+> action và order. `apps/web` được chủ động để lại cho PR 4 và có thể chưa
+> type-check với default WebSocket contract mới cho tới khi migrate.
 
 ### PR 2 — Game core v0.2
 
@@ -896,12 +899,12 @@ Không đưa vào XState phía frontend:
 - [x] Hỗ trợ `DEAD + HIDDEN`; eliminate/revive không tự reveal và Treo cổ dùng reveal rule riêng.
 - [x] Role-owned ability state và generic `ABILITY_USED` transition.
 - [x] Legacy projection để chưa tác động frontend web.
-- [ ] Port engine prototype sang TypeScript.
-- [ ] Tách role definition, validation và resolution.
-- [ ] Server-owned night resolution.
+- [x] Port engine prototype sang TypeScript.
+- [x] Tách role definition, validation và resolution.
+- [x] Server-owned night resolution.
 - [x] Sửa Final Duel ở mọi death boundary.
 - [x] Guard không giới hạn charge; chỉ khóa target vừa bảo vệ liên tiếp.
-- [ ] Thêm unit, transition và information-leak tests.
+- [x] Thêm unit, transition và information-leak tests.
 
 ### PR 3 — Spec reviewer adapter
 

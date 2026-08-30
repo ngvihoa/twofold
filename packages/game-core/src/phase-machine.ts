@@ -1,4 +1,4 @@
-import { PlayerId } from '@twofold/shared-types';
+import { PlayerId, type GamePhaseState } from '@twofold/shared-types';
 
 /**
  * Một state hợp lệ của phase machine v0.2.
@@ -6,20 +6,7 @@ import { PlayerId } from '@twofold/shared-types';
  * Mỗi phase là một nhánh riêng để transition được kiểm tra bằng discriminated
  * union thay vì phối hợp nhiều boolean như `isNight`, `isResolving`.
  */
-export type GamePhaseState =
-  | { readonly type: 'SETUP' }
-  | { readonly type: 'DAY_A' }
-  | { readonly type: 'DAY_B' }
-  | { readonly type: 'COUNCIL_PLAN' }
-  | { readonly type: 'COUNCIL_RESOLUTION' }
-  | { readonly type: 'NIGHT_PLAN' }
-  | { readonly type: 'DUSK_DEFENSE' }
-  | { readonly type: 'NIGHT_RESOLUTION' }
-  | { readonly type: 'DAWN' }
-  | { readonly type: 'PURGE_PLAN' }
-  | { readonly type: 'PURGE_RESOLUTION' }
-  | { readonly type: 'FINAL_DUEL' }
-  | { readonly type: 'ENDED' };
+export type { GamePhaseState } from '@twofold/shared-types';
 
 /** Round và phase là context tối thiểu cần thiết để phase machine chuyển state. */
 export interface PhaseMachineState {

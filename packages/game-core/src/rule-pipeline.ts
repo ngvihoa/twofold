@@ -1,4 +1,12 @@
-import { AbilityId, CardRole, Faction, PlayerId, WinReason } from '@twofold/shared-types';
+import {
+  AbilityId,
+  CardRole,
+  Faction,
+  PlayerId,
+  WinReason,
+  type DayAction,
+  type PlayerGameAction,
+} from '@twofold/shared-types';
 import {
   CardEffectKind,
   CardEffectRule,
@@ -34,52 +42,8 @@ import {
   type AbilityState,
 } from './roles';
 
-/** Player action hiện đã được port vào validation/resolution pipeline. */
-export type PlayerGameAction =
-  | { readonly type: 'SETUP_LOCK'; readonly playerId: PlayerId }
-  | {
-      readonly type: 'DAY_SUBMIT';
-      readonly playerId: PlayerId;
-      readonly action: DayAction;
-    }
-  | {
-      readonly type: 'COUNCIL_ACCUSATION_SUBMIT';
-      readonly playerId: PlayerId;
-      readonly order: CouncilOrder;
-    }
-  | {
-      readonly type: 'COUNCIL_REACTION_SUBMIT';
-      readonly playerId: PlayerId;
-      readonly order: CouncilReactionOrder;
-    }
-  | {
-      readonly type: 'NIGHT_SUBMIT';
-      readonly playerId: PlayerId;
-      readonly order: NightOrder;
-    }
-  | {
-      readonly type: 'DEFENSE_SUBMIT';
-      readonly playerId: PlayerId;
-      readonly order: DefenseOrder;
-    }
-  | {
-      readonly type: 'PURGE_SUBMIT';
-      readonly playerId: PlayerId;
-      readonly order: PurgeOrder;
-    }
-  | {
-      readonly type: 'FINAL_GUESS_SUBMIT';
-      readonly playerId: PlayerId;
-      readonly guess: CardRole;
-    };
-
-/** Main Action được resolve ngay trong Day turn của player. */
-export type DayAction =
-  | { readonly type: 'PASS' }
-  | { readonly type: 'SHOOT'; readonly sourceId: CardId; readonly targetId: CardId }
-  | { readonly type: 'MARK'; readonly sourceId: CardId; readonly targetId: CardId }
-  | { readonly type: 'PURIFY'; readonly sourceId: CardId; readonly targetId: CardId }
-  | { readonly type: 'REVIVE'; readonly sourceId: CardId; readonly targetId: CardId };
+/** Action DTO được suy ra từ authoritative schema trong `shared-types`. */
+export type { DayAction, PlayerGameAction } from '@twofold/shared-types';
 
 /** Lỗi validation cho action không hợp lệ theo authoritative state hiện tại. */
 export class RuleValidationError extends Error {
@@ -1252,9 +1216,9 @@ function resolveNight(state: GameState): GameState {
         specialAbilities: player.specialAbilities.map((candidate) =>
           candidate.abilityId === PlayerSpecialAbilityId.BLOOD_MOON
             ? {
-                ...candidate,
-                readyRound: state.round + candidate.cooldownRounds,
-              }
+              ...candidate,
+              readyRound: state.round + candidate.cooldownRounds,
+            }
             : candidate
         ),
       }));
