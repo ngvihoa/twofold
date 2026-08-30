@@ -6,7 +6,12 @@ import {
   isCardAlive,
   transitionCard,
 } from './cards';
-import { createInitialGameState, type GameState } from './game-state';
+import {
+  FinalDuelResultReason,
+  createInitialGameState,
+  type GameState,
+} from './game-state';
+import { serializePlayerView } from './player-view';
 import { PlayerSpecialAbilityId, createInitialPlayerState } from './players';
 import { dispatchPlayerAction, RuleValidationError } from './rule-pipeline';
 import { getRoleAbility } from './roles';
@@ -123,6 +128,29 @@ function enterPurge(round: number): GameState {
     ...enterDay(),
     round,
     phase: { type: 'PURGE_PLAN' },
+  };
+}
+
+function enterFinalDuel(): GameState {
+  const state = enterDay();
+  return {
+    ...state,
+    phase: { type: 'FINAL_DUEL' },
+    players: {
+      ...state.players,
+      [PlayerId.PLAYER_A]: {
+        ...state.players[PlayerId.PLAYER_A],
+        board: state.players[PlayerId.PLAYER_A].board.map((card, index) =>
+          index === 0 ? card : transitionCard(card, { type: 'ELIMINATE' })
+        ),
+      },
+      [PlayerId.PLAYER_B]: {
+        ...state.players[PlayerId.PLAYER_B],
+        board: state.players[PlayerId.PLAYER_B].board.map((card, index) =>
+          index === 0 ? card : transitionCard(card, { type: 'ELIMINATE' })
+        ),
+      },
+    },
   };
 }
 
@@ -941,6 +969,243 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
         order: { rule: 'LOCK', targetId: 'A1' },
       })
     ).toThrow('Vòng 6 yêu cầu Purge rule CUT');
+  });
+
+  it('keeps the first Final Duel guess private and rejects duplicate submission', () => {
+    const state = dispatchPlayerAction(enterFinalDuel(), {
+      type: 'FINAL_GUESS_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      guess: CardRole.VILLAGER,
+    });
+
+    expect(state.phase).toEqual({ type: 'FINAL_DUEL' });
+    const playerBView = serializePlayerView(state, PlayerId.PLAYER_B);
+    expect(playerBView.opponent.submissionLocks.finalGuess).toBe(true);
+    expect('submissions' in playerBView.opponent).toBe(false);
+    expect(state.events.some((event) => event.type === 'FINAL_DUEL_RESOLVED')).toBe(
+      false
+    );
+    expect(() =>
+      dispatchPlayerAction(state, {
+        type: 'FINAL_GUESS_SUBMIT',
+        playerId: PlayerId.PLAYER_A,
+        guess: CardRole.WEREWOLF,
+      })
+    ).toThrow('PLAYER_A đã khóa Final Duel Guess Order.');
+  });
+
+  it('awards Final Duel to the only player with a correct guess', () => {
+    let state = enterFinalDuel();
+    state = dispatchPlayerAction(state, {
+      type: 'FINAL_GUESS_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      guess: CardRole.VILLAGER,
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'FINAL_GUESS_SUBMIT',
+      playerId: PlayerId.PLAYER_B,
+      guess: CardRole.VILLAGER,
+    });
+
+    expect(state.phase).toEqual({ type: 'ENDED' });
+    expect(state.result).toEqual({
+      winner: PlayerId.PLAYER_A,
+      reason: FinalDuelResultReason.VICTORY,
+    });
+    expect(state.players[PlayerId.PLAYER_A].board[0].state.visibility).toBe('REVEALED');
+    expect(state.players[PlayerId.PLAYER_B].board[0].state.visibility).toBe('REVEALED');
+    expect(state.players[PlayerId.PLAYER_A].submissions.finalGuess).toBeNull();
+    expect(state.players[PlayerId.PLAYER_B].submissions.finalGuess).toBeNull();
+    expect(state.events.at(-1)).toMatchObject({
+      type: 'FINAL_DUEL_RESOLVED',
+      guessA: CardRole.VILLAGER,
+      guessB: CardRole.VILLAGER,
+      correctA: true,
+      correctB: false,
+    });
+  });
+
+  it('draws Final Duel when both players guess correctly', () => {
+    let state = enterFinalDuel();
+    state = dispatchPlayerAction(state, {
+      type: 'FINAL_GUESS_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      guess: CardRole.VILLAGER,
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'FINAL_GUESS_SUBMIT',
+      playerId: PlayerId.PLAYER_B,
+      guess: CardRole.WEREWOLF,
+    });
+
+    expect(state.result).toEqual({
+      winner: null,
+      reason: FinalDuelResultReason.DRAW,
+    });
+    expect(state.events.at(-1)).toMatchObject({
+      type: 'FINAL_DUEL_RESOLVED',
+      correctA: true,
+      correctB: true,
+    });
+  });
+
+  it('draws Final Duel when both players guess incorrectly', () => {
+    let state = enterFinalDuel();
+    state = dispatchPlayerAction(state, {
+      type: 'FINAL_GUESS_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      guess: CardRole.GUARD,
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'FINAL_GUESS_SUBMIT',
+      playerId: PlayerId.PLAYER_B,
+      guess: CardRole.VILLAGER,
+    });
+
+    expect(state.result).toEqual({
+      winner: null,
+      reason: FinalDuelResultReason.DRAW,
+    });
+    expect(state.events.at(-1)).toMatchObject({
+      type: 'FINAL_DUEL_RESOLVED',
+      correctA: false,
+      correctB: false,
+    });
+  });
+
+  it('enters Final Duel from Day, Council, Night and Purge death boundaries', () => {
+    const createSparseGame = (
+      rolesA: readonly CardRole[],
+      rolesB: readonly CardRole[]
+    ): GameState =>
+      createInitialGameState('final-boundary', 'final-boundary-seed', {
+        [PlayerId.PLAYER_A]: createInitialPlayerState(
+          PlayerId.PLAYER_A,
+          rolesA.map((role, index) =>
+            createInitialCard(PlayerId.PLAYER_A, index + 1, role)
+          )
+        ),
+        [PlayerId.PLAYER_B]: createInitialPlayerState(
+          PlayerId.PLAYER_B,
+          rolesB.map((role, index) =>
+            createInitialCard(PlayerId.PLAYER_B, index + 1, role)
+          )
+        ),
+      });
+
+    let day = enterDay(
+      createSparseGame(
+        [CardRole.PRIEST],
+        [CardRole.WEREWOLF, CardRole.VILLAGER]
+      )
+    );
+    day = dispatchPlayerAction(day, {
+      type: 'DAY_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      action: { type: 'PURIFY', sourceId: 'A1', targetId: 'B1' },
+    });
+    expect(day.phase).toEqual({ type: 'FINAL_DUEL' });
+
+    let night = enterNight(
+      createSparseGame(
+        [CardRole.WEREWOLF, CardRole.VILLAGER],
+        [CardRole.WEREWOLF, CardRole.VILLAGER]
+      )
+    );
+    for (const action of [
+      {
+        type: 'NIGHT_SUBMIT' as const,
+        playerId: PlayerId.PLAYER_A,
+        order: {
+          type: 'USE_ABILITY' as const,
+          sourceId: 'A1' as const,
+          abilityId: AbilityId.WEREWOLF_ATTACK,
+          targetId: 'B2' as const,
+        },
+      },
+      {
+        type: 'NIGHT_SUBMIT' as const,
+        playerId: PlayerId.PLAYER_B,
+        order: {
+          type: 'USE_ABILITY' as const,
+          sourceId: 'B1' as const,
+          abilityId: AbilityId.WEREWOLF_ATTACK,
+          targetId: 'A2' as const,
+        },
+      },
+      { type: 'DEFENSE_SUBMIT' as const, playerId: PlayerId.PLAYER_A, order: { type: 'PASS' as const } },
+      { type: 'DEFENSE_SUBMIT' as const, playerId: PlayerId.PLAYER_B, order: { type: 'PASS' as const } },
+    ]) {
+      night = dispatchPlayerAction(night, action);
+    }
+    expect(night.phase).toEqual({ type: 'FINAL_DUEL' });
+
+    let purge = {
+      ...enterDay(
+        createSparseGame(
+          [CardRole.WEREWOLF, CardRole.VILLAGER],
+          [CardRole.WEREWOLF, CardRole.VILLAGER]
+        )
+      ),
+      round: 6,
+      phase: { type: 'PURGE_PLAN' as const },
+    };
+    purge = dispatchPlayerAction(purge, {
+      type: 'PURGE_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      order: { rule: 'CUT', targetId: 'A2' },
+    });
+    purge = dispatchPlayerAction(purge, {
+      type: 'PURGE_SUBMIT',
+      playerId: PlayerId.PLAYER_B,
+      order: { rule: 'CUT', targetId: 'B2' },
+    });
+    expect(purge.phase).toEqual({ type: 'FINAL_DUEL' });
+
+    let council = enterDay(
+      createSparseGame(
+        [CardRole.AVENGER, CardRole.VILLAGER, CardRole.VILLAGER],
+        [CardRole.AVENGER, CardRole.VILLAGER, CardRole.VILLAGER]
+      )
+    );
+    council = { ...council, round: 2 };
+    council = dispatchPlayerAction(council, {
+      type: 'DAY_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      action: { type: 'MARK', sourceId: 'A1', targetId: 'B2' },
+    });
+    council = dispatchPlayerAction(council, {
+      type: 'DAY_SUBMIT',
+      playerId: PlayerId.PLAYER_B,
+      action: { type: 'MARK', sourceId: 'B1', targetId: 'A2' },
+    });
+    for (const action of [
+      {
+        type: 'COUNCIL_ACCUSATION_SUBMIT' as const,
+        playerId: PlayerId.PLAYER_A,
+        order: {
+          type: 'ACCUSE' as const,
+          targetId: 'B1' as const,
+          guessedRole: null,
+          voterIds: ['A1', 'A2', 'A3'] as const,
+        },
+      },
+      {
+        type: 'COUNCIL_ACCUSATION_SUBMIT' as const,
+        playerId: PlayerId.PLAYER_B,
+        order: {
+          type: 'ACCUSE' as const,
+          targetId: 'A1' as const,
+          guessedRole: null,
+          voterIds: ['B1', 'B2', 'B3'] as const,
+        },
+      },
+      { type: 'COUNCIL_REACTION_SUBMIT' as const, playerId: PlayerId.PLAYER_A, order: { type: 'PASS' as const } },
+      { type: 'COUNCIL_REACTION_SUBMIT' as const, playerId: PlayerId.PLAYER_B, order: { type: 'PASS' as const } },
+    ]) {
+      council = dispatchPlayerAction(council, action);
+    }
+    expect(council.phase).toEqual({ type: 'FINAL_DUEL' });
   });
 
   it('consumes Witch poison even when Guard protection blocks it', () => {

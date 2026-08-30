@@ -10,7 +10,11 @@ import {
   transitionCard,
 } from './cards';
 import { appendGameEvents, type CardEliminationCause, type GameEventDraft } from './game-events';
-import { type GameState, transitionGameState } from './game-state';
+import {
+  FinalDuelResultReason,
+  type GameState,
+  transitionGameState,
+} from './game-state';
 import {
   type CouncilOrder,
   type CouncilReactionOrder,
@@ -61,6 +65,11 @@ export type PlayerGameAction =
       readonly type: 'PURGE_SUBMIT';
       readonly playerId: PlayerId;
       readonly order: PurgeOrder;
+    }
+  | {
+      readonly type: 'FINAL_GUESS_SUBMIT';
+      readonly playerId: PlayerId;
+      readonly guess: CardRole;
     };
 
 /** Main Action được resolve ngay trong Day turn của player. */
@@ -123,6 +132,9 @@ export function dispatchPlayerAction(
 
     case 'PURGE_SUBMIT':
       return submitPurgeOrder(state, action.playerId, action.order);
+
+    case 'FINAL_GUESS_SUBMIT':
+      return submitFinalGuess(state, action.playerId, action.guess);
   }
 }
 
@@ -962,6 +974,81 @@ function moveCardRuntimeToSlot(source: GameCard, slot: GameCard): GameCard {
   };
 }
 
+function submitFinalGuess(
+  state: GameState,
+  playerId: PlayerId,
+  guess: CardRole
+): GameState {
+  assertPhase(state, 'FINAL_DUEL');
+  assertSubmissionOpen(
+    state.players[playerId].submissions.finalGuess,
+    'Final Duel Guess',
+    playerId
+  );
+  if (!Object.values(CardRole).includes(guess)) {
+    throw new RuleValidationError('Final Duel guess không phải role hợp lệ.');
+  }
+  if (!hasFinalDuelBoard(state)) {
+    throw new RuleValidationError('Final Duel yêu cầu mỗi bên còn đúng một card sống.');
+  }
+
+  const next = updatePlayer(state, playerId, (player) => ({
+    ...player,
+    submissions: { ...player.submissions, finalGuess: guess },
+  }));
+  return bothPlayersSubmitted(next, 'finalGuess') ? resolveFinalDuel(next) : next;
+}
+
+function resolveFinalDuel(state: GameState): GameState {
+  const guesses = snapshotOrders(state, 'finalGuess');
+  const cardA = state.players[PlayerId.PLAYER_A].board.find(isCardAlive);
+  const cardB = state.players[PlayerId.PLAYER_B].board.find(isCardAlive);
+  if (!cardA || !cardB) throw new Error('Final Duel snapshot thiếu card sống.');
+
+  const events: GameEventDraft[] = [];
+  let next = state;
+  for (const card of [cardA, cardB]) {
+    if (card.state.visibility === 'REVEALED') continue;
+    next = replaceCard(next, transitionCard(card, { type: 'REVEAL' }));
+    events.push({
+      type: 'CARD_REVEALED',
+      visibility: { type: 'PUBLIC' },
+      cardId: card.id,
+    });
+  }
+
+  const correctA = guesses[PlayerId.PLAYER_A] === cardB.role.id;
+  const correctB = guesses[PlayerId.PLAYER_B] === cardA.role.id;
+  events.push({
+    type: 'FINAL_DUEL_RESOLVED',
+    visibility: { type: 'PUBLIC' },
+    cardAId: cardA.id,
+    cardBId: cardB.id,
+    guessA: guesses[PlayerId.PLAYER_A],
+    guessB: guesses[PlayerId.PLAYER_B],
+    correctA,
+    correctB,
+  });
+
+  next = clearSubmission(next, 'finalGuess');
+  next = appendGameEvents(next, events);
+  return transitionGameState(next, {
+    type: 'GAME_ENDED',
+    result: {
+      winner:
+        correctA === correctB
+          ? null
+          : correctA
+            ? PlayerId.PLAYER_A
+            : PlayerId.PLAYER_B,
+      reason:
+        correctA === correctB
+          ? FinalDuelResultReason.DRAW
+          : FinalDuelResultReason.VICTORY,
+    },
+  });
+}
+
 function submitNightOrder(
   state: GameState,
   playerId: PlayerId,
@@ -1328,7 +1415,7 @@ function livingCount(player: PlayerState): number {
 
 const PLAYER_ORDER = [PlayerId.PLAYER_A, PlayerId.PLAYER_B] as const;
 
-type SubmissionKey = 'night' | 'defense' | 'purge';
+type SubmissionKey = 'night' | 'defense' | 'purge' | 'finalGuess';
 
 function bothPlayersSubmitted(state: GameState, key: SubmissionKey): boolean {
   return PLAYER_ORDER.every((playerId) => state.players[playerId].submissions[key] !== null);

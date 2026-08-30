@@ -504,7 +504,8 @@ revenge chain. Việc một bên submit sớm không được kích hoạt resol
 > information-safe lock view. Blood Moon đã được port theo player-owned ability:
 > mở từ Vòng 6, chỉ đánh target đã lộ, cooldown hai vòng, không có source card và
 > vẫn vào cooldown khi bị Guard chặn. Purge pipeline cũng đã được port đủ chu kỳ
-> `CUT → SWAP → REVEAL → LOCK`. Final Duel guess chưa được port.
+> `CUT → SWAP → REVEAL → LOCK`. Final Duel guess đã được port với hai submission
+> bí mật, reveal đồng thời và kết quả thắng/hòa từ snapshot.
 
 Thay `USE_SKILL` chung bằng discriminated union cụ thể:
 
@@ -617,7 +618,19 @@ Các trường hợp khác
   → Tiếp tục game
 ```
 
-Final Duel phải được kiểm tra sau Council, Day và Night, không chỉ sau Night.
+Final Duel được kiểm tra sau mọi death boundary hiện có: Day, Council, Night và
+Purge. Khi mỗi bên còn đúng một card:
+
+1. Hai player gửi `FINAL_GUESS_SUBMIT` độc lập; đối thủ chỉ thấy lock state.
+2. Core không resolve hoặc reveal sau guess đầu tiên.
+3. Khi đủ hai guess, hai card cuối cùng cùng reveal.
+4. Một bên đoán đúng thì bên đó thắng.
+5. Hai bên cùng đúng hoặc cùng sai đều hòa.
+
+Guess chỉ chứa `CardRole`; target được suy ra là card sống duy nhất của đối thủ.
+Theo prototype, mọi role hợp lệ đều được phép đoán, chưa lọc theo deck inference.
+Event `FINAL_DUEL_RESOLVED` công khai hai guess và hai kết quả đúng/sai sau khi
+resolution hoàn tất.
 
 `WinReason` cần hỗ trợ:
 
@@ -630,6 +643,21 @@ type WinReason =
   | 'DRAW_MUTUAL_ELIMINATION'
   | 'DRAW_FINAL_DUEL';
 ```
+
+Trong phạm vi `game-core`, `FinalDuelResultReason.VICTORY` và
+`FinalDuelResultReason.DRAW` đang bổ sung hai reason `FINAL_DUEL` và
+`DRAW_FINAL_DUEL` mà chưa sửa contract legacy trong `packages/shared-types`.
+Legacy projection tạm trả `winReason: null` cho hai reason mới thay vì map sai
+thành `ELIMINATION`; authoritative `GamePlayerView` vẫn giữ reason đầy đủ.
+
+Notable cần review:
+
+- Có giới hạn guess theo role còn khả thi trong deck giống Council hay giữ mọi
+  `CardRole` hợp lệ như prototype hiện tại?
+- Cả “hai bên cùng đúng” và “hai bên cùng sai” dùng chung kết quả
+  `DRAW_FINAL_DUEL`; event vẫn giữ `correctA/correctB` để presentation phân biệt.
+- Guess được clear khỏi pending submission khi game kết thúc; audit/replay đọc
+  payload từ `FINAL_DUEL_RESOLVED`.
 
 Không tự loại Thanh trừng/Calamity khỏi v0.2 trong lúc migration. Prototype hiện dùng chu kỳ Thanh trừng từ Vòng 6 đồng thời với Blood Moon; GD-08 phải chốt sau playtest trước khi Dev port sâu hơn phase spine.
 
@@ -814,7 +842,7 @@ Không đưa vào XState phía frontend:
 - [ ] Port engine prototype sang TypeScript.
 - [ ] Tách role definition, validation và resolution.
 - [ ] Server-owned night resolution.
-- [ ] Sửa Final Duel ở mọi death boundary.
+- [x] Sửa Final Duel ở mọi death boundary.
 - [x] Guard không giới hạn charge; chỉ khóa target vừa bảo vệ liên tiếp.
 - [ ] Thêm unit, transition và information-leak tests.
 
@@ -852,7 +880,7 @@ Không đưa vào XState phía frontend:
 |---|---|---|---|
 | RULE-001 | Wolf Guard protection có độc lập với accusation không? | Có, dùng reaction order riêng; Council chờ đủ accusation và reaction của cả hai bên | Chốt tạm 30/08/2026; review lại sau playtest |
 | RULE-002 | Pass một vòng có gỡ hạn chế guard cùng target không? | Có; Guard không có charge, lưu target/round gần nhất và chỉ cấm cùng target ở hai vòng liên tiếp, không cần reset command | Đã chốt 30/08/2026 |
-| RULE-003 | Final Duel có kích hoạt sau mọi resolution tạo trạng thái 1–1 không? | Có | Chưa chốt |
+| RULE-003 | Final Duel có kích hoạt sau mọi resolution tạo trạng thái 1–1 không? | Có; đã áp dụng cho Day, Council, Night và Purge | Chốt tạm theo prototype 30/08/2026; review sau playtest |
 | RULE-004 | Giữ cả Thanh trừng và Blood Moon từ Vòng 6 hay chỉ một cơ chế? | Giữ đúng prototype cho phase spine, chưa port balance sâu trước playtest | Chờ GD-08 |
 | RULE-005 | Card source chết trong cùng Night resolution có còn resolve action không? | Có, resolve từ snapshot order | Chưa chốt |
 | RULE-006 | Charge có bị tiêu khi effect bị shield chặn không? | Có | Chưa chốt |

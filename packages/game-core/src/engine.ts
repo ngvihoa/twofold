@@ -59,6 +59,20 @@ function toLegacyCard(card: GameCard): LegacyCard {
   };
 }
 
+/**
+ * Chiếu result reason v0.2 về contract v0.1.
+ *
+ * Legacy `shared-types` chưa có Final Duel reason, nên adapter trả `null` thay
+ * vì gán sai sang `ELIMINATION`. Authoritative player view vẫn giữ reason v0.2.
+ */
+function toLegacyWinReason(
+  reason: NonNullable<GameState['result']>['reason'] | null
+): WinReason | null {
+  return reason !== null && Object.values(WinReason).includes(reason as WinReason)
+    ? (reason as WinReason)
+    : null;
+}
+
 /** Chiếu phase v0.2 về enum v0.1 cho web trong thời gian migration. */
 function toLegacyTurnPhase(phase: GamePhaseState): TurnPhase {
   switch (phase.type) {
@@ -167,7 +181,7 @@ export class GameEngine {
       opponentCards: publicOpponentCards,
       logs: this.state.logs,
       winner: this.state.result?.winner ?? null,
-      winReason: this.state.result?.reason ?? null,
+      winReason: toLegacyWinReason(this.state.result?.reason ?? null),
     };
   }
 

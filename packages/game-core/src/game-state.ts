@@ -8,10 +8,16 @@ import {
 } from './phase-machine';
 import type { GameEvent } from './game-events';
 
+/** Lý do kết thúc riêng của Final Duel trong core v0.2. */
+export enum FinalDuelResultReason {
+  VICTORY = 'FINAL_DUEL',
+  DRAW = 'DRAW_FINAL_DUEL',
+}
+
 /** Kết quả authoritative khi game kết thúc. */
 export interface GameResult {
   readonly winner: PlayerId | null;
-  readonly reason: WinReason;
+  readonly reason: WinReason | FinalDuelResultReason;
 }
 
 /**

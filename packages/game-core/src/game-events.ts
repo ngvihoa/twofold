@@ -82,6 +82,15 @@ export type GameEventPayload =
       readonly targetCardId: CardId | null;
       readonly swapTargetCardId: CardId | null;
     }
+  | {
+      readonly type: 'FINAL_DUEL_RESOLVED';
+      readonly cardAId: CardId;
+      readonly cardBId: CardId;
+      readonly guessA: CardRole;
+      readonly guessB: CardRole;
+      readonly correctA: boolean;
+      readonly correctB: boolean;
+    }
   | { readonly type: 'DAWN_PRESENTATION_COMPLETED' };
 
 /** Metadata deterministic gắn vào mỗi event khi append vào GameState. */
