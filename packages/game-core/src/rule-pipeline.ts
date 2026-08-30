@@ -17,12 +17,21 @@ import {
   type PlayerState,
   replacePlayerCard,
 } from './players';
-import { getRoleAbility, getRoleDefinition, transitionRole } from './roles';
+import {
+  getRoleAbility,
+  getRoleDefinition,
+  transitionRole,
+  type AbilityState,
+} from './roles';
 
 /** Player action hiện đã được port vào validation/resolution pipeline. */
 export type PlayerGameAction =
   | { readonly type: 'SETUP_LOCK'; readonly playerId: PlayerId }
-  | { readonly type: 'DAY_PASS'; readonly playerId: PlayerId }
+  | {
+      readonly type: 'DAY_SUBMIT';
+      readonly playerId: PlayerId;
+      readonly action: DayAction;
+    }
   | {
       readonly type: 'COUNCIL_SUBMIT';
       readonly playerId: PlayerId;
@@ -38,6 +47,14 @@ export type PlayerGameAction =
       readonly playerId: PlayerId;
       readonly order: DefenseOrder;
     };
+
+/** Main Action được resolve ngay trong Day turn của player. */
+export type DayAction =
+  | { readonly type: 'PASS' }
+  | { readonly type: 'SHOOT'; readonly sourceId: CardId; readonly targetId: CardId }
+  | { readonly type: 'MARK'; readonly sourceId: CardId; readonly targetId: CardId }
+  | { readonly type: 'PURIFY'; readonly sourceId: CardId; readonly targetId: CardId }
+  | { readonly type: 'REVIVE'; readonly sourceId: CardId; readonly targetId: CardId };
 
 /** Lỗi validation cho action không hợp lệ theo authoritative state hiện tại. */
 export class RuleValidationError extends Error {
@@ -73,12 +90,9 @@ export function dispatchPlayerAction(
       });
     }
 
-    case 'DAY_PASS':
+    case 'DAY_SUBMIT':
       validateDayActor(state, action.playerId);
-      return transitionGameState(state, {
-        type: 'DAY_ACTION_COMPLETED',
-        playerId: action.playerId,
-      });
+      return resolveDayAction(state, action.playerId, action.action);
 
     case 'COUNCIL_SUBMIT':
       return submitCouncilOrder(state, action.playerId, action.order);
@@ -91,6 +105,157 @@ export function dispatchPlayerAction(
   }
 }
 
+function resolveDayAction(
+  state: GameState,
+  playerId: PlayerId,
+  action: DayAction
+): GameState {
+  if (action.type === 'PASS') return completeDayAction(state, playerId);
+
+  const source = getOwnedLivingCard(state, playerId, action.sourceId, 'Day source');
+  const events: GameEventDraft[] = [];
+  let next = state;
+
+  switch (action.type) {
+    case 'SHOOT': {
+      const ability = requireAvailableAbility(source, AbilityId.SHOOTER_SHOOT);
+      const target = getOpponentLivingCard(state, playerId, action.targetId, 'Shooter target');
+      const opponent = state.players[target.owner];
+      if (target.state.visibility !== 'REVEALED') {
+        throw new RuleValidationError('Shooter chỉ bắn được target đã lộ.');
+      }
+      if (opponent.board.filter((card) => card.state.visibility === 'REVEALED').length < 2) {
+        throw new RuleValidationError('Shooter cần đối thủ có ít nhất hai role đã lộ.');
+      }
+      if (ability.remainingUses < 1) {
+        throw new RuleValidationError('Shooter đã hết đạn.');
+      }
+
+      const resolvedSource = useAndRevealSource(
+        next,
+        source,
+        AbilityId.SHOOTER_SHOOT,
+        target.id,
+        events
+      );
+      next = resolvedSource.state;
+      const eliminated = eliminateCard(next, target.id, true, {
+        type: 'ABILITY',
+        abilityId: AbilityId.SHOOTER_SHOOT,
+        sourceCardId: source.id,
+      }, events);
+      next = eliminated.state;
+      next = resolveRevengeChain(next, eliminated.eliminatedIds, true, events);
+      break;
+    }
+
+    case 'MARK': {
+      requireAvailableAbility(source, AbilityId.AVENGER_MARK);
+      const target = getOpponentLivingCard(state, playerId, action.targetId, 'Avenger target');
+      const resolvedSource = useAndRevealSource(
+        next,
+        source,
+        AbilityId.AVENGER_MARK,
+        target.id,
+        events
+      );
+      next = removeExistingRevengeMark(resolvedSource.state, source.id);
+      const currentTarget = getCard(next, target.id);
+      const mark: CardEffectState = {
+        id: `revenge:${playerId}:${source.id}:${target.id}:round:${next.round}`,
+        kind: CardEffectKind.REVENGE_MARK,
+        source: {
+          type: 'ABILITY',
+          abilityId: AbilityId.AVENGER_MARK,
+          cardId: source.id,
+          playerId,
+        },
+        appliedRound: next.round,
+        expires: {
+          type: 'AFTER_PHASE',
+          phase: 'NIGHT_RESOLUTION',
+          round: next.round,
+        },
+      };
+      next = replaceCard(
+        next,
+        transitionCard(currentTarget, { type: 'APPLY_EFFECT', effect: mark })
+      );
+      events.push({
+        type: 'EFFECT_APPLIED',
+        visibility: { type: 'PUBLIC' },
+        targetCardId: target.id,
+        effectKind: CardEffectKind.REVENGE_MARK,
+      });
+      break;
+    }
+
+    case 'PURIFY': {
+      requireAvailableAbility(source, AbilityId.PRIEST_PURIFY);
+      const target = getOpponentLivingCard(state, playerId, action.targetId, 'Priest target');
+      const resolvedSource = useAndRevealSource(
+        next,
+        source,
+        AbilityId.PRIEST_PURIFY,
+        target.id,
+        events
+      );
+      next = resolvedSource.state;
+      const targetIsWolf =
+        getRoleDefinition(target.role.id).faction === Faction.WEREWOLF;
+      const victimId = targetIsWolf ? target.id : source.id;
+      const eliminated = eliminateCard(next, victimId, true, {
+        type: 'ABILITY',
+        abilityId: AbilityId.PRIEST_PURIFY,
+        sourceCardId: source.id,
+      }, events);
+      next = eliminated.state;
+      next = resolveRevengeChain(next, eliminated.eliminatedIds, true, events);
+      break;
+    }
+
+    case 'REVIVE': {
+      requireAvailableAbility(source, AbilityId.WITCH_REVIVE);
+      const target = getOwnedCard(state, playerId, action.targetId, 'Witch target');
+      if (isCardAlive(target)) {
+        throw new RuleValidationError('Witch chỉ hồi sinh card đã chết bên mình.');
+      }
+      const resolvedSource = useAndRevealSource(
+        next,
+        source,
+        AbilityId.WITCH_REVIVE,
+        target.id,
+        events
+      );
+      next = resolvedSource.state;
+      const revived = transitionCard(getCard(next, target.id), { type: 'REVIVE' });
+      next = replaceCard(next, revived);
+      events.push({
+        type: 'CARD_REVIVED',
+        visibility: { type: 'PUBLIC' },
+        cardId: target.id,
+        sourceCardId: source.id,
+      });
+      break;
+    }
+  }
+
+  next = appendGameEvents(next, events);
+  return completeDayAction(next, playerId);
+}
+
+function completeDayAction(state: GameState, playerId: PlayerId): GameState {
+  const result = getEliminationResult(state);
+  if (result) return transitionGameState(state, { type: 'GAME_ENDED', result });
+  if (hasFinalDuelBoard(state)) {
+    return transitionGameState(state, { type: 'FINAL_DUEL_REQUIRED' });
+  }
+  return transitionGameState(state, {
+    type: 'DAY_ACTION_COMPLETED',
+    playerId,
+  });
+}
+
 function validateDayActor(state: GameState, playerId: PlayerId): void {
   const expected =
     state.phase.type === 'DAY_A'
@@ -101,6 +266,157 @@ function validateDayActor(state: GameState, playerId: PlayerId): void {
   if (expected !== playerId) {
     throw new RuleValidationError(`Không phải Day turn của ${playerId}.`);
   }
+}
+
+function requireAvailableAbility<TAbilityId extends AbilityId>(
+  source: GameCard,
+  abilityId: TAbilityId
+): Extract<AbilityState, { abilityId: TAbilityId }> {
+  const ability = getRoleAbility(source.role, abilityId);
+  if (!ability) {
+    throw new RuleValidationError(`${source.id} không sở hữu ${abilityId}.`);
+  }
+  if ('remainingUses' in ability && ability.remainingUses < 1) {
+    throw new RuleValidationError(`${abilityId} đã hết lượt sử dụng.`);
+  }
+  return ability;
+}
+
+function useAndRevealSource(
+  state: GameState,
+  source: GameCard,
+  abilityId: AbilityId,
+  targetId: CardId,
+  events: GameEventDraft[]
+): { readonly state: GameState; readonly source: GameCard } {
+  let next = state;
+  let updatedSource = getCard(next, source.id);
+  if (updatedSource.state.visibility === 'HIDDEN') {
+    updatedSource = transitionCard(updatedSource, { type: 'REVEAL' });
+    events.push({
+      type: 'CARD_REVEALED',
+      visibility: { type: 'PUBLIC' },
+      cardId: source.id,
+    });
+  }
+  updatedSource = {
+    ...updatedSource,
+    role: transitionRole(updatedSource.role, {
+      type: 'ABILITY_USED',
+      abilityId,
+      targetId,
+      round: next.round,
+    }),
+  };
+  next = replaceCard(next, updatedSource);
+  events.push({
+    type: 'ABILITY_RESOLVED',
+    visibility: { type: 'PUBLIC' },
+    abilityId,
+    sourceCardId: source.id,
+    targetCardId: targetId,
+  });
+  return { state: next, source: updatedSource };
+}
+
+function eliminateCard(
+  state: GameState,
+  cardId: CardId,
+  revealOnDeath: boolean,
+  cause: CardEliminationCause,
+  events: GameEventDraft[]
+): { readonly state: GameState; readonly eliminatedIds: readonly CardId[] } {
+  let card = getCard(state, cardId);
+  if (!isCardAlive(card)) return { state, eliminatedIds: [] };
+  let next = state;
+  if (revealOnDeath && card.state.visibility === 'HIDDEN') {
+    card = transitionCard(card, { type: 'REVEAL' });
+    next = replaceCard(next, card);
+    events.push({
+      type: 'CARD_REVEALED',
+      visibility: { type: 'PUBLIC' },
+      cardId,
+    });
+  }
+  card = transitionCard(card, { type: 'ELIMINATE' });
+  next = replaceCard(next, card);
+  events.push({
+    type: 'CARD_ELIMINATED',
+    visibility: { type: 'PUBLIC' },
+    cardId,
+    cause,
+  });
+  return { state: next, eliminatedIds: [cardId] };
+}
+
+function resolveRevengeChain(
+  state: GameState,
+  eliminatedIds: readonly CardId[],
+  revealOnDeath: boolean,
+  events: GameEventDraft[]
+): GameState {
+  const queue = [...eliminatedIds];
+  const resolvedSources = new Set<CardId>();
+  let next = state;
+
+  while (queue.length > 0) {
+    const sourceId = queue.shift();
+    if (!sourceId || resolvedSources.has(sourceId)) continue;
+    resolvedSources.add(sourceId);
+    const source = getCard(next, sourceId);
+    if (!getRoleAbility(source.role, AbilityId.AVENGER_MARK)) continue;
+
+    const markedTarget = findRevengeTarget(next, source.id);
+    if (!markedTarget || !isCardAlive(markedTarget)) continue;
+    const eliminated = eliminateCard(
+      next,
+      markedTarget.id,
+      revealOnDeath,
+      { type: 'REVENGE', sourceCardId: source.id },
+      events
+    );
+    next = eliminated.state;
+    queue.push(...eliminated.eliminatedIds);
+  }
+  return next;
+}
+
+function findRevengeTarget(state: GameState, sourceCardId: CardId): GameCard | null {
+  for (const playerId of PLAYER_ORDER) {
+    for (const card of state.players[playerId].board) {
+      if (
+        card.effects.some(
+          (effect) =>
+            effect.kind === CardEffectKind.REVENGE_MARK &&
+            effect.source.type === 'ABILITY' &&
+            effect.source.cardId === sourceCardId
+        )
+      ) {
+        return card;
+      }
+    }
+  }
+  return null;
+}
+
+function removeExistingRevengeMark(state: GameState, sourceCardId: CardId): GameState {
+  let next = state;
+  for (const playerId of PLAYER_ORDER) {
+    for (const card of next.players[playerId].board) {
+      const marks = card.effects.filter(
+        (effect) =>
+          effect.kind === CardEffectKind.REVENGE_MARK &&
+          effect.source.type === 'ABILITY' &&
+          effect.source.cardId === sourceCardId
+      );
+      let updated = card;
+      for (const mark of marks) {
+        updated = transitionCard(updated, { type: 'REMOVE_EFFECT', effectId: mark.id });
+      }
+      if (updated !== card) next = replaceCard(next, updated);
+    }
+  }
+  return next;
 }
 
 function submitCouncilOrder(
@@ -351,19 +667,15 @@ function resolveNight(state: GameState): GameState {
     }
   }
 
+  const nightEliminatedIds: CardId[] = [];
   for (const [cardId, cause] of pendingDeaths) {
-    const card = getCard(next, cardId);
-    if (!isCardAlive(card)) continue;
-    next = replaceCard(next, transitionCard(card, { type: 'ELIMINATE' }));
-    events.push({
-      type: 'CARD_ELIMINATED',
-      visibility: { type: 'PUBLIC' },
-      cardId,
-      cause,
-    });
+    const eliminated = eliminateCard(next, cardId, false, cause, events);
+    next = eliminated.state;
+    nightEliminatedIds.push(...eliminated.eliminatedIds);
   }
+  next = resolveRevengeChain(next, nightEliminatedIds, false, events);
 
-  next = clearProtectionEffects(next);
+  next = clearNightEffects(next);
   next = clearSubmission(clearSubmission(next, 'night'), 'defense');
   next = appendGameEvents(next, events);
   next = transitionGameState(next, { type: 'NIGHT_RESOLVED' });
@@ -383,13 +695,16 @@ function resolveNight(state: GameState): GameState {
   return transitionGameState(next, { type: 'DAWN_COMPLETED' });
 }
 
-function clearProtectionEffects(state: GameState): GameState {
+function clearNightEffects(state: GameState): GameState {
   let next = state;
   for (const playerId of PLAYER_ORDER) {
     for (const card of next.players[playerId].board) {
       let updated = card;
       for (const effect of card.effects) {
-        if (effect.kind === CardEffectKind.PROTECTION) {
+        if (
+          effect.kind === CardEffectKind.PROTECTION ||
+          effect.kind === CardEffectKind.REVENGE_MARK
+        ) {
           updated = transitionCard(updated, { type: 'REMOVE_EFFECT', effectId: effect.id });
         }
       }
@@ -478,6 +793,19 @@ function getOwnedLivingCard(
 ): GameCard {
   const card = getCard(state, cardId);
   if (card.owner !== playerId || !isCardAlive(card)) {
+    throw new RuleValidationError(`${label} ${cardId} không hợp lệ.`);
+  }
+  return card;
+}
+
+function getOwnedCard(
+  state: GameState,
+  playerId: PlayerId,
+  cardId: CardId,
+  label: string
+): GameCard {
+  const card = getCard(state, cardId);
+  if (card.owner !== playerId) {
     throw new RuleValidationError(`${label} ${cardId} không hợp lệ.`);
   }
   return card;

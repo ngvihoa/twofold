@@ -449,11 +449,13 @@ Nếu đoán sai, ba voter bị khóa khỏi Council kế tiếp. Nếu đoán �
 > **Tiến độ pipeline:** Đã tạo validation/resolution entry point tại
 > `packages/game-core/src/rule-pipeline.ts`. Vertical slice đầu tiên đã port:
 > Setup lock, Day pass, Council pass, Night/Defense pass, Werewolf attack,
-> Guard protect và Seer inspect. Pipeline validate trước khi mutate, khóa order
-> đồng thời, resolve từ snapshot, cập nhật role/card/player state, cleanup effect,
-> kiểm tra elimination/Final Duel, phát structured events và tự chuyển phase.
-> Witch poison cũng đi qua cùng damage/protection pipeline và tiêu charge kể cả
-> khi bị chặn. Council accusation, Day abilities, Blood Moon và Purge chưa được port.
+> Guard protect, Seer inspect, Witch poison và toàn bộ Day abilities: Shooter,
+> Avenger mark/revenge chain, Priest purify, Witch revive. Pipeline validate
+> trước khi mutate, khóa order đồng thời, resolve từ snapshot, cập nhật
+> role/card/player state, cleanup effect, kiểm tra elimination/Final Duel, phát
+> structured events và tự chuyển phase. Poison tiêu charge kể cả khi bị chặn;
+> revive giữ visibility; Day death lộ victim. Council accusation, Wolf Guard
+> rescue, Blood Moon, Purge và Final Duel guess chưa được port.
 
 Thay `USE_SKILL` chung bằng discriminated union cụ thể:
 
@@ -474,11 +476,17 @@ Ví dụ Day action:
 
 ```ts
 type DayAction =
-  | { type: 'DAY_SUBMIT'; kind: 'PASS' }
-  | { type: 'DAY_SUBMIT'; kind: 'SHOOT'; sourceId: CardId; targetId: CardId }
-  | { type: 'DAY_SUBMIT'; kind: 'MARK'; sourceId: CardId; targetId: CardId }
-  | { type: 'DAY_SUBMIT'; kind: 'PURIFY'; sourceId: CardId; targetId: CardId }
-  | { type: 'DAY_SUBMIT'; kind: 'REVIVE'; sourceId: CardId; targetId: CardId };
+  | { type: 'PASS' }
+  | { type: 'SHOOT'; sourceId: CardId; targetId: CardId }
+  | { type: 'MARK'; sourceId: CardId; targetId: CardId }
+  | { type: 'PURIFY'; sourceId: CardId; targetId: CardId }
+  | { type: 'REVIVE'; sourceId: CardId; targetId: CardId };
+
+type DaySubmitAction = {
+  type: 'DAY_SUBMIT';
+  playerId: PlayerId;
+  action: DayAction;
+};
 ```
 
 Actor không nằm trong payload nếu server có thể lấy từ authenticated session.
