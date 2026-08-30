@@ -1,9 +1,21 @@
 import { AbilityId, CardRole, PlayerId } from '@twofold/shared-types';
 import { createInitialRoleState, type RoleState } from './roles';
 
+/** Vị trí cố định của một card trên board gồm 10 ô của player. */
 export type CardPosition = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+
+/**
+ * ID ổn định của card trong một trận: prefix `A`/`B` xác định owner và phần số
+ * xác định vị trí 1–10, ví dụ `A1` hoặc `B10`.
+ */
 export type CardId = `${'A' | 'B'}${CardPosition}`;
 
+/**
+ * Lifecycle state cốt lõi của card, tách khỏi các effect tạm thời.
+ *
+ * Discriminated union loại bỏ trạng thái vô nghĩa `DEAD + HIDDEN`: card chết
+ * luôn được reveal, còn card sống có thể hidden hoặc revealed.
+ */
 export type CardRuntimeState =
   | {
       readonly life: 'ALIVE';
@@ -14,16 +26,24 @@ export type CardRuntimeState =
       readonly visibility: 'REVEALED';
     };
 
+/** Phân loại các effect có thể cùng tồn tại và tác động lên một target card. */
 export enum CardEffectKind {
   PROTECTION = 'PROTECTION',
   REVENGE_MARK = 'REVENGE_MARK',
   COUNCIL_LOCK = 'COUNCIL_LOCK',
 }
 
+/** Định danh game rule có thể trực tiếp tạo effect mà không qua ability. */
 export enum CardEffectRule {
   FAILED_COUNCIL = 'FAILED_COUNCIL',
 }
 
+/**
+ * Nguồn tạo ra một effect trên card.
+ *
+ * Ability source lưu đủ actor/source card để audit và resolve interaction;
+ * rule source dùng cho effect do luật chung tạo ra, như khóa Council thất bại.
+ */
 export type CardEffectSource =
   | {
       readonly type: 'ABILITY';
@@ -36,8 +56,13 @@ export type CardEffectSource =
       readonly rule: CardEffectRule;
     };
 
+/** Các resolution phase hiện có thể được dùng làm mốc hết hạn effect. */
 export type CardEffectExpiryPhase = 'NIGHT_RESOLUTION' | 'COUNCIL_RESOLUTION';
 
+/**
+ * Chính sách hết hạn của effect: sau một resolution phase cụ thể, khi effect
+ * được trigger/consume, hoặc tồn tại cho tới khi bị remove rõ ràng.
+ */
 export type CardEffectExpiry =
   | {
       readonly type: 'AFTER_PHASE';
@@ -59,6 +84,12 @@ export interface CardEffectState {
   readonly expires: CardEffectExpiry;
 }
 
+/**
+ * Authoritative state của một card trên board.
+ *
+ * Card sở hữu lifecycle, role runtime state và danh sách effect đang tác động
+ * lên chính nó. Các knowledge riêng của player không được lưu trong card.
+ */
 export interface GameCard {
   readonly id: CardId;
   readonly position: CardPosition;
@@ -68,6 +99,12 @@ export interface GameCard {
   readonly effects: readonly CardEffectState[];
 }
 
+/**
+ * Các event tổng quát mà card state machine chấp nhận.
+ *
+ * Ability-specific event không nằm ở đây: Rule Flow chuyển kết quả của ability
+ * thành lifecycle event hoặc `APPLY_EFFECT`/`REMOVE_EFFECT` tương ứng.
+ */
 export type CardEvent =
   | { readonly type: 'REVEAL' }
   | { readonly type: 'ELIMINATE' }
@@ -81,6 +118,7 @@ const CARD_PREFIX: Record<PlayerId, 'A' | 'B'> = {
   [PlayerId.PLAYER_B]: 'B',
 };
 
+/** Validate một số runtime và thu hẹp nó thành `CardPosition`. */
 function toCardPosition(position: number): CardPosition {
   if (!Number.isInteger(position) || position < 1 || position > 10) {
     throw new RangeError('Card position phải là số nguyên từ 1 đến 10.');
@@ -88,6 +126,12 @@ function toCardPosition(position: number): CardPosition {
   return position as CardPosition;
 }
 
+/**
+ * Tạo card mới ở trạng thái sống, ẩn, chưa có effect và có `RoleState` tương
+ * ứng với role được cấp.
+ *
+ * @throws Khi `position` không phải số nguyên từ 1 đến 10.
+ */
 export function createInitialCard(
   owner: PlayerId,
   position: number,
@@ -104,6 +148,13 @@ export function createInitialCard(
   };
 }
 
+/**
+ * Áp dụng một `CardEvent` theo kiểu immutable và trả về card state kế tiếp.
+ * Death/revive đồng thời dọn effect cũ để effect của lifecycle trước không rò
+ * sang lifecycle mới.
+ *
+ * @throws Khi áp effect lên card đã chết hoặc dùng trùng effect ID.
+ */
 export function transitionCard(card: GameCard, event: CardEvent): GameCard {
   switch (event.type) {
     case 'REVEAL':
@@ -147,14 +198,17 @@ export function transitionCard(card: GameCard, event: CardEvent): GameCard {
   }
 }
 
+/** Kiểm tra card còn sống dựa trên nhánh `life` của runtime state. */
 export function isCardAlive(card: GameCard): boolean {
   return card.state.life === 'ALIVE';
 }
 
+/** Kiểm tra role của card đã được reveal công khai hay chưa. */
 export function isCardRevealed(card: GameCard): boolean {
   return card.state.visibility === 'REVEALED';
 }
 
+/** Kiểm tra card hiện có ít nhất một effect thuộc `kind` được yêu cầu. */
 export function hasCardEffect(card: GameCard, kind: CardEffectKind): boolean {
   return card.effects.some((effect) => effect.kind === kind);
 }

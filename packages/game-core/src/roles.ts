@@ -1,6 +1,12 @@
 import { AbilityId, CardRole, Faction } from '@twofold/shared-types';
 import type { CardId } from './cards';
 
+/**
+ * Metadata bất biến của một role trong ruleset.
+ *
+ * Definition dùng để tra cứu tên hiển thị, phe và danh sách ability mà role
+ * hỗ trợ; các dữ liệu thay đổi trong trận không được lưu tại đây.
+ */
 export interface RoleDefinition {
   id: CardRole;
   displayName: string;
@@ -8,6 +14,13 @@ export interface RoleDefinition {
   abilities: readonly AbilityId[];
 }
 
+/**
+ * Runtime state của từng ability thuộc một role trên card cụ thể.
+ *
+ * Union này chỉ giữ dữ liệu mà ability cần nhớ qua nhiều action, ví dụ số lượt
+ * còn lại hoặc target gần nhất của Guard. Effect tạo ra trên target thuộc
+ * `CardEffectState`, không thuộc `AbilityState`.
+ */
 export type AbilityState =
   | { readonly abilityId: AbilityId.WEREWOLF_ATTACK }
   | { readonly abilityId: AbilityId.SEER_INSPECT; readonly remainingUses: number }
@@ -22,11 +35,23 @@ export type AbilityState =
   | { readonly abilityId: AbilityId.PRIEST_PURIFY; readonly remainingUses: number }
   | { readonly abilityId: AbilityId.WOLF_GUARD_RESCUE; readonly remainingUses: number };
 
+/**
+ * Trạng thái role gắn với một card trong trận.
+ *
+ * `id` xác định role, còn `abilities` chứa runtime state riêng của các ability
+ * của chính role đó. Vì vậy hai card cùng role vẫn có ability state độc lập.
+ */
 export interface RoleState {
   readonly id: CardRole;
   readonly abilities: readonly AbilityState[];
 }
 
+/**
+ * Command thông báo một ability của role vừa được sử dụng thành công.
+ *
+ * Command được gửi sau khi Rule Flow đã validate action. `transitionRole`
+ * dùng nó để cập nhật usage counter hoặc memory như `lastTarget` của Guard.
+ */
 export type RoleCommand = {
   readonly type: 'ABILITY_USED';
   readonly abilityId: AbilityId;
@@ -34,6 +59,7 @@ export type RoleCommand = {
   readonly round: number;
 };
 
+/** Registry metadata tĩnh của toàn bộ role được hỗ trợ trong ruleset v0.2. */
 export const ROLE_DEFINITIONS = {
   [CardRole.VILLAGER]: {
     id: CardRole.VILLAGER,
@@ -91,6 +117,7 @@ export const ROLE_DEFINITIONS = {
   },
 } as const satisfies Record<CardRole, RoleDefinition>;
 
+/** Thành phần deck chuẩn 10 card cho mỗi player theo ruleset v0.2. */
 export const STANDARD_DECK = [
   CardRole.VILLAGER,
   CardRole.WEREWOLF,
@@ -104,10 +131,12 @@ export const STANDARD_DECK = [
   CardRole.WOLF_GUARD,
 ] as const satisfies readonly CardRole[];
 
+/** Tra cứu metadata bất biến của một role trong ruleset hiện tại. */
 export function getRoleDefinition(role: CardRole): RoleDefinition {
   return ROLE_DEFINITIONS[role];
 }
 
+/** Tạo runtime state ban đầu cho toàn bộ ability mà một role sở hữu. */
 function createInitialAbilityStates(role: CardRole): readonly AbilityState[] {
   switch (role) {
     case CardRole.WEREWOLF:
@@ -134,10 +163,23 @@ function createInitialAbilityStates(role: CardRole): readonly AbilityState[] {
   }
 }
 
+/**
+ * Tạo `RoleState` ban đầu cho một card mới, gồm role ID và usage state mặc định
+ * của các ability tương ứng.
+ */
 export function createInitialRoleState(role: CardRole): RoleState {
   return { id: role, abilities: createInitialAbilityStates(role) };
 }
 
+/**
+ * Áp dụng một command lên role theo kiểu immutable.
+ *
+ * Hàm giảm `remainingUses` với ability hữu hạn và cập nhật `lastTarget` cho
+ * Guard. Nó không resolve effect lên target card; trách nhiệm đó thuộc Rule Flow.
+ *
+ * @throws Khi role không sở hữu ability, ability đã hết lượt, round không hợp
+ * lệ, hoặc Guard chọn cùng target ở hai vòng liên tiếp.
+ */
 export function transitionRole(role: RoleState, command: RoleCommand): RoleState {
   if (!Number.isInteger(command.round) || command.round < 1) {
     throw new RangeError('Round của ability command phải là số nguyên dương.');
@@ -179,6 +221,10 @@ export function transitionRole(role: RoleState, command: RoleCommand): RoleState
   return { ...role, abilities };
 }
 
+/**
+ * Lấy runtime state của một ability từ role với kiểu trả về được thu hẹp theo
+ * `abilityId`; trả về `undefined` nếu role không sở hữu ability đó.
+ */
 export function getRoleAbility<TAbilityId extends AbilityId>(
   role: RoleState,
   abilityId: TAbilityId
