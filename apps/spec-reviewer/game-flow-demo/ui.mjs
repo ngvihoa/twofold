@@ -100,6 +100,9 @@ let travelingCardId = null;
 let deferredCombatMoveId = null;
 let moveSequence = 0;
 let playedMoveId = null;
+let matchStartedAt = null;
+let matchEndedAt = null;
+let clockTimer = null;
 const deathReasons = new Map();
 
 const otherSeat = (value) => value === "A" ? "B" : "A";
@@ -111,6 +114,35 @@ const deadCardOptions = (cards) => cards.filter((card) => !card.alive).map((card
 const sourceFor = (role) => ownPlayer().board.find((card) => card.alive && card.role === role)?.id;
 const botSourceFor = (role) => state.players.B.board.find((card) => card.alive && card.role === role);
 const living = (boardSeat) => state.players[boardSeat].board.filter((card) => card.alive);
+
+function formatMatchTime(milliseconds = 0) {
+  const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function currentMatchTime() {
+  if (matchStartedAt === null) return 0;
+  return (matchEndedAt ?? Date.now()) - matchStartedAt;
+}
+
+function updateMatchClock() {
+  if (state.result && matchStartedAt !== null && matchEndedAt === null) matchEndedAt = Date.now();
+  const clock = document.querySelector("[data-match-clock]");
+  if (clock) clock.textContent = `THỜI GIAN · ${formatMatchTime(currentMatchTime())}`;
+  if (matchEndedAt !== null && clockTimer !== null) {
+    clearInterval(clockTimer);
+    clockTimer = null;
+  }
+}
+
+function scheduleMatchClock() {
+  if (clockTimer !== null) clearInterval(clockTimer);
+  clockTimer = null;
+  updateMatchClock();
+  if (matchStartedAt !== null && matchEndedAt === null) clockTimer = setInterval(updateMatchClock, 1000);
+}
 
 function botNeedsTurn() {
   if (state.phase === "setup-B" || state.phase === "day-B") return true;
@@ -781,7 +813,8 @@ function cardMarkup(card, isOwn, setupIndex = -1) {
   const moveSource = lastMove?.source === card.id;
   const moveTarget = lastMove?.target === card.id;
   const presentationClass = presentationClassFor(card.id);
-  return `<article class="role-card faction-${faction} phase-${phase} ${isSetup ? "setup-card" : ""} ${disabledReason ? "disabled-target" : ""} ${directAction ? "actionable" : ""} ${targetable ? "targetable" : ""} ${selected ? "selected-card" : ""} ${moveSource ? "move-source" : ""} ${moveTarget ? "move-target" : ""} ${presentationClass} ${card.staged ? "staged" : ""} ${card.alive ? "" : "dead"} ${isRevealed ? "revealed" : "hidden-role"} ${card.shielded ? "shielded" : ""}" data-card-id="${card.id}" ${isSetup ? `draggable="true" data-setup-card="${card.id}"` : ""} ${directAction ? `data-direct-source="${card.id}" data-direct-kind="${directAction.kind}"` : ""} ${targetable ? `data-direct-target="${card.id}"` : ""}>
+  const isRevengeTarget = Object.values(state.players).some((player) => player.revengeTarget === card.id);
+  return `<article class="role-card faction-${faction} phase-${phase} ${isSetup ? "setup-card" : ""} ${disabledReason ? "disabled-target" : ""} ${directAction ? "actionable" : ""} ${targetable ? "targetable" : ""} ${selected ? "selected-card" : ""} ${moveSource ? "move-source" : ""} ${moveTarget ? "move-target" : ""} ${presentationClass} ${card.staged ? "staged" : ""} ${card.alive ? "" : "dead"} ${isRevengeTarget ? "revenge-marked" : ""} ${isRevealed ? "revealed" : "hidden-role"} ${card.shielded ? "shielded" : ""}" data-card-id="${card.id}" ${isSetup ? `draggable="true" data-setup-card="${card.id}"` : ""} ${directAction ? `data-direct-source="${card.id}" data-direct-kind="${directAction.kind}"` : ""} ${targetable ? `data-direct-target="${card.id}"` : ""}>
     <div class="card-shell">
       <header class="card-head"><strong class="role-name" title="${shownName}">${shownName}</strong><span class="phase-rune" title="Pha kỹ năng">${phaseMark}</span></header>
       <div class="art-window">
@@ -994,7 +1027,7 @@ function actionFields() {
 }
 
 function controlMarkup() {
-  if (state.phase === "ended") return `<section class="control-panel"><h2>${state.result?.winner ? `Bên ${state.result.winner} thắng` : "Ván hòa"}</h2><p>${state.result?.reason}</p><button class="primary" type="button" data-reset>Chơi lại</button></section>`;
+  if (state.phase === "ended") return `<section class="control-panel"><h2>${state.result?.winner ? `Bên ${state.result.winner} thắng` : "Ván hòa"}</h2><p>${state.result?.reason}</p><p class="final-match-time">Thời gian trận · <strong>${formatMatchTime(currentMatchTime())}</strong></p><button class="primary" type="button" data-reset>Chơi lại</button></section>`;
   if (!activeForSeat()) return `<section class="control-panel bot-wait"><span class="bot-orbit" aria-hidden="true"></span><h2>BOT B đang suy nghĩ</h2><p>Đối thủ tự chọn hành động dựa trên thông tin hợp lệ của nó.</p></section>`;
   if (alreadyLocked()) return `<section class="control-panel bot-wait"><span class="bot-orbit" aria-hidden="true"></span><h2>Đã khóa lựa chọn</h2><p>BOT B đang tính lượt đáp lại.</p></section>`;
   if (state.phase.startsWith("setup-")) return `<section class="control-panel setup-panel"><p class="step-label">Bước 1 · Sắp xếp bộ bài</p><h2>Xếp vị trí các lá bài theo thứ tự bạn muốn</h2><p>Thứ tự từ trái sang phải sẽ trở thành ${seat}1–${seat}10 và được giữ cố định trong suốt trận. Kéo thả hoặc dùng ‹ › để đổi vị trí.</p><button class="primary" type="button" data-lock-setup>Khóa thứ tự 10 lá</button><p class="feedback">${feedback}</p></section>`;
@@ -1014,6 +1047,31 @@ function controlMarkup() {
 function historyMarkup() {
   const own = privateView(state, seat);
   return `<aside class="history-panel"><h2>Diễn biến công khai</h2><ol class="history-list">${state.log.slice(-6).reverse().map((item) => `<li>${item}</li>`).join("")}</ol>${own.notes.length && handVisible ? `<div class="notes"><strong>Ghi chú riêng:</strong><br>${own.notes.join("<br>")}</div>` : ""}</aside>`;
+}
+
+function renderRevengeThreads() {
+  const layer = document.querySelector(".revenge-thread-layer");
+  if (!layer) return;
+  layer.innerHTML = "";
+  for (const ownerSeat of ["A", "B"]) {
+    const targetId = state.players[ownerSeat].revengeTarget;
+    if (!targetId) continue;
+    const sourceCard = state.players[ownerSeat].board.find((card) => card.alive && card.role === "avenger");
+    const source = sourceCard ? document.querySelector(`[data-card-id="${sourceCard.id}"]`) : null;
+    const target = document.querySelector(`[data-card-id="${targetId}"]`);
+    if (!source || !target) continue;
+    source.classList.add("revenge-source");
+    target.classList.add("revenge-marked");
+    const sourceRect = source.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const startX = sourceRect.left + sourceRect.width / 2;
+    const startY = sourceRect.top + sourceRect.height / 2;
+    const endX = targetRect.left + targetRect.width / 2;
+    const endY = targetRect.top + targetRect.height / 2;
+    const distance = Math.hypot(endX - startX, endY - startY);
+    const angle = Math.atan2(endY - startY, endX - startX) * 180 / Math.PI;
+    layer.insertAdjacentHTML("beforeend", `<span class="revenge-thread" style="--thread-x:${startX}px;--thread-y:${startY}px;--thread-length:${distance}px;--thread-angle:${angle}deg"><i></i></span>`);
+  }
 }
 
 function battlefieldActionMarkup() {
@@ -1109,7 +1167,7 @@ function arenaMarkup() {
   const isSetup = state.phase.startsWith("setup-");
   return `<section class="arena">
     ${boardMarkup(otherSeat(seat), "Đối thủ")}
-    <div class="center-table ${hasRevealedCards ? "" : "center-empty"} ${isSetup ? "setup-center" : ""}">${revealedLaneMarkup(otherSeat(seat))}${revealedLaneMarkup(seat)}${isSetup ? `<div class="setup-center-command">${controlMarkup()}</div>` : ""}</div>
+    <div class="center-table ${hasRevealedCards ? "" : "center-empty"} ${isSetup ? "setup-center" : ""}">${revealedLaneMarkup(otherSeat(seat))}${revealedLaneMarkup(seat)}${isSetup ? `<div class="setup-center-command">${controlMarkup()}</div>` : commandDockMarkup()}</div>
     ${boardMarkup(seat, "Tay của bạn")}
   </section>`;
 }
@@ -1121,14 +1179,19 @@ function commandDockMarkup() {
 
 function render() {
   const targeting = interaction && (state.phase.startsWith("day-") || state.phase === "night-plan" || state.phase === "purge" || state.phase === "council" || state.phase === "dusk-defense") ? " targeting-active" : "";
+  const councilSelecting = state.phase === "council" && interaction?.kind === "accuse" ? " council-selecting" : "";
   const dawnStage = dawnPresentation ? ` dawn-stage-${dawnPresentation.stage}` : "";
-  document.body.className = `duel-only scene-${visualScene()}${dawnStage}${targeting}`;
-  const topbar = `<header class="topbar"><div class="brand"><span class="brand-mark">TF</span>TWOFOLD</div><span class="round">Local playtest · Vòng ${state.round}</span><span class="phase-chip">${roundTitle()}</span><div class="seat-toggle"><span class="human-seat">A · BẠN</span><span class="bot-seat ${botNeedsTurn() ? "thinking" : ""}"><i></i>B · BOT</span></div><button class="reset" type="button" data-reset>Reset</button></header>`;
+  document.body.className = `duel-only scene-${visualScene()}${dawnStage}${targeting}${councilSelecting}`;
+  const topbar = `<header class="topbar"><div class="brand"><span class="brand-mark">TF</span>TWOFOLD</div><span class="round">Local playtest · Vòng ${state.round}</span><span class="match-clock" data-match-clock>THỜI GIAN · ${formatMatchTime(currentMatchTime())}</span><span class="phase-chip">${roundTitle()}</span><div class="seat-toggle"><span class="human-seat">A · BẠN</span><span class="bot-seat ${botNeedsTurn() ? "thinking" : ""}"><i></i>B · BOT</span></div><button class="reset" type="button" data-reset>Reset</button></header>`;
   const arena = arenaMarkup();
-  const body = `<div class="play-grid">${arena}<aside class="side-rail" aria-label="Thông tin trận đấu">${historyMarkup()}${commandDockMarkup()}</aside></div>`;
-  app.innerHTML = `<div class="shell">${topbar}${body}<div class="combat-fx-layer" aria-hidden="true"></div></div>`;
+  const body = `<div class="play-grid">${arena}<aside class="side-rail" aria-label="Thông tin trận đấu">${historyMarkup()}</aside></div>`;
+  app.innerHTML = `<div class="shell">${topbar}${body}<div class="revenge-thread-layer" aria-hidden="true"></div><div class="combat-fx-layer" aria-hidden="true"></div></div>`;
   syncConditionalFields();
-  requestAnimationFrame(playCombatEffect);
+  requestAnimationFrame(() => {
+    renderRevengeThreads();
+    playCombatEffect();
+  });
+  scheduleMatchClock();
   if (!dawnActive) scheduleBot();
   scheduleNightResolution();
 }
@@ -1264,6 +1327,8 @@ document.addEventListener("click", (event) => {
     return render();
   }
   if (event.target.closest("[data-begin-round]")) {
+    if (matchStartedAt === null) matchStartedAt = Date.now();
+    matchEndedAt = null;
     state = beginRound(state);
     feedback = "Bình minh đã mở. Chọn hành động Ban ngày.";
     return render();
@@ -1317,6 +1382,10 @@ document.addEventListener("click", (event) => {
     delete document.body.dataset.lastEffect;
     moveSequence = 0;
     deathReasons.clear();
+    matchStartedAt = null;
+    matchEndedAt = null;
+    clearInterval(clockTimer);
+    clockTimer = null;
     clearTimeout(botTimer);
     botTimer = null;
     feedback = "Ván mới đã sẵn sàng.";
