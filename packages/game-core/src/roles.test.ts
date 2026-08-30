@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AbilityId, CardRole, Faction } from '@twofold/shared-types';
+import { AbilityId, CardRole, Faction, PlayerId } from '@twofold/shared-types';
 import { GameEngine } from './engine';
 import {
   ROLE_DEFINITIONS,
@@ -28,8 +28,12 @@ describe('ruleset v0.2 roles and deck', () => {
   it('initializes both boards from the standard deck without sharing the deck array', () => {
     const engine = new GameEngine('role-deck-test');
 
-    expect(engine.getState().cardsA.map((card) => card.role.id)).toEqual(STANDARD_DECK);
-    expect(engine.getState().cardsB.map((card) => card.role.id)).toEqual(STANDARD_DECK);
+    expect(
+      engine.getState().players[PlayerId.PLAYER_A].board.map((card) => card.role.id)
+    ).toEqual(STANDARD_DECK);
+    expect(
+      engine.getState().players[PlayerId.PLAYER_B].board.map((card) => card.role.id)
+    ).toEqual(STANDARD_DECK);
     expect(engine.getDefaultDeck()).not.toBe(STANDARD_DECK);
   });
 

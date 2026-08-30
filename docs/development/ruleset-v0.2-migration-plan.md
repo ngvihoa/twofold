@@ -259,26 +259,32 @@ Ownership đã chốt:
 ## 5. Player State
 
 ```ts
-interface PlayerGameState {
+interface PlayerState {
   id: PlayerId;
   board: GameCard[];
-
-  setupLocked: boolean;
-
-  councilOrder: CouncilOrder | null;
-  councilReactionOrder: CouncilReactionOrder | null;
-  dayActionSubmitted: boolean;
-  nightOrder: NightOrder | null;
-  defenseOrder: DefenseOrder | null;
-  finalGuess: RoleId | null;
-
+  setup: { status: 'ARRANGING' } | { status: 'LOCKED' };
+  submissions: {
+    council: CouncilOrder | null;
+    night: NightOrder | null;
+    defense: DefenseOrder | null;
+    finalGuess: RoleId | null;
+  };
   specialAbilities: PlayerSpecialAbilityState[];
-
   privateIntel: PrivateIntelEntry[];
 }
 ```
 
-Đề xuất bỏ `eliminationSpent`. Budget được mô hình hóa trực tiếp theo phase:
+Đã triển khai model nội bộ tại `packages/game-core/src/players.ts`:
+
+- `PlayerState` là owner duy nhất của board; `MasterGameState` không còn giữ `cardsA/cardsB` song song.
+- Setup dùng discriminated state `ARRANGING | LOCKED`, không dùng boolean `setupLocked`.
+- Các order đồng thời được gom dưới `submissions`; `null` nghĩa là player chưa khóa order của phase đó.
+- Không thêm `dayActionSubmitted`: Day là lượt tuần tự do phase machine quản lý và resolve ngay.
+- Blood Moon là `PlayerSpecialAbilityState` với `unlockRound`, `cooldownRounds`, `readyRound`.
+- Seer intel nằm trong `privateIntel`, tách khỏi card để knowledge vẫn tồn tại nếu source Seer chết.
+- Payload order hiện chỉ là contract tối thiểu. Validation/resolution thuộc phần Rule Flow và Action Contract.
+
+Bỏ `eliminationSpent`. Budget được mô hình hóa trực tiếp theo phase:
 
 - một Day Main Action;
 - một Night Main Order;
@@ -295,7 +301,7 @@ interface GameState {
   round: number;
   phase: GamePhase;
 
-  players: Record<PlayerId, PlayerGameState>;
+  players: Record<PlayerId, PlayerState>;
 
   pendingResolution: PendingResolution | null;
   result: GameResult | null;

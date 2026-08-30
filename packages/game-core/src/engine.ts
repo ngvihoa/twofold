@@ -22,6 +22,11 @@ import {
   isCardRevealed,
   transitionCard,
 } from './cards';
+import {
+  type PlayerState,
+  createInitialPlayerState,
+  replacePlayerCard,
+} from './players';
 
 export interface NightActionRecord {
   playerId: PlayerId;
@@ -33,8 +38,7 @@ export interface MasterGameState {
   roundNumber: number;
   currentPhase: TurnPhase;
   activeTurnPlayer: PlayerId | null; // Cho pha Day (A -> B)
-  cardsA: GameCard[];
-  cardsB: GameCard[];
+  players: Record<PlayerId, PlayerState>;
   nightActions: NightActionRecord[];
   logs: EventLogEntry[];
   winner: PlayerId | null;
@@ -73,12 +77,20 @@ export class GameEngine {
       roundNumber: 1,
       currentPhase: TurnPhase.DAY,
       activeTurnPlayer: PlayerId.PLAYER_A, // Host A đi trước theo v0.1
-      cardsA: rolesA.map((role, index) =>
-        createInitialCard(PlayerId.PLAYER_A, index + 1, role)
-      ),
-      cardsB: rolesB.map((role, index) =>
-        createInitialCard(PlayerId.PLAYER_B, index + 1, role)
-      ),
+      players: {
+        [PlayerId.PLAYER_A]: createInitialPlayerState(
+          PlayerId.PLAYER_A,
+          rolesA.map((role, index) =>
+            createInitialCard(PlayerId.PLAYER_A, index + 1, role)
+          )
+        ),
+        [PlayerId.PLAYER_B]: createInitialPlayerState(
+          PlayerId.PLAYER_B,
+          rolesB.map((role, index) =>
+            createInitialCard(PlayerId.PLAYER_B, index + 1, role)
+          )
+        ),
+      },
       nightActions: [],
       logs: [
         {
@@ -108,9 +120,10 @@ export class GameEngine {
    * Tạo góc nhìn riêng tư và bảo mật cho từng người chơi (Anti-cheat)
    */
   public getPlayerView(playerId: PlayerId, opponentConnected = true): PlayerGameView {
-    const isPlayerA = playerId === PlayerId.PLAYER_A;
-    const myCards = (isPlayerA ? this.state.cardsA : this.state.cardsB).map(toLegacyCard);
-    const opponentCards = isPlayerA ? this.state.cardsB : this.state.cardsA;
+    const opponentId =
+      playerId === PlayerId.PLAYER_A ? PlayerId.PLAYER_B : PlayerId.PLAYER_A;
+    const myCards = this.state.players[playerId].board.map(toLegacyCard);
+    const opponentCards = this.state.players[opponentId].board;
 
     const publicOpponentCards: PublicCard[] = opponentCards.map((c) => ({
       id: c.id,
@@ -143,8 +156,10 @@ export class GameEngine {
       throw new Error('Không phải lượt Ban ngày của bạn!');
     }
 
-    const opponentCards = actor === PlayerId.PLAYER_A ? this.state.cardsB : this.state.cardsA;
-    const targetCard = opponentCards[targetIndex];
+    const opponentId =
+      actor === PlayerId.PLAYER_A ? PlayerId.PLAYER_B : PlayerId.PLAYER_A;
+    const opponent = this.state.players[opponentId];
+    const targetCard = opponent.board[targetIndex];
 
     if (!targetCard || !isCardAlive(targetCard)) {
       throw new Error('Mục tiêu không hợp lệ hoặc đã chết!');
@@ -154,7 +169,7 @@ export class GameEngine {
 
     if (isCorrect) {
       const eliminatedCard = transitionCard(targetCard, { type: 'ELIMINATE' });
-      opponentCards[targetIndex] = eliminatedCard;
+      this.state.players[opponentId] = replacePlayerCard(opponent, eliminatedCard);
       this.addLog(
         actor,
         `${actor === PlayerId.PLAYER_A ? 'Người chơi A' : 'Người chơi B'} đã Treo cổ chính xác lá số ${targetIndex + 1} (${guessedRole})! Lá bài bị loại.`,
@@ -195,8 +210,8 @@ export class GameEngine {
    * Kiểm tra điều kiện thắng / thua
    */
   public checkWinCondition(): PlayerId | null {
-    const aliveA = this.state.cardsA.filter(isCardAlive).length;
-    const aliveB = this.state.cardsB.filter(isCardAlive).length;
+    const aliveA = this.state.players[PlayerId.PLAYER_A].board.filter(isCardAlive).length;
+    const aliveB = this.state.players[PlayerId.PLAYER_B].board.filter(isCardAlive).length;
 
     if (aliveA === 0 && aliveB === 0) {
       // Cả 2 cùng hết bài -> Hòa hoặc xử lý theo rule

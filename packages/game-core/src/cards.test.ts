@@ -137,7 +137,7 @@ describe('ruleset v0.2 card state', () => {
 
   it('keeps the existing shared/web contract behind a legacy projection', () => {
     const engine = new GameEngine('card-view-test');
-    const target = engine.getState().cardsB[0];
+    const target = engine.getState().players[PlayerId.PLAYER_B].board[0];
 
     engine.handleHangAction(PlayerId.PLAYER_A, 0, target.role.id);
 
