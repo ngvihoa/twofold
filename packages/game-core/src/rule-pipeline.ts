@@ -18,6 +18,7 @@ import {
   type NightOrder,
   PlayerSpecialAbilityId,
   type PlayerState,
+  type PurgeOrder,
   replacePlayerCard,
 } from './players';
 import {
@@ -55,6 +56,11 @@ export type PlayerGameAction =
       readonly type: 'DEFENSE_SUBMIT';
       readonly playerId: PlayerId;
       readonly order: DefenseOrder;
+    }
+  | {
+      readonly type: 'PURGE_SUBMIT';
+      readonly playerId: PlayerId;
+      readonly order: PurgeOrder;
     };
 
 /** Main Action được resolve ngay trong Day turn của player. */
@@ -114,6 +120,9 @@ export function dispatchPlayerAction(
 
     case 'DEFENSE_SUBMIT':
       return submitDefenseOrder(state, action.playerId, action.order);
+
+    case 'PURGE_SUBMIT':
+      return submitPurgeOrder(state, action.playerId, action.order);
   }
 }
 
@@ -284,6 +293,7 @@ function requireAvailableAbility<TAbilityId extends AbilityId>(
   source: GameCard,
   abilityId: TAbilityId
 ): Extract<AbilityState, { abilityId: TAbilityId }> {
+  assertCardAbilitySourceAvailable(source);
   const ability = getRoleAbility(source.role, abilityId);
   if (!ability) {
     throw new RuleValidationError(`${source.id} không sở hữu ${abilityId}.`);
@@ -496,6 +506,11 @@ function validateCouncilAccusation(
     }
     if (hasCardEffect(voter, CardEffectKind.COUNCIL_LOCK)) {
       throw new RuleValidationError(`${voter.id} đang bị khóa Council.`);
+    }
+    if (hasCardEffect(voter, CardEffectKind.PURGE_LOCK)) {
+      throw new RuleValidationError(
+        `${voter.id} đang bị Khóa mạch và không thể tham gia Council.`
+      );
     }
   }
 }
@@ -751,6 +766,202 @@ function clearCouncilSubmissions(state: GameState): GameState {
   return next;
 }
 
+function submitPurgeOrder(
+  state: GameState,
+  playerId: PlayerId,
+  order: PurgeOrder
+): GameState {
+  assertPhase(state, 'PURGE_PLAN');
+  assertSubmissionOpen(state.players[playerId].submissions.purge, 'Purge', playerId);
+  const expectedRule = getPurgeRule(state.round);
+  if (order.rule !== expectedRule) {
+    throw new RuleValidationError(
+      `Vòng ${state.round} yêu cầu Purge rule ${expectedRule}, không phải ${order.rule}.`
+    );
+  }
+  validatePurgeOrder(state, playerId, order);
+
+  let next = updatePlayer(state, playerId, (player) => ({
+    ...player,
+    submissions: { ...player.submissions, purge: { ...order } },
+  }));
+  if (!bothPlayersSubmitted(next, 'purge')) return next;
+
+  next = transitionGameState(next, { type: 'PURGE_ORDERS_LOCKED' });
+  return resolvePurge(next);
+}
+
+function getPurgeRule(round: number): PurgeOrder['rule'] {
+  if (round < 6) {
+    throw new RuleValidationError('Purge chỉ mở từ Vòng 6.');
+  }
+  return (['CUT', 'SWAP', 'REVEAL', 'LOCK'] as const)[(round - 6) % 4];
+}
+
+function validatePurgeOrder(
+  state: GameState,
+  playerId: PlayerId,
+  order: PurgeOrder
+): void {
+  if (order.rule === 'SWAP') {
+    getOwnedLivingCard(state, playerId, order.ownTargetId, 'Purge own target');
+    getOpponentLivingCard(
+      state,
+      playerId,
+      order.opponentTargetId,
+      'Purge opponent target'
+    );
+    return;
+  }
+
+  if (order.rule === 'REVEAL' && order.targetId === null) {
+    const hasHiddenLivingCard = state.players[playerId].board.some(
+      (card) => isCardAlive(card) && card.state.visibility === 'HIDDEN'
+    );
+    if (hasHiddenLivingCard) {
+      throw new RuleValidationError('Purge REVEAL cần chọn một card sống còn ẩn.');
+    }
+    return;
+  }
+
+  if (order.targetId === null) {
+    throw new RuleValidationError(`Purge ${order.rule} cần target.`);
+  }
+  const target = getOwnedLivingCard(state, playerId, order.targetId, 'Purge target');
+  if (order.rule === 'REVEAL' && target.state.visibility === 'REVEALED') {
+    throw new RuleValidationError('Purge REVEAL cần một card đang ẩn.');
+  }
+}
+
+function resolvePurge(state: GameState): GameState {
+  const orders = snapshotOrders(state, 'purge');
+  const events: GameEventDraft[] = [];
+  let next = state;
+
+  if (orders[PlayerId.PLAYER_A].rule === 'SWAP') {
+    const swapOrders = PLAYER_ORDER.map((playerId) => orders[playerId]).filter(
+      (order): order is Extract<PurgeOrder, { rule: 'SWAP' }> => order.rule === 'SWAP'
+    );
+    const selectedIds = swapOrders.flatMap((order) => [
+      order.ownTargetId,
+      order.opponentTargetId,
+    ]);
+    if (swapOrders.length !== 2 || new Set(selectedIds).size !== selectedIds.length) {
+      throw new RuleValidationError(
+        'Purge SWAP bị trùng vị trí; mỗi card chỉ được tham gia một lần.'
+      );
+    }
+
+    const snapshot = new Map<CardId, GameCard>();
+    for (const playerId of PLAYER_ORDER) {
+      for (const card of state.players[playerId].board) snapshot.set(card.id, card);
+    }
+    const replacements = new Map<CardId, GameCard>();
+    for (const playerId of PLAYER_ORDER) {
+      const order = orders[playerId];
+      if (order.rule !== 'SWAP') throw new Error('Purge SWAP snapshot không đồng nhất.');
+      const ownSlot = snapshot.get(order.ownTargetId);
+      const opponentSlot = snapshot.get(order.opponentTargetId);
+      if (!ownSlot || !opponentSlot) throw new Error('Thiếu card trong Purge SWAP snapshot.');
+      replacements.set(ownSlot.id, moveCardRuntimeToSlot(opponentSlot, ownSlot));
+      replacements.set(opponentSlot.id, moveCardRuntimeToSlot(ownSlot, opponentSlot));
+      events.push({
+        type: 'PURGE_RESOLVED',
+        visibility: { type: 'PUBLIC' },
+        playerId,
+        rule: order.rule,
+        targetCardId: order.ownTargetId,
+        swapTargetCardId: order.opponentTargetId,
+      });
+    }
+    for (const replacement of replacements.values()) {
+      next = replaceCard(next, replacement);
+    }
+  } else {
+    const pendingCuts: CardId[] = [];
+    for (const playerId of PLAYER_ORDER) {
+      const order = orders[playerId];
+      if (order.rule === 'SWAP') throw new Error('Purge rule snapshot không đồng nhất.');
+      events.push({
+        type: 'PURGE_RESOLVED',
+        visibility: { type: 'PUBLIC' },
+        playerId,
+        rule: order.rule,
+        targetCardId: order.targetId,
+        swapTargetCardId: null,
+      });
+      if (order.targetId === null) continue;
+
+      if (order.rule === 'CUT') {
+        pendingCuts.push(order.targetId);
+      } else if (order.rule === 'REVEAL') {
+        const target = getCard(next, order.targetId);
+        next = replaceCard(next, transitionCard(target, { type: 'REVEAL' }));
+        events.push({
+          type: 'CARD_REVEALED',
+          visibility: { type: 'PUBLIC' },
+          cardId: target.id,
+        });
+      } else {
+        const target = getCard(next, order.targetId);
+        const lock: CardEffectState = {
+          id: `purge-lock:${playerId}:${target.id}:round:${next.round}`,
+          kind: CardEffectKind.PURGE_LOCK,
+          source: { type: 'RULE', rule: CardEffectRule.PURGE_LOCK },
+          appliedRound: next.round,
+          expires: {
+            type: 'AFTER_PHASE',
+            phase: 'NIGHT_RESOLUTION',
+            round: next.round,
+          },
+        };
+        next = replaceCard(
+          next,
+          transitionCard(target, { type: 'APPLY_EFFECT', effect: lock })
+        );
+        events.push({
+          type: 'EFFECT_APPLIED',
+          visibility: { type: 'PUBLIC' },
+          targetCardId: target.id,
+          effectKind: CardEffectKind.PURGE_LOCK,
+        });
+      }
+    }
+
+    const eliminatedIds: CardId[] = [];
+    for (const targetId of pendingCuts) {
+      const eliminated = eliminateCard(
+        next,
+        targetId,
+        true,
+        { type: 'PURGE', rule: 'CUT' },
+        events
+      );
+      next = eliminated.state;
+      eliminatedIds.push(...eliminated.eliminatedIds);
+    }
+    next = resolveRevengeChain(next, eliminatedIds, true, events);
+  }
+
+  next = clearSubmission(next, 'purge');
+  next = appendGameEvents(next, events);
+  const result = getEliminationResult(next);
+  if (result) return transitionGameState(next, { type: 'GAME_ENDED', result });
+  if (hasFinalDuelBoard(next)) {
+    return transitionGameState(next, { type: 'FINAL_DUEL_REQUIRED' });
+  }
+  return transitionGameState(next, { type: 'PURGE_RESOLVED' });
+}
+
+function moveCardRuntimeToSlot(source: GameCard, slot: GameCard): GameCard {
+  return {
+    ...source,
+    id: slot.id,
+    position: slot.position,
+    owner: slot.owner,
+  };
+}
+
 function submitNightOrder(
   state: GameState,
   playerId: PlayerId,
@@ -802,6 +1013,7 @@ function validateNightOrder(state: GameState, playerId: PlayerId, order: NightOr
 
   const source = getOwnedLivingCard(state, playerId, order.sourceId, 'Night source');
   const target = getOpponentLivingCard(state, playerId, order.targetId, 'Night target');
+  assertCardAbilitySourceAvailable(source);
   const ability = getRoleAbility(source.role, order.abilityId);
   if (!ability) {
     throw new RuleValidationError(`${source.id} không sở hữu ${order.abilityId}.`);
@@ -847,6 +1059,7 @@ function validateDefenseOrder(
   if (order.type === 'PASS') return;
   const source = getOwnedLivingCard(state, playerId, order.sourceId, 'Guard source');
   const target = getOwnedLivingCard(state, playerId, order.targetId, 'Guard target');
+  assertCardAbilitySourceAvailable(source);
   const guard = getRoleAbility(source.role, AbilityId.GUARD_PROTECT);
   if (!guard) throw new RuleValidationError(`${source.id} không phải Guard hợp lệ.`);
   if (source.id === target.id) {
@@ -1075,7 +1288,8 @@ function clearNightEffects(state: GameState): GameState {
       for (const effect of card.effects) {
         if (
           effect.kind === CardEffectKind.PROTECTION ||
-          effect.kind === CardEffectKind.REVENGE_MARK
+          effect.kind === CardEffectKind.REVENGE_MARK ||
+          effect.kind === CardEffectKind.PURGE_LOCK
         ) {
           updated = transitionCard(updated, { type: 'REMOVE_EFFECT', effectId: effect.id });
         }
@@ -1114,7 +1328,7 @@ function livingCount(player: PlayerState): number {
 
 const PLAYER_ORDER = [PlayerId.PLAYER_A, PlayerId.PLAYER_B] as const;
 
-type SubmissionKey = 'night' | 'defense';
+type SubmissionKey = 'night' | 'defense' | 'purge';
 
 function bothPlayersSubmitted(state: GameState, key: SubmissionKey): boolean {
   return PLAYER_ORDER.every((playerId) => state.players[playerId].submissions[key] !== null);
@@ -1154,6 +1368,14 @@ function assertSubmissionOpen(
 ): void {
   if (submission !== null) {
     throw new RuleValidationError(`${playerId} đã khóa ${label} Order.`);
+  }
+}
+
+function assertCardAbilitySourceAvailable(source: GameCard): void {
+  if (hasCardEffect(source, CardEffectKind.PURGE_LOCK)) {
+    throw new RuleValidationError(
+      `${source.id} đang bị Khóa mạch và không thể dùng ability trong vòng này.`
+    );
   }
 }
 

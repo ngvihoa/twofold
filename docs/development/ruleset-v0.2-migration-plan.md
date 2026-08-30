@@ -503,7 +503,8 @@ revenge chain. Việc một bên submit sớm không được kích hoạt resol
 > slot, hỗ trợ đoán role, reveal voter, `COUNCIL_LOCK`, Wolf Guard rescue và
 > information-safe lock view. Blood Moon đã được port theo player-owned ability:
 > mở từ Vòng 6, chỉ đánh target đã lộ, cooldown hai vòng, không có source card và
-> vẫn vào cooldown khi bị Guard chặn. Purge và Final Duel guess chưa được port.
+> vẫn vào cooldown khi bị Guard chặn. Purge pipeline cũng đã được port đủ chu kỳ
+> `CUT → SWAP → REVEAL → LOCK`. Final Duel guess chưa được port.
 
 Thay `USE_SKILL` chung bằng discriminated union cụ thể:
 
@@ -515,6 +516,7 @@ type GameAction =
   | DayAction
   | NightOrderAction
   | DefenseOrderAction
+  | PurgeSubmitAction
   | FinalGuessAction
   | SurrenderAction;
 ```
@@ -565,6 +567,38 @@ Rule lấy từ prototype:
 - Witch revive giữ visibility target có trước khi chết.
 - Blood Moon mở từ Vòng 6, cooldown hai vòng.
 - Thanh trừng mở từ Vòng 6 theo chu kỳ prototype; balance của việc tồn tại cùng Blood Moon chưa xác minh.
+
+### 9.1. Purge pipeline
+
+Purge dùng rule bắt buộc theo chu kỳ bốn vòng:
+
+| Round | Rule | Resolution |
+|---|---|---|
+| 6, 10, ... | `CUT` | Mỗi player chọn một card sống bên mình; hai target bị loại đồng thời và được reveal. |
+| 7, 11, ... | `SWAP` | Mỗi player chọn một card bên mình và một card đối thủ; bốn vị trí phải khác nhau. |
+| 8, 12, ... | `REVEAL` | Mỗi player reveal một card sống còn ẩn; gửi `targetId: null` khi không còn target hợp lệ. |
+| 9, 13, ... | `LOCK` | Áp `PURGE_LOCK` lên một card sống bên mình tới hết Night resolution của vòng hiện tại. |
+
+Hai player khóa order độc lập. Core chỉ chuyển `PURGE_PLAN → PURGE_RESOLUTION`
+khi đủ hai order và resolve từ snapshot. Rule trong payload phải khớp rule của
+round; client không được tự chọn loại Purge.
+
+`PURGE_LOCK` là rule-sourced card effect, không phải lifecycle state. Effect chặn
+card làm active ability source và tham gia Council trong vòng đó; Blood Moon vẫn
+dùng được vì thuộc player. Theo prototype, passive Avenger revenge vẫn resolve.
+
+Notable cần review sau playtest:
+
+- `SWAP` giữ `CardId`, position và owner của slot, đồng thời hoán đổi role,
+  lifecycle, ability resource và effect của card. Đây là semantics đang dùng để
+  không phá invariant ID `A1…B10`.
+- Seer intel cũ vẫn là historical knowledge gắn với ID tại thời điểm điều tra;
+  nó không tự đổi thành role mới sau `SWAP`.
+- Nếu hai order `SWAP` chọn trùng bất kỳ vị trí nào, resolution bị từ chối và
+  không mutate board; player cần submit lại order gây conflict.
+- `PURGE_RESOLVED` là public event sau resolution, nhưng payload order vẫn được
+  giữ kín trước khi cả hai bên khóa.
+- Việc giữ cả Purge và Blood Moon từ Vòng 6 vẫn chờ GD-08/playtest quyết định.
 
 ---
 

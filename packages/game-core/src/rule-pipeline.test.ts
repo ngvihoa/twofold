@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { AbilityId, CardRole, PlayerId } from '@twofold/shared-types';
-import { createInitialCard, isCardAlive, transitionCard } from './cards';
+import {
+  CardEffectKind,
+  createInitialCard,
+  isCardAlive,
+  transitionCard,
+} from './cards';
 import { createInitialGameState, type GameState } from './game-state';
 import { PlayerSpecialAbilityId, createInitialPlayerState } from './players';
 import { dispatchPlayerAction, RuleValidationError } from './rule-pipeline';
@@ -110,6 +115,14 @@ function enterBloodMoonNight(round = 6): GameState {
         ),
       },
     },
+  };
+}
+
+function enterPurge(round: number): GameState {
+  return {
+    ...enterDay(),
+    round,
+    phase: { type: 'PURGE_PLAN' },
   };
 }
 
@@ -726,6 +739,208 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
 
     expect(isCardAlive(state.players[PlayerId.PLAYER_A].board[1])).toBe(false);
     expect(isCardAlive(state.players[PlayerId.PLAYER_B].board[0])).toBe(false);
+  });
+
+  it('resolves round-six Purge CUT simultaneously and reveals both victims', () => {
+    let state = enterPurge(6);
+    state = dispatchPlayerAction(state, {
+      type: 'PURGE_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      order: { rule: 'CUT', targetId: 'A2' },
+    });
+    expect(state.phase).toEqual({ type: 'PURGE_PLAN' });
+    expect(isCardAlive(state.players[PlayerId.PLAYER_A].board[1])).toBe(true);
+
+    state = dispatchPlayerAction(state, {
+      type: 'PURGE_SUBMIT',
+      playerId: PlayerId.PLAYER_B,
+      order: { rule: 'CUT', targetId: 'B1' },
+    });
+
+    expect(state.phase).toEqual({ type: 'DAY_A' });
+    expect(state.players[PlayerId.PLAYER_A].board[1].state).toEqual({
+      life: 'DEAD',
+      visibility: 'REVEALED',
+    });
+    expect(state.players[PlayerId.PLAYER_B].board[0].state).toEqual({
+      life: 'DEAD',
+      visibility: 'REVEALED',
+    });
+    expect(
+      state.events.filter((event) => event.type === 'PURGE_RESOLVED')
+    ).toHaveLength(2);
+  });
+
+  it('swaps four unique card slots from one round-seven snapshot', () => {
+    let state = enterPurge(7);
+    state = dispatchPlayerAction(state, {
+      type: 'PURGE_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      order: { rule: 'SWAP', ownTargetId: 'A1', opponentTargetId: 'B1' },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'PURGE_SUBMIT',
+      playerId: PlayerId.PLAYER_B,
+      order: { rule: 'SWAP', ownTargetId: 'B2', opponentTargetId: 'A2' },
+    });
+
+    expect(state.phase).toEqual({ type: 'DAY_A' });
+    expect(state.players[PlayerId.PLAYER_A].board[0]).toMatchObject({
+      id: 'A1',
+      owner: PlayerId.PLAYER_A,
+      position: 1,
+      role: { id: CardRole.VILLAGER },
+    });
+    expect(state.players[PlayerId.PLAYER_B].board[0]).toMatchObject({
+      id: 'B1',
+      owner: PlayerId.PLAYER_B,
+      position: 1,
+      role: { id: CardRole.WEREWOLF },
+    });
+    expect(state.players[PlayerId.PLAYER_A].board[1].role.id).toBe(CardRole.GUARD);
+    expect(state.players[PlayerId.PLAYER_B].board[1].role.id).toBe(CardRole.VILLAGER);
+  });
+
+  it('rejects overlapping round-seven Purge SWAP positions', () => {
+    let state = enterPurge(7);
+    state = dispatchPlayerAction(state, {
+      type: 'PURGE_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      order: { rule: 'SWAP', ownTargetId: 'A1', opponentTargetId: 'B1' },
+    });
+
+    expect(() =>
+      dispatchPlayerAction(state, {
+        type: 'PURGE_SUBMIT',
+        playerId: PlayerId.PLAYER_B,
+        order: { rule: 'SWAP', ownTargetId: 'B1', opponentTargetId: 'A2' },
+      })
+    ).toThrow('Purge SWAP bị trùng vị trí');
+    expect(state.players[PlayerId.PLAYER_B].submissions.purge).toBeNull();
+  });
+
+  it('reveals selected hidden cards in round eight and permits null only when none remain', () => {
+    let state = enterPurge(8);
+    state = dispatchPlayerAction(state, {
+      type: 'PURGE_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      order: { rule: 'REVEAL', targetId: 'A1' },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'PURGE_SUBMIT',
+      playerId: PlayerId.PLAYER_B,
+      order: { rule: 'REVEAL', targetId: 'B1' },
+    });
+    expect(state.players[PlayerId.PLAYER_A].board[0].state.visibility).toBe('REVEALED');
+    expect(state.players[PlayerId.PLAYER_B].board[0].state.visibility).toBe('REVEALED');
+
+    const hiddenState = enterPurge(8);
+    expect(() =>
+      dispatchPlayerAction(hiddenState, {
+        type: 'PURGE_SUBMIT',
+        playerId: PlayerId.PLAYER_A,
+        order: { rule: 'REVEAL', targetId: null },
+      })
+    ).toThrow('Purge REVEAL cần chọn một card sống còn ẩn.');
+
+    const revealBase = enterPurge(8);
+    const allRevealed = {
+      ...revealBase,
+      players: Object.fromEntries(
+        Object.entries(revealBase.players).map(([playerId, player]) => [
+          playerId,
+          {
+            ...player,
+            board: player.board.map((card) => transitionCard(card, { type: 'REVEAL' })),
+          },
+        ])
+      ) as GameState['players'],
+    };
+    let nullState = dispatchPlayerAction(allRevealed, {
+      type: 'PURGE_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      order: { rule: 'REVEAL', targetId: null },
+    });
+    nullState = dispatchPlayerAction(nullState, {
+      type: 'PURGE_SUBMIT',
+      playerId: PlayerId.PLAYER_B,
+      order: { rule: 'REVEAL', targetId: null },
+    });
+    expect(nullState.phase).toEqual({ type: 'DAY_A' });
+  });
+
+  it('keeps round-nine Purge LOCK through Council and removes it after Night', () => {
+    let state = enterPurge(9);
+    state = dispatchPlayerAction(state, {
+      type: 'PURGE_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      order: { rule: 'LOCK', targetId: 'A6' },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'PURGE_SUBMIT',
+      playerId: PlayerId.PLAYER_B,
+      order: { rule: 'LOCK', targetId: 'B4' },
+    });
+
+    expect(state.players[PlayerId.PLAYER_A].board[5].effects).toEqual([
+      expect.objectContaining({ kind: CardEffectKind.PURGE_LOCK }),
+    ]);
+    expect(() =>
+      dispatchPlayerAction(state, {
+        type: 'DAY_SUBMIT',
+        playerId: PlayerId.PLAYER_A,
+        action: { type: 'PURIFY', sourceId: 'A6', targetId: 'B4' },
+      })
+    ).toThrow('A6 đang bị Khóa mạch');
+
+    state = dispatchPlayerAction(state, {
+      type: 'DAY_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      action: { type: 'PASS' },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'DAY_SUBMIT',
+      playerId: PlayerId.PLAYER_B,
+      action: { type: 'PASS' },
+    });
+    expect(() =>
+      dispatchPlayerAction(state, {
+        type: 'COUNCIL_ACCUSATION_SUBMIT',
+        playerId: PlayerId.PLAYER_A,
+        order: {
+          type: 'ACCUSE',
+          targetId: 'B1',
+          guessedRole: CardRole.VILLAGER,
+          voterIds: ['A2', 'A3', 'A6'],
+        },
+      })
+    ).toThrow('A6 đang bị Khóa mạch');
+
+    for (const action of [
+      { type: 'COUNCIL_ACCUSATION_SUBMIT' as const, playerId: PlayerId.PLAYER_A, order: { type: 'PASS' as const } },
+      { type: 'COUNCIL_ACCUSATION_SUBMIT' as const, playerId: PlayerId.PLAYER_B, order: { type: 'PASS' as const } },
+      { type: 'COUNCIL_REACTION_SUBMIT' as const, playerId: PlayerId.PLAYER_A, order: { type: 'PASS' as const } },
+      { type: 'COUNCIL_REACTION_SUBMIT' as const, playerId: PlayerId.PLAYER_B, order: { type: 'PASS' as const } },
+      { type: 'NIGHT_SUBMIT' as const, playerId: PlayerId.PLAYER_A, order: { type: 'PASS' as const } },
+      { type: 'NIGHT_SUBMIT' as const, playerId: PlayerId.PLAYER_B, order: { type: 'PASS' as const } },
+      { type: 'DEFENSE_SUBMIT' as const, playerId: PlayerId.PLAYER_A, order: { type: 'PASS' as const } },
+      { type: 'DEFENSE_SUBMIT' as const, playerId: PlayerId.PLAYER_B, order: { type: 'PASS' as const } },
+    ]) {
+      state = dispatchPlayerAction(state, action);
+    }
+
+    expect(state).toMatchObject({ round: 10, phase: { type: 'PURGE_PLAN' } });
+    expect(state.players[PlayerId.PLAYER_A].board[5].effects).toEqual([]);
+  });
+
+  it('rejects a Purge rule that does not match the current round', () => {
+    expect(() =>
+      dispatchPlayerAction(enterPurge(6), {
+        type: 'PURGE_SUBMIT',
+        playerId: PlayerId.PLAYER_A,
+        order: { rule: 'LOCK', targetId: 'A1' },
+      })
+    ).toThrow('Vòng 6 yêu cầu Purge rule CUT');
   });
 
   it('consumes Witch poison even when Guard protection blocks it', () => {

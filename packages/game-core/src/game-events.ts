@@ -75,6 +75,13 @@ export type GameEventPayload =
       readonly sourceCardId: CardId;
       readonly targetCardId: CardId;
     }
+  | {
+      readonly type: 'PURGE_RESOLVED';
+      readonly playerId: PlayerId;
+      readonly rule: PurgeOrder['rule'];
+      readonly targetCardId: CardId | null;
+      readonly swapTargetCardId: CardId | null;
+    }
   | { readonly type: 'DAWN_PRESENTATION_COMPLETED' };
 
 /** Metadata deterministic gắn vào mỗi event khi append vào GameState. */

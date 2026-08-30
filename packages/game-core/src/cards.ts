@@ -32,11 +32,13 @@ export enum CardEffectKind {
   PROTECTION = 'PROTECTION',
   REVENGE_MARK = 'REVENGE_MARK',
   COUNCIL_LOCK = 'COUNCIL_LOCK',
+  PURGE_LOCK = 'PURGE_LOCK',
 }
 
 /** Định danh game rule có thể trực tiếp tạo effect mà không qua ability. */
 export enum CardEffectRule {
   FAILED_COUNCIL = 'FAILED_COUNCIL',
+  PURGE_LOCK = 'PURGE_LOCK',
 }
 
 /**
