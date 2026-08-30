@@ -19,6 +19,7 @@ describe('ruleset v0.2 player state', () => {
         council: null,
         night: null,
         defense: null,
+        purge: null,
         finalGuess: null,
       },
       specialAbilities: [

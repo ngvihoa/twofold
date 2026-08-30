@@ -262,7 +262,7 @@ Ownership đã chốt:
 - Guard target memory nằm trong `GUARD_PROTECT` ability state dưới `RoleState` của source card.
 - Revenge target được biểu diễn bằng `REVENGE_MARK` effect trên target card.
 - Blood Moon không thuộc board card; unlock/cooldown nằm trong player special-ability state.
-- Pending Council, Night và Defense order nằm trong player submission của game phase.
+- Pending Council, Night, Defense và Purge order nằm trong player submission của game phase.
 - Private Seer intel là knowledge của player và vẫn tồn tại nếu Seer chết.
 
 ---
@@ -278,6 +278,7 @@ interface PlayerState {
     council: CouncilOrder | null;
     night: NightOrder | null;
     defense: DefenseOrder | null;
+    purge: PurgeOrder | null;
     finalGuess: RoleId | null;
   };
   specialAbilities: PlayerSpecialAbilityState[];
@@ -290,6 +291,7 @@ interface PlayerState {
 - `PlayerState` là owner duy nhất của board; `MasterGameState` không còn giữ `cardsA/cardsB` song song.
 - Setup dùng discriminated state `ARRANGING | LOCKED`, không dùng boolean `setupLocked`.
 - Các order đồng thời được gom dưới `submissions`; `null` nghĩa là player chưa khóa order của phase đó.
+- `PurgeOrder` lưu cả rule và target đã khóa để snapshot tự mô tả được resolution từ Vòng 6.
 - Không thêm `dayActionSubmitted`: Day là lượt tuần tự do phase machine quản lý và resolve ngay.
 - Blood Moon là `PlayerSpecialAbilityState` với `unlockRound`, `cooldownRounds`, `readyRound`.
 - Seer intel nằm trong `privateIntel`, tách khỏi card để knowledge vẫn tồn tại nếu source Seer chết.

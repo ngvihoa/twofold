@@ -13,13 +13,19 @@ export type CardId = `${'A' | 'B'}${CardPosition}`;
 /**
  * Lifecycle state cốt lõi của card, tách khỏi các effect tạm thời.
  *
- * `life` và `visibility` là hai trục độc lập. Một card có thể chết khi vẫn úp;
- * chỉ rule/event reveal rõ ràng mới được phép công khai role của card đó.
+ * `life` và `visibility` là hai trục độc lập: card bị loại khi đang úp có thể
+ * ở trạng thái `DEAD + HIDDEN`, còn card đã lộ vẫn giữ visibility khi chết hoặc
+ * được hồi sinh. Chỉ event `REVEAL` mới làm thay đổi visibility.
  */
-export interface CardRuntimeState {
-  readonly life: 'ALIVE' | 'DEAD';
-  readonly visibility: 'HIDDEN' | 'REVEALED';
-}
+export type CardRuntimeState =
+  | {
+      readonly life: 'ALIVE';
+      readonly visibility: 'HIDDEN' | 'REVEALED';
+    }
+  | {
+      readonly life: 'DEAD';
+      readonly visibility: 'HIDDEN' | 'REVEALED';
+    };
 
 /** Phân loại các effect có thể cùng tồn tại và tác động lên một target card. */
 export enum CardEffectKind {
@@ -145,8 +151,9 @@ export function createInitialCard(
 
 /**
  * Áp dụng một `CardEvent` theo kiểu immutable và trả về card state kế tiếp.
- * Death/revive giữ nguyên visibility và đồng thời dọn effect cũ để effect của
- * lifecycle trước không rò sang lifecycle mới. Reveal giữ nguyên lifecycle.
+ * Lifecycle event chỉ thay đổi đúng trục nó đại diện: `REVEAL` giữ nguyên life,
+ * còn `ELIMINATE`/`REVIVE` giữ nguyên visibility. Death/revive đồng thời dọn
+ * effect cũ để effect của lifecycle trước không rò sang lifecycle mới.
  *
  * @throws Khi áp effect lên card đã chết hoặc dùng trùng effect ID.
  */
@@ -154,10 +161,7 @@ export function transitionCard(card: GameCard, event: CardEvent): GameCard {
   switch (event.type) {
     case 'REVEAL':
       if (card.state.visibility === 'REVEALED') return card;
-      return {
-        ...card,
-        state: { life: card.state.life, visibility: 'REVEALED' },
-      };
+      return { ...card, state: { ...card.state, visibility: 'REVEALED' } };
 
     case 'ELIMINATE':
       if (card.state.life === 'DEAD') return card;

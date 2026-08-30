@@ -53,6 +53,23 @@ export type DefenseOrder =
     };
 
 /**
+ * Lựa chọn đã khóa trong Purge phase từ Vòng 6.
+ *
+ * Rule được giữ trong order để snapshot có thể tự mô tả cách resolve. `REVEAL`
+ * cho phép target `null` khi player không còn card sống đang ẩn; `SWAP` cần một
+ * card bên mình và một card đối thủ.
+ */
+export type PurgeOrder =
+  | { readonly rule: 'CUT'; readonly targetId: CardId }
+  | {
+      readonly rule: 'SWAP';
+      readonly ownTargetId: CardId;
+      readonly opponentTargetId: CardId;
+    }
+  | { readonly rule: 'REVEAL'; readonly targetId: CardId | null }
+  | { readonly rule: 'LOCK'; readonly targetId: CardId };
+
+/**
  * Các submission đang chờ resolution của một player.
  *
  * `null` nghĩa là player chưa khóa lựa chọn cho slot tương ứng. Day action
@@ -62,6 +79,7 @@ export interface PlayerSubmissionState {
   readonly council: CouncilOrder | null;
   readonly night: NightOrder | null;
   readonly defense: DefenseOrder | null;
+  readonly purge: PurgeOrder | null;
   readonly finalGuess: CardRole | null;
 }
 
@@ -135,6 +153,7 @@ export function createInitialPlayerState(
       council: null,
       night: null,
       defense: null,
+      purge: null,
       finalGuess: null,
     },
     specialAbilities: [
