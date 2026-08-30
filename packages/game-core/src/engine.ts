@@ -32,6 +32,7 @@ import {
   transitionGameState,
 } from './game-state';
 import { getActivePhasePlayer, type GamePhaseState } from './phase-machine';
+import { serializePlayerView, type GamePlayerView } from './player-view';
 
 /** GameState v0.2 kèm public log tạm phục vụ adapter contract v0.1. */
 export interface MasterGameState extends GameState {
@@ -131,6 +132,11 @@ export class GameEngine {
   /** Gửi một event cấp game/phase vào authoritative state machine. */
   public send(event: GameStateEvent): void {
     this.state = transitionGameState(this.state, event);
+  }
+
+  /** Tạo player view v0.2 đã lọc theo quyền biết của viewer. */
+  public getAuthoritativePlayerView(playerId: PlayerId): GamePlayerView {
+    return serializePlayerView(this.state, playerId);
   }
 
   /**

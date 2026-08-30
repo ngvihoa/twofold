@@ -540,22 +540,30 @@ Không tự loại Thanh trừng/Calamity khỏi v0.2 trong lúc migration. Prot
 
 Không gửi master state trực tiếp cho client.
 
+> **Tiến độ:** DEV-02C đã triển khai serializer nội bộ tại
+> `packages/game-core/src/player-view.ts`. Serializer tách private/public card,
+> chỉ công khai trạng thái opponent đã khóa submission và loại `effect.id`,
+> `effect.source` khỏi view để không rò Night source. Contract Zod/wire trong
+> `packages/shared-types` vẫn thuộc PR migration tiếp theo.
+
 ### 11.1. Public card
 
 ```ts
 interface PublicCardView {
   id: CardId;
   position: number;
-  alive: boolean;
-  revealed: boolean;
+  owner: PlayerId;
+  state: CardRuntimeState;
   role: RoleId | null;
-  shielded: boolean;
-  stagedAsSource: boolean;
-  councilEligible: boolean;
+  effects: VisibleCardEffect[];
 }
 ```
 
-`alive: false` không suy ra `revealed: true`. Khi `revealed: false`, `role` bắt buộc là `null` kể cả card đã chết.
+`life: 'DEAD'` không suy ra `visibility: 'REVEALED'`. Khi visibility là
+`HIDDEN`, `role` bắt buộc là `null` kể cả card đã chết. View chỉ gửi effect
+`kind`, `appliedRound`, `expires`; không gửi effect ID hoặc source. Các field
+action-derived như `councilEligible` sẽ được bổ sung từ validation layer thay vì
+lưu hoặc suy diễn sớm trong serializer.
 
 ### 11.2. Private player view
 
