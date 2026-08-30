@@ -68,6 +68,9 @@ export function dispatchPlayerAction(
   }
 
   switch (action.type) {
+    case 'SETUP_REORDER':
+      return reorderSetupBoard(state, action.playerId, action.order);
+
     case 'SETUP_LOCK': {
       assertPhase(state, 'SETUP');
       if (state.players[action.playerId].setup.status === 'LOCKED') {
@@ -101,6 +104,40 @@ export function dispatchPlayerAction(
     case 'FINAL_GUESS_SUBMIT':
       return submitFinalGuess(state, action.playerId, action.guess);
   }
+}
+
+function reorderSetupBoard(
+  state: GameState,
+  playerId: PlayerId,
+  order: Extract<PlayerGameAction, { readonly type: 'SETUP_REORDER' }>['order']
+): GameState {
+  assertPhase(state, 'SETUP');
+  const player = state.players[playerId];
+  if (player.setup.status !== 'ARRANGING') {
+    throw new RuleValidationError(`${playerId} đã khóa Setup.`);
+  }
+
+  const currentIds = player.board.map((card) => card.occupant.id);
+  if (
+    order.length !== currentIds.length ||
+    new Set(order).size !== currentIds.length ||
+    order.some((instanceId) => !currentIds.includes(instanceId))
+  ) {
+    throw new RuleValidationError(
+      'Setup order phải chứa đúng toàn bộ card instance hiện có, không trùng lặp.'
+    );
+  }
+
+  const occupants = new Map(
+    player.board.map((card) => [card.occupant.id, card.occupant] as const)
+  );
+  return updatePlayer(state, playerId, (current) => ({
+    ...current,
+    board: current.board.map((slot, index) => ({
+      ...slot,
+      occupant: occupants.get(order[index])!,
+    })),
+  }));
 }
 
 function resolveDayAction(

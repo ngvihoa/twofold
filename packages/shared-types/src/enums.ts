@@ -77,6 +77,7 @@ export enum ActionType {
 }
 
 export enum PlayerActionType {
+  SETUP_REORDER = 'SETUP_REORDER',                            // Sắp thứ tự card instance trước khi khóa
   SETUP_LOCK = 'SETUP_LOCK',                                  // Khóa setup (chọn bài xong)
   DAY_SUBMIT = 'DAY_SUBMIT',                                  // Submit hành động ngày  
   COUNCIL_ACCUSATION_SUBMIT = 'COUNCIL_ACCUSATION_SUBMIT',    // Submit cáo buộc hội đồng

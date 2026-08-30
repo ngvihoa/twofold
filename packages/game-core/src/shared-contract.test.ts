@@ -18,7 +18,10 @@ import { appendGameEvents } from './game-events';
 import { serializePlayerView } from './player-view';
 import { createInitialPlayerState } from './players';
 import { STANDARD_DECK } from './roles';
-import type { PlayerGameAction as CorePlayerGameAction } from './rule-pipeline';
+import {
+  dispatchPlayerAction,
+  type PlayerGameAction as CorePlayerGameAction,
+} from './rule-pipeline';
 
 function createStandardGame() {
   const playerA = createInitialPlayerState(
@@ -42,6 +45,11 @@ function createStandardGame() {
 describe('shared-types ruleset v0.2 contract', () => {
   it('parses every action variant produced for the core pipeline', () => {
     const actions: readonly CorePlayerGameAction[] = [
+      {
+        type: 'SETUP_REORDER',
+        playerId: PlayerId.PLAYER_A,
+        order: ['A:10', 'A:9', 'A:8', 'A:7', 'A:6', 'A:5', 'A:4', 'A:3', 'A:2', 'A:1'],
+      },
       { type: 'SETUP_LOCK', playerId: PlayerId.PLAYER_A },
       {
         type: 'DAY_SUBMIT',
@@ -100,6 +108,36 @@ describe('shared-types ruleset v0.2 contract', () => {
         payload: actions[0],
       }).success
     ).toBe(true);
+  });
+
+  it('reorders card occupants during Setup before the player locks', () => {
+    const game = createStandardGame();
+    const reversed = [...game.players[PlayerId.PLAYER_A].board]
+      .reverse()
+      .map((card) => card.occupant.id) as [
+      'A:10',
+      'A:9',
+      'A:8',
+      'A:7',
+      'A:6',
+      'A:5',
+      'A:4',
+      'A:3',
+      'A:2',
+      'A:1',
+    ];
+    const reordered = dispatchPlayerAction(game, {
+      type: 'SETUP_REORDER',
+      playerId: PlayerId.PLAYER_A,
+      order: reversed,
+    });
+
+    expect(reordered.players[PlayerId.PLAYER_A].board[0].occupant.id).toBe('A:10');
+    const locked = dispatchPlayerAction(reordered, {
+      type: 'SETUP_LOCK',
+      playerId: PlayerId.PLAYER_A,
+    });
+    expect(locked.players[PlayerId.PLAYER_A].setup.status).toBe('LOCKED');
   });
 
   it('parses the real filtered player view emitted by game-core', () => {

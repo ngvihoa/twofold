@@ -210,6 +210,22 @@ export type PurgeOrder = z.infer<typeof PurgeOrderSchema>;
 
 export const PlayerGameActionSchema = z.discriminatedUnion('type', [
   z.object({
+    type: z.literal('SETUP_REORDER'),
+    playerId: z.nativeEnum(PlayerId),
+    order: z.tuple([
+      CardInstanceIdSchema,
+      CardInstanceIdSchema,
+      CardInstanceIdSchema,
+      CardInstanceIdSchema,
+      CardInstanceIdSchema,
+      CardInstanceIdSchema,
+      CardInstanceIdSchema,
+      CardInstanceIdSchema,
+      CardInstanceIdSchema,
+      CardInstanceIdSchema,
+    ]),
+  }),
+  z.object({
     type: z.literal('SETUP_LOCK'),
     playerId: z.nativeEnum(PlayerId),
   }),

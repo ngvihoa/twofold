@@ -1,5 +1,5 @@
 import readline from "node:readline";
-import { chatSnapshot, createGame, dispatch, privateView, publicView, ROLE_DEFS } from "./engine.mjs";
+import { chatSnapshot, createGame, dispatch, privateView, publicView, ROLE_DEFS } from "./core-adapter.mjs";
 
 const args = process.argv.slice(2);
 const option = (name, fallback) => {

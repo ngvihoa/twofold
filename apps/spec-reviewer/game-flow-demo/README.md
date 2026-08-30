@@ -1,4 +1,4 @@
-# PROTOTYPE - Twofold chat playtest
+# Twofold game-flow reviewer
 
 Prototype này trả lời một câu hỏi: nhịp `Bình minh -> Thanh trừng (V6+) -> Ban ngày -> Vote (V2+) -> khóa lệnh đêm -> Phòng thủ -> xử lý đêm` có tạo ra đủ thông tin để phản ứng mà không biến phòng thủ thành đáp án hoàn hảo hay không?
 
@@ -8,7 +8,13 @@ Trước Vòng 1, mỗi bên bí mật sắp xếp thứ tự 10 lá rồi khóa
 
 Bản web hiện là chế độ một người: người chơi điều khiển bên A, còn B là bot local. Bot tự xếp đội hình và chỉ ra quyết định từ thông tin công khai cùng kết quả Tiên tri riêng của chính nó.
 
-Đây là code throwaway. State chỉ nằm trong bộ nhớ và biến mất khi thoát.
+Rule state và resolution hiện chạy bằng `@twofold/game-core`. File
+`core-adapter.mjs` chỉ chiếu authoritative state về shape presentation cũ để
+giữ lại UI/animation trong giai đoạn migrate; state vẫn chỉ nằm trong bộ nhớ và
+biến mất khi thoát.
+
+`engine.mjs` không còn được UI hoặc CLI sử dụng. Nó tạm được giữ làm prototype
+tham chiếu cho parity test và sẽ bị xóa sau khi adapter hoàn tất audit consumer.
 
 ## Chạy
 
@@ -18,13 +24,19 @@ npm run prototype:chat -- --seat=A --seed=twofold-01
 
 ### Bản web trực quan
 
-Khi local server đang chạy, mở:
+Chạy reviewer bằng Vite:
+
+```bash
+pnpm --filter @twofold/spec-reviewer dev
+```
+
+Sau đó mở:
 
 ```text
 http://127.0.0.1:4173/game-flow-demo/ui.html
 ```
 
-Bố cục A — Bàn đối đầu là phương án duy nhất đã được giữ lại. Trên desktop, toàn bộ bàn được khóa trong một màn hình: khu trái chỉ gồm đội B, card đã lộ ở giữa và đội A; diễn biến nằm góc phải trên, còn hướng dẫn/thao tác được neo ở góc phải dưới. Toàn bộ state vẫn chỉ nằm trong bộ nhớ của tab.
+Bố cục A — Bàn đối đầu là phương án duy nhất đã được giữ lại. Trên desktop, toàn bộ bàn được khóa trong một màn hình: khu trái chỉ gồm đội B, card đã lộ ở giữa và đội A; diễn biến nằm góc phải trên, còn hướng dẫn/thao tác được neo ở góc phải dưới. UI gửi action qua adapter; không tự resolve game rule.
 
 Ánh sáng sân đổi theo nhịp Ngày, Chạng vạng và Đêm. Sau khi xử lý lệnh đêm, UI khóa tương tác trong 3 giây Bình minh để quét sáng và công khai kết quả trước khi bước sang lượt mới.
 

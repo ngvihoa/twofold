@@ -908,11 +908,18 @@ Không đưa vào XState phía frontend:
 
 ### PR 3 — Spec reviewer adapter
 
-- [ ] Cho demo import `game-core`.
+- [x] Cho demo import `game-core` qua presentation adapter.
 - [ ] Bot chỉ sử dụng public view và private view của chính nó.
-- [ ] Giữ animation/presentation hiện tại.
-- [ ] Chạy parity tests.
+- [x] Giữ animation/presentation hiện tại, gồm deferred Dawn sequence.
+- [x] Chạy prototype parity và adapter integration tests.
 - [ ] Xóa engine `.mjs` trùng lặp sau khi parity pass.
+
+> Tiến độ 30/08/2026: UI và CLI đã chuyển sang `core-adapter.mjs`; adapter map
+> action cũ sang shared `PlayerGameAction`, derive presentation log từ public
+> structured events và giữ Night outcome trước/sau để phát animation. Reviewer
+> dùng Vite để bundle workspace packages. Prototype engine chỉ còn được import
+> bởi regression test. Bot information-boundary audit vẫn là bước kế tiếp trước
+> khi xóa prototype.
 
 ### PR 4 — Web integration
 
