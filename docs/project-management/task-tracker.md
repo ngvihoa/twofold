@@ -41,8 +41,8 @@ Thứ tự trong mỗi nhóm là thứ tự làm. Chỉ kéo tối đa hai task 
 
 | ID | Task | Trạng thái | Điều kiện hoàn thành | Phụ thuộc |
 |---|---|---|---|---|
-| DEV-02A | Cho `game-core` biểu diễn bài chết nhưng chưa lộ | Tuần này | `life` và `visibility` độc lập; eliminate/revive giữ đúng visibility; unit test cho bài ẩn và bài đã lộ | ADR-0004 |
-| DEV-02B | Dựng xương sống phase v0.2 tới Vòng 6 | Tuần này | Test tất định đi qua Setup → Day A/B → Council từ Vòng 2 → Night/Defense/Dawn → Purge Vòng 6; role có thể Pass | DEV-02A, GD-08 |
+| DEV-02A | Cho `game-core` biểu diễn bài chết nhưng chưa lộ | Xong | `life` và `visibility` độc lập; eliminate/revive giữ đúng visibility; unit test cho bài ẩn và bài đã lộ | ADR-0004 |
+| DEV-02B | Dựng xương sống phase v0.2 tới Vòng 6 | Cần kiểm chứng | Test tất định đi qua Setup → Day A/B → Council từ Vòng 2 → Night/Defense/Dawn → Purge Vòng 6; role có thể Pass | DEV-02A, GD-08 |
 | DEV-02C | Tạo serializer view riêng cho A và B | Cần kiểm chứng | Test chứng minh role bài úp, target đêm và Seer intel không rò sang view đối thủ | DEV-02A |
 | DEV-02D | Định nghĩa structured event cho presentation | Cần kiểm chứng | Fixture có thứ tự reveal source → effect → death/revive → Dawn complete; core không chứa duration animation | DEV-02B |
 
@@ -96,7 +96,7 @@ Thứ tự trong mỗi nhóm là thứ tự làm. Chỉ kéo tối đa hai task 
 | Khu vực | Bằng chứng hiện có | Kết luận |
 |---|---|---|
 | Game-flow demo | Full loop local, bot B, UI/motion gameplay, match clock và mirrored opening deal | Playtest/Review; không phải production multiplayer |
-| `packages/game-core` | Model role/card/player và một số test nền | Đang làm; chưa có phase machine v0.2 và đang ép card chết phải lộ |
+| `packages/game-core` | Model role/card/player; lifecycle/visibility độc lập và unit test dead-hidden | Đang làm; DEV-02A xong, chưa có phase machine v0.2 |
 | `packages/shared-types` | Enum/schema/room và WebSocket DTO sơ bộ | Đang làm; chưa có action/view/event v0.2 đầy đủ |
 | `apps/web` | Home/room/play routes với mock state | Graybox/scaffold; chưa nối authoritative server, còn random outcome |
 | Human playtest | Chưa có record 3–5 trận theo build hiện tại | Chưa xác minh cân bằng và comprehension |

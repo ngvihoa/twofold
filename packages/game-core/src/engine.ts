@@ -168,7 +168,9 @@ export class GameEngine {
     const isCorrect = targetCard.role.id === guessedRole;
 
     if (isCorrect) {
-      const eliminatedCard = transitionCard(targetCard, { type: 'ELIMINATE' });
+      // Treo cổ đoán đúng có rule lộ riêng; ELIMINATE tự nó không được làm lộ card.
+      const revealedCard = transitionCard(targetCard, { type: 'REVEAL' });
+      const eliminatedCard = transitionCard(revealedCard, { type: 'ELIMINATE' });
       this.state.players[opponentId] = replacePlayerCard(opponent, eliminatedCard);
       this.addLog(
         actor,

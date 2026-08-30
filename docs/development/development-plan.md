@@ -14,7 +14,7 @@
 | `apps/spec-reviewer/game-flow-demo` | Full-loop local prototype, bot B, gameplay UI/motion và bộ role v0.2 | Không phải authoritative multiplayer và chưa có human playtest có ghi nhận |
 | `apps/web` | TanStack routes Home/Room/Play và mock UI | Chưa có room server/realtime hoàn chỉnh; Play vẫn tự chuyển state và dùng random outcome |
 | `packages/shared-types` | Enum, schema, room contract và WebSocket DTO sơ bộ | Chưa có action/view/event contract v0.2 đầy đủ |
-| `packages/game-core` | Model card, role, ability, effect và player nền | Chưa có phase machine v0.2; model hiện chưa biểu diễn được bài chết nhưng còn ẩn |
+| `packages/game-core` | Model card, role, ability, effect và player nền; đã hỗ trợ bài chết nhưng còn ẩn | Chưa có phase machine v0.2 và player-view serializer v0.2 |
 
 Lát triển khai kế tiếp không port toàn bộ prototype. Dev làm lần lượt: (1) sửa lifecycle/visibility theo ADR-0004, (2) phase spine tới Purge Vòng 6, (3) player-view serializer, (4) structured presentation events. Owner và acceptance criteria nằm tại [Task Tracker](../project-management/task-tracker.md).
 

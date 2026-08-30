@@ -105,7 +105,7 @@ describe('ruleset v0.2 card state', () => {
     });
   });
 
-  it('enforces lifecycle transitions and clears target effects on death', () => {
+  it('eliminates and revives a hidden card without revealing it', () => {
     const initial = createInitialCard(PlayerId.PLAYER_A, 1, CardRole.VILLAGER);
     const protectedCard = transitionCard(initial, {
       type: 'APPLY_EFFECT',
@@ -113,14 +113,33 @@ describe('ruleset v0.2 card state', () => {
     });
     const deadCard = transitionCard(protectedCard, { type: 'ELIMINATE' });
 
-    expect(deadCard.state).toEqual({ life: 'DEAD', visibility: 'REVEALED' });
+    expect(deadCard.state).toEqual({ life: 'DEAD', visibility: 'HIDDEN' });
     expect(deadCard.effects).toEqual([]);
     expect(() =>
       transitionCard(deadCard, { type: 'APPLY_EFFECT', effect: protectionEffect })
     ).toThrow('Không thể áp dụng effect lên card đã chết.');
 
     const revivedCard = transitionCard(deadCard, { type: 'REVIVE' });
+    expect(revivedCard.state).toEqual({ life: 'ALIVE', visibility: 'HIDDEN' });
+  });
+
+  it('preserves public visibility through elimination and revival', () => {
+    const initial = createInitialCard(PlayerId.PLAYER_A, 1, CardRole.VILLAGER);
+    const revealedCard = transitionCard(initial, { type: 'REVEAL' });
+    const deadCard = transitionCard(revealedCard, { type: 'ELIMINATE' });
+
+    expect(deadCard.state).toEqual({ life: 'DEAD', visibility: 'REVEALED' });
+
+    const revivedCard = transitionCard(deadCard, { type: 'REVIVE' });
     expect(revivedCard.state).toEqual({ life: 'ALIVE', visibility: 'REVEALED' });
+  });
+
+  it('reveals a dead hidden card without reviving it', () => {
+    const initial = createInitialCard(PlayerId.PLAYER_A, 1, CardRole.VILLAGER);
+    const deadCard = transitionCard(initial, { type: 'ELIMINATE' });
+    const revealedCorpse = transitionCard(deadCard, { type: 'REVEAL' });
+
+    expect(revealedCorpse.state).toEqual({ life: 'DEAD', visibility: 'REVEALED' });
   });
 
   it('rejects duplicate effect identities', () => {

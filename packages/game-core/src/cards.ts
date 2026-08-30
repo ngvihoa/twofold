@@ -13,18 +13,13 @@ export type CardId = `${'A' | 'B'}${CardPosition}`;
 /**
  * Lifecycle state cốt lõi của card, tách khỏi các effect tạm thời.
  *
- * Discriminated union loại bỏ trạng thái vô nghĩa `DEAD + HIDDEN`: card chết
- * luôn được reveal, còn card sống có thể hidden hoặc revealed.
+ * `life` và `visibility` là hai trục độc lập. Một card có thể chết khi vẫn úp;
+ * chỉ rule/event reveal rõ ràng mới được phép công khai role của card đó.
  */
-export type CardRuntimeState =
-  | {
-      readonly life: 'ALIVE';
-      readonly visibility: 'HIDDEN' | 'REVEALED';
-    }
-  | {
-      readonly life: 'DEAD';
-      readonly visibility: 'REVEALED';
-    };
+export interface CardRuntimeState {
+  readonly life: 'ALIVE' | 'DEAD';
+  readonly visibility: 'HIDDEN' | 'REVEALED';
+}
 
 /** Phân loại các effect có thể cùng tồn tại và tác động lên một target card. */
 export enum CardEffectKind {
@@ -150,8 +145,8 @@ export function createInitialCard(
 
 /**
  * Áp dụng một `CardEvent` theo kiểu immutable và trả về card state kế tiếp.
- * Death/revive đồng thời dọn effect cũ để effect của lifecycle trước không rò
- * sang lifecycle mới.
+ * Death/revive giữ nguyên visibility và đồng thời dọn effect cũ để effect của
+ * lifecycle trước không rò sang lifecycle mới. Reveal giữ nguyên lifecycle.
  *
  * @throws Khi áp effect lên card đã chết hoặc dùng trùng effect ID.
  */
@@ -159,13 +154,16 @@ export function transitionCard(card: GameCard, event: CardEvent): GameCard {
   switch (event.type) {
     case 'REVEAL':
       if (card.state.visibility === 'REVEALED') return card;
-      return { ...card, state: { life: 'ALIVE', visibility: 'REVEALED' } };
+      return {
+        ...card,
+        state: { life: card.state.life, visibility: 'REVEALED' },
+      };
 
     case 'ELIMINATE':
       if (card.state.life === 'DEAD') return card;
       return {
         ...card,
-        state: { life: 'DEAD', visibility: 'REVEALED' },
+        state: { life: 'DEAD', visibility: card.state.visibility },
         effects: [],
       };
 
@@ -173,7 +171,7 @@ export function transitionCard(card: GameCard, event: CardEvent): GameCard {
       if (card.state.life === 'ALIVE') return card;
       return {
         ...card,
-        state: { life: 'ALIVE', visibility: 'REVEALED' },
+        state: { life: 'ALIVE', visibility: card.state.visibility },
         effects: [],
       };
 

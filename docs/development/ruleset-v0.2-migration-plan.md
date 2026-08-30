@@ -169,7 +169,7 @@ Guard chỉ bị cấm chọn cùng target ở hai vòng liên tiếp. State lư
 
 ## 4. Card State
 
-> **Tiến độ:** Đã triển khai model nội bộ trong `packages/game-core` ngày 29/08/2026; tổng quát hóa effect source/Council lock và chuyển runtime ability state về dưới `RoleState` ngày 30/08/2026. Guard hiện không có charge, chỉ giữ target/round gần nhất. Chưa migrate `packages/shared-types` hoặc `apps/web`; core đang giữ legacy projection tạm thời cho contract v0.1.
+> **Tiến độ:** Đã triển khai model nội bộ trong `packages/game-core` ngày 29/08/2026; tổng quát hóa effect source/Council lock và chuyển runtime ability state về dưới `RoleState` ngày 30/08/2026. DEV-02A hoàn thành ngày 30/08: lifecycle/visibility độc lập, eliminate/revive giữ visibility và reveal giữ lifecycle. Guard hiện không có charge, chỉ giữ target/round gần nhất. Chưa migrate `packages/shared-types` hoặc `apps/web`; core đang giữ legacy projection tạm thời cho contract v0.1.
 
 ### 4.1. Runtime state
 
@@ -688,6 +688,7 @@ Không đưa vào XState phía frontend:
 ### PR 2 — Game core v0.2
 
 - [x] Card runtime state và active-effect collection nội bộ.
+- [x] Hỗ trợ `DEAD + HIDDEN`; eliminate/revive không tự reveal và Treo cổ dùng reveal rule riêng.
 - [x] Role-owned ability state và generic `ABILITY_USED` transition.
 - [x] Legacy projection để chưa tác động frontend web.
 - [ ] Port engine prototype sang TypeScript.
