@@ -501,7 +501,9 @@ revenge chain. Việc một bên submit sớm không được kích hoạt resol
 > structured events và tự chuyển phase. Poison tiêu charge kể cả khi bị chặn;
 > revive giữ visibility; Day death lộ victim. Council resolve đồng thời từ bốn
 > slot, hỗ trợ đoán role, reveal voter, `COUNCIL_LOCK`, Wolf Guard rescue và
-> information-safe lock view. Blood Moon, Purge và Final Duel guess chưa được port.
+> information-safe lock view. Blood Moon đã được port theo player-owned ability:
+> mở từ Vòng 6, chỉ đánh target đã lộ, cooldown hai vòng, không có source card và
+> vẫn vào cooldown khi bị Guard chặn. Purge và Final Duel guess chưa được port.
 
 Thay `USE_SKILL` chung bằng discriminated union cụ thể:
 

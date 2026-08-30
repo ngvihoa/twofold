@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { AbilityId, CardRole, PlayerId } from '@twofold/shared-types';
 import { createInitialCard, isCardAlive, transitionCard } from './cards';
 import { createInitialGameState, type GameState } from './game-state';
-import { createInitialPlayerState } from './players';
+import { PlayerSpecialAbilityId, createInitialPlayerState } from './players';
 import { dispatchPlayerAction, RuleValidationError } from './rule-pipeline';
 import { getRoleAbility } from './roles';
 
@@ -90,6 +90,27 @@ function enterCouncil(state = createPipelineGame()): GameState {
     playerId: PlayerId.PLAYER_B,
     action: { type: 'PASS' },
   });
+}
+
+function enterBloodMoonNight(round = 6): GameState {
+  const state = enterNight();
+  const revealedTarget = transitionCard(
+    state.players[PlayerId.PLAYER_B].board[0],
+    { type: 'REVEAL' }
+  );
+  return {
+    ...state,
+    round,
+    players: {
+      ...state.players,
+      [PlayerId.PLAYER_B]: {
+        ...state.players[PlayerId.PLAYER_B],
+        board: state.players[PlayerId.PLAYER_B].board.map((card) =>
+          card.id === revealedTarget.id ? revealedTarget : card
+        ),
+      },
+    },
+  };
 }
 
 describe('ruleset v0.2 validation/resolution pipeline', () => {
@@ -540,6 +561,171 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
     expect(state.events.find((event) => event.type === 'CARD_ELIMINATED')).toMatchObject(
       { cardId: 'B1' }
     );
+  });
+
+  it('rejects Blood Moon before unlock, during cooldown, or against a hidden target', () => {
+    const early = enterBloodMoonNight(1);
+    expect(() =>
+      dispatchPlayerAction(early, {
+        type: 'NIGHT_SUBMIT',
+        playerId: PlayerId.PLAYER_A,
+        order: { type: 'BLOOD_MOON', targetId: 'B1' },
+      })
+    ).toThrow('Blood Moon chỉ mở từ Vòng 6.');
+
+    const cooldownBase = enterBloodMoonNight(7);
+    const cooldown = {
+      ...cooldownBase,
+      players: {
+        ...cooldownBase.players,
+        [PlayerId.PLAYER_A]: {
+          ...cooldownBase.players[PlayerId.PLAYER_A],
+          specialAbilities: [
+            {
+              abilityId: PlayerSpecialAbilityId.BLOOD_MOON,
+              unlockRound: 6,
+              cooldownRounds: 2,
+              readyRound: 8,
+            },
+          ],
+        },
+      },
+    };
+    expect(() =>
+      dispatchPlayerAction(cooldown, {
+        type: 'NIGHT_SUBMIT',
+        playerId: PlayerId.PLAYER_A,
+        order: { type: 'BLOOD_MOON', targetId: 'B1' },
+      })
+    ).toThrow('Blood Moon hồi lại ở Vòng 8.');
+
+    const hidden = { ...enterNight(), round: 6 };
+    expect(() =>
+      dispatchPlayerAction(hidden, {
+        type: 'NIGHT_SUBMIT',
+        playerId: PlayerId.PLAYER_A,
+        order: { type: 'BLOOD_MOON', targetId: 'B1' },
+      })
+    ).toThrow('Blood Moon chỉ đánh được role đã lộ.');
+  });
+
+  it('resolves Blood Moon without a source card and starts its cooldown', () => {
+    let state = enterBloodMoonNight();
+    state = dispatchPlayerAction(state, {
+      type: 'NIGHT_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      order: { type: 'BLOOD_MOON', targetId: 'B1' },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'NIGHT_SUBMIT',
+      playerId: PlayerId.PLAYER_B,
+      order: { type: 'PASS' },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'DEFENSE_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      order: { type: 'PASS' },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'DEFENSE_SUBMIT',
+      playerId: PlayerId.PLAYER_B,
+      order: { type: 'PASS' },
+    });
+
+    expect(state.players[PlayerId.PLAYER_B].board[0].state).toEqual({
+      life: 'DEAD',
+      visibility: 'REVEALED',
+    });
+    expect(state.players[PlayerId.PLAYER_A].specialAbilities[0].readyRound).toBe(8);
+    expect(
+      state.players[PlayerId.PLAYER_A].board.every(
+        (card) => card.state.visibility === 'HIDDEN'
+      )
+    ).toBe(true);
+    expect(
+      state.events.find(
+        (event) =>
+          event.type === 'ABILITY_RESOLVED' &&
+          event.abilityId === PlayerSpecialAbilityId.BLOOD_MOON
+      )
+    ).toMatchObject({ sourceCardId: null, targetCardId: 'B1' });
+    expect(
+      state.events.find(
+        (event) =>
+          event.type === 'CARD_ELIMINATED' && event.cardId === 'B1'
+      )
+    ).toMatchObject({
+      cause: {
+        type: 'PLAYER_ABILITY',
+        abilityId: PlayerSpecialAbilityId.BLOOD_MOON,
+        playerId: PlayerId.PLAYER_A,
+      },
+    });
+    expect(state.events.some((event) => event.type === 'CARD_REVEALED')).toBe(false);
+  });
+
+  it('consumes Blood Moon cooldown when Guard protection blocks it', () => {
+    let state = enterBloodMoonNight();
+    state = dispatchPlayerAction(state, {
+      type: 'NIGHT_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      order: { type: 'BLOOD_MOON', targetId: 'B1' },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'NIGHT_SUBMIT',
+      playerId: PlayerId.PLAYER_B,
+      order: { type: 'PASS' },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'DEFENSE_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      order: { type: 'PASS' },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'DEFENSE_SUBMIT',
+      playerId: PlayerId.PLAYER_B,
+      order: { type: 'PROTECT', sourceId: 'B2', targetId: 'B1' },
+    });
+
+    expect(isCardAlive(state.players[PlayerId.PLAYER_B].board[0])).toBe(true);
+    expect(state.players[PlayerId.PLAYER_A].specialAbilities[0].readyRound).toBe(8);
+    expect(
+      state.events.some(
+        (event) => event.type === 'EFFECT_BLOCKED' && event.targetCardId === 'B1'
+      )
+    ).toBe(true);
+  });
+
+  it('includes Blood Moon in simultaneous Night deaths', () => {
+    let state = enterBloodMoonNight();
+    state = dispatchPlayerAction(state, {
+      type: 'NIGHT_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      order: { type: 'BLOOD_MOON', targetId: 'B1' },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'NIGHT_SUBMIT',
+      playerId: PlayerId.PLAYER_B,
+      order: {
+        type: 'USE_ABILITY',
+        sourceId: 'B4',
+        abilityId: AbilityId.WEREWOLF_ATTACK,
+        targetId: 'A2',
+      },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'DEFENSE_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      order: { type: 'PASS' },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'DEFENSE_SUBMIT',
+      playerId: PlayerId.PLAYER_B,
+      order: { type: 'PASS' },
+    });
+
+    expect(isCardAlive(state.players[PlayerId.PLAYER_A].board[1])).toBe(false);
+    expect(isCardAlive(state.players[PlayerId.PLAYER_B].board[0])).toBe(false);
   });
 
   it('consumes Witch poison even when Guard protection blocks it', () => {

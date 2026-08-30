@@ -16,6 +16,7 @@ import {
   type CouncilReactionOrder,
   type DefenseOrder,
   type NightOrder,
+  PlayerSpecialAbilityId,
   type PlayerState,
   replacePlayerCard,
 } from './players';
@@ -771,7 +772,32 @@ function submitNightOrder(
 function validateNightOrder(state: GameState, playerId: PlayerId, order: NightOrder): void {
   if (order.type === 'PASS') return;
   if (order.type === 'BLOOD_MOON') {
-    throw new RuleValidationError('Blood Moon resolution chưa được port trong slice này.');
+    const ability = state.players[playerId].specialAbilities.find(
+      (candidate) => candidate.abilityId === PlayerSpecialAbilityId.BLOOD_MOON
+    );
+    if (!ability) {
+      throw new RuleValidationError(`${playerId} không sở hữu Blood Moon.`);
+    }
+    if (state.round < ability.unlockRound) {
+      throw new RuleValidationError(
+        `Blood Moon chỉ mở từ Vòng ${ability.unlockRound}.`
+      );
+    }
+    if (state.round < ability.readyRound) {
+      throw new RuleValidationError(
+        `Blood Moon hồi lại ở Vòng ${ability.readyRound}.`
+      );
+    }
+    const target = getOpponentLivingCard(
+      state,
+      playerId,
+      order.targetId,
+      'Blood Moon target'
+    );
+    if (target.state.visibility !== 'REVEALED') {
+      throw new RuleValidationError('Blood Moon chỉ đánh được role đã lộ.');
+    }
+    return;
   }
 
   const source = getOwnedLivingCard(state, playerId, order.sourceId, 'Night source');
@@ -886,7 +912,44 @@ function resolveNight(state: GameState): GameState {
     const order = nightOrders[playerId];
     if (order.type === 'PASS') continue;
     if (order.type === 'BLOOD_MOON') {
-      throw new Error('Blood Moon order lọt qua validation trước khi được port.');
+      const ability = next.players[playerId].specialAbilities.find(
+        (candidate) => candidate.abilityId === PlayerSpecialAbilityId.BLOOD_MOON
+      );
+      if (!ability) throw new Error(`${playerId} thiếu Blood Moon khi resolve.`);
+      const target = getCard(next, order.targetId);
+      next = updatePlayer(next, playerId, (player) => ({
+        ...player,
+        specialAbilities: player.specialAbilities.map((candidate) =>
+          candidate.abilityId === PlayerSpecialAbilityId.BLOOD_MOON
+            ? {
+                ...candidate,
+                readyRound: state.round + candidate.cooldownRounds,
+              }
+            : candidate
+        ),
+      }));
+      events.push({
+        type: 'ABILITY_RESOLVED',
+        visibility: { type: 'PUBLIC' },
+        abilityId: PlayerSpecialAbilityId.BLOOD_MOON,
+        sourceCardId: null,
+        targetCardId: target.id,
+      });
+      if (hasCardEffect(target, CardEffectKind.PROTECTION)) {
+        events.push({
+          type: 'EFFECT_BLOCKED',
+          visibility: { type: 'PUBLIC' },
+          targetCardId: target.id,
+          effectKind: CardEffectKind.PROTECTION,
+        });
+      } else {
+        pendingDeaths.set(target.id, {
+          type: 'PLAYER_ABILITY',
+          abilityId: PlayerSpecialAbilityId.BLOOD_MOON,
+          playerId,
+        });
+      }
+      continue;
     }
 
     let source = getCard(next, order.sourceId);
