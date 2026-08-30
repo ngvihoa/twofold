@@ -7,6 +7,7 @@ import {
   type CardEffectState,
 } from './cards';
 import { createInitialGameState } from './game-state';
+import { appendGameEvents } from './game-events';
 import { serializePlayerView } from './player-view';
 import { createInitialPlayerState, type PlayerState } from './players';
 
@@ -171,5 +172,27 @@ describe('ruleset v0.2 player view serializer', () => {
     });
     expect('id' in effectView).toBe(false);
     expect('source' in effectView).toBe(false);
+  });
+
+  it('filters private structured events by viewer', () => {
+    const game = appendGameEvents(createViewTestGame(), [
+      {
+        type: 'CARD_REVEALED',
+        visibility: { type: 'PUBLIC' },
+        cardId: 'A1',
+      },
+      {
+        type: 'PRIVATE_INSPECTION_RESULT',
+        visibility: { type: 'PRIVATE', playerId: PlayerId.PLAYER_A },
+        intelId: 'intel-a1-b1-round-1',
+        targetCardId: 'B1',
+        discoveredRole: CardRole.WEREWOLF,
+      },
+    ]);
+
+    expect(serializePlayerView(game, PlayerId.PLAYER_A).events).toHaveLength(2);
+    expect(serializePlayerView(game, PlayerId.PLAYER_B).events.map((event) => event.type)).toEqual(
+      ['CARD_REVEALED']
+    );
   });
 });

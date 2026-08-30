@@ -310,8 +310,8 @@ Bỏ `eliminationSpent`. Budget được mô hình hóa trực tiếp theo phase
 > **Tiến độ:** Đã triển khai `GameState` và phase machine thuần TypeScript trong
 > `packages/game-core` ngày 30/08/2026. State machine dùng discriminated union,
 > từ chối transition sai phase và có deterministic test đi từ Setup tới Purge
-> Vòng 6. `pendingResolution` và structured presentation events thuộc DEV-02D,
-> chưa được thêm vào state ở bước này.
+> Vòng 6. Structured presentation events đã được thêm trong DEV-02D;
+> `pendingResolution` sẽ được bổ sung cùng resolution pipeline khi thực sự cần.
 
 ```ts
 interface GameState {
@@ -322,11 +322,12 @@ interface GameState {
 
   players: Record<PlayerId, PlayerState>;
   result: GameResult | null;
+  events: GameEvent[];
 }
 ```
 
-`pendingResolution` và `events` sẽ được thêm khi triển khai resolution pipeline
-và structured presentation events, không tạo placeholder chưa có hành vi.
+`pendingResolution` sẽ được thêm khi triển khai resolution pipeline, không tạo
+placeholder chưa có hành vi.
 
 Không đưa WebSocket connection, reconnect timer hoặc countdown animation vào authoritative game state. Chúng thuộc room/session state.
 
@@ -588,6 +589,11 @@ Không gửi cho đối thủ:
 ## 12. Events và Log
 
 Core sinh structured event thay vì chuỗi tiếng Việt:
+
+> **Tiến độ:** DEV-02D đã triển khai event stream deterministic tại
+> `packages/game-core/src/game-events.ts`. Event có sequence, round, phase và
+> visibility; player serializer lọc private event. Core không chứa timestamp
+> presentation, delay hoặc animation duration.
 
 ```ts
 interface GameEvent {

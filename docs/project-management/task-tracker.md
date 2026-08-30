@@ -44,7 +44,7 @@ Thứ tự trong mỗi nhóm là thứ tự làm. Chỉ kéo tối đa hai task 
 | DEV-02A | Cho `game-core` biểu diễn bài chết nhưng chưa lộ | Xong | `life` và `visibility` độc lập; eliminate/revive giữ đúng visibility; unit test cho bài ẩn và bài đã lộ | ADR-0004 |
 | DEV-02B | Dựng xương sống phase v0.2 tới Vòng 6 | Xong | Test tất định đi qua Setup → Day A/B → Council từ Vòng 2 → Night/Defense/Dawn → Purge Vòng 6; role có thể Pass | DEV-02A, GD-08 |
 | DEV-02C | Tạo serializer view riêng cho A và B | Xong | Test chứng minh role bài úp, target đêm và Seer intel không rò sang view đối thủ | DEV-02A |
-| DEV-02D | Định nghĩa structured event cho presentation | Cần kiểm chứng | Fixture có thứ tự reveal source → effect → death/revive → Dawn complete; core không chứa duration animation | DEV-02B |
+| DEV-02D | Định nghĩa structured event cho presentation | Xong | Fixture có thứ tự reveal source → effect → death/revive → Dawn complete; core không chứa duration animation | DEV-02B |
 
 ### UI/UX Game
 

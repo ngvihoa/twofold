@@ -6,6 +6,7 @@ import {
   createInitialPhaseMachineState,
   transitionPhase,
 } from './phase-machine';
+import type { GameEvent } from './game-events';
 
 /** Kết quả authoritative khi game kết thúc. */
 export interface GameResult {
@@ -26,6 +27,7 @@ export interface GameState {
   readonly phase: GamePhaseState;
   readonly players: Record<PlayerId, PlayerState>;
   readonly result: GameResult | null;
+  readonly events: readonly GameEvent[];
 }
 
 /** Event mà GameState chấp nhận; setup lock được xử lý trước phase transition. */
@@ -48,6 +50,7 @@ export function createInitialGameState(
     phase: initialPhase.phase,
     players,
     result: null,
+    events: [],
   };
 }
 

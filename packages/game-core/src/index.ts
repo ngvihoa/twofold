@@ -5,3 +5,4 @@ export * from './players';
 export * from './phase-machine';
 export * from './game-state';
 export * from './player-view';
+export * from './game-events';

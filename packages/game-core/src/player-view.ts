@@ -8,6 +8,10 @@ import type {
   GameCard,
 } from './cards';
 import type { GameResult, GameState } from './game-state';
+import {
+  isGameEventVisibleTo,
+  type GameEvent,
+} from './game-events';
 import { getActivePhasePlayer, type GamePhaseState } from './phase-machine';
 import type {
   PlayerSetupState,
@@ -90,6 +94,7 @@ export interface GamePlayerView {
   readonly self: PrivatePlayerView;
   readonly opponent: OpponentPlayerView;
   readonly result: GameResult | null;
+  readonly events: readonly GameEvent[];
 }
 
 /**
@@ -116,6 +121,30 @@ export function serializePlayerView(
     self: serializePrivatePlayer(self),
     opponent: serializeOpponentPlayer(opponent),
     result: state.result ? { ...state.result } : null,
+    events: state.events
+      .filter((event) => isGameEventVisibleTo(event, viewerId))
+      .map(cloneGameEvent),
+  };
+}
+
+function cloneGameEvent(event: GameEvent): GameEvent {
+  if (event.type === 'CARD_ELIMINATED') {
+    return {
+      ...event,
+      visibility: { ...event.visibility },
+      cause: { ...event.cause },
+    };
+  }
+  if (event.type === 'COUNCIL_FAILED') {
+    return {
+      ...event,
+      visibility: { ...event.visibility },
+      voterIds: [...event.voterIds],
+    };
+  }
+  return {
+    ...event,
+    visibility: { ...event.visibility },
   };
 }
 
