@@ -66,6 +66,8 @@ Mở web
 ### 3.3 Bình minh
 
 - Hệ thống công bố các kết quả cần công khai của đêm trước.
+- Lá còn ẩn bị loại trong đêm chết ngay tại vị trí trên tay; không tự di chuyển vào lane công khai và không lộ phe/role.
+- Lá đã lộ trước khi bị loại vẫn nằm ở lane công khai với trạng thái chết.
 - Cập nhật lá bị loại, được bảo vệ, hồi sinh hoặc các trạng thái liên quan.
 - Kiểm tra điều kiện kết thúc trận.
 - Nếu chưa kết thúc, bắt đầu pha Ban ngày của vòng mới.

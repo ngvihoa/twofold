@@ -1,4 +1,4 @@
-import { availableRoleGuesses, beginRound, createGame, dispatch, privateView, publicView, ROLE_DEFS, SPECIAL_CARD } from "./engine.mjs?rev=purge-flow-fix-v1";
+import { availableRoleGuesses, beginRound, createGame, dispatch, privateView, publicView, ROLE_DEFS, SPECIAL_CARD } from "./engine.mjs?rev=hidden-night-death-v1";
 
 const ROLE_ART = {
   villager: "../assets/game/wwo-reference/dan-lang.png",
@@ -283,7 +283,9 @@ function renderWithCardTravel(cardId) {
   const origin = cardId ? document.querySelector(`[data-card-id="${cardId}"]`) : null;
   const originRect = origin?.getBoundingClientRect();
   const ghost = origin?.cloneNode(true);
-  const deferredMoveId = lastMove?.target === cardId && ACTION_EFFECT_KINDS.has(lastMove.kind) ? lastMove.id : null;
+  const deferredMoveId = lastMove && [lastMove.source, lastMove.target].includes(cardId) && ACTION_EFFECT_KINDS.has(lastMove.kind)
+    ? lastMove.id
+    : null;
 
   travelingCardId = originRect ? cardId : null;
   if (originRect && deferredMoveId) deferredCombatMoveId = deferredMoveId;

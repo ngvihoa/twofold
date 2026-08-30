@@ -125,18 +125,20 @@ function reveal(card) {
   card.revealed = true;
 }
 
-function eliminate(state, card, cause) {
+function eliminate(state, card, cause, { revealOnDeath = true } = {}) {
   if (!card.alive) return;
   const owner = state.players[card.id.slice(0, 1)];
   const revengeTarget = card.role === "avenger" ? owner.revengeTarget : null;
   if (card.role === "avenger") owner.revengeTarget = null;
   card.alive = false;
   card.shielded = false;
-  reveal(card);
-  addLog(state, `${card.id} chết do ${cause}. Role: ${ROLE_DEFS[card.role].name}.`);
+  if (revealOnDeath) reveal(card);
+  addLog(state, card.revealed
+    ? `${card.id} chết do ${cause}. Role: ${ROLE_DEFS[card.role].name}.`
+    : `${card.id} chết do ${cause}. Danh tính vẫn ẩn.`);
   if (revengeTarget) {
     const target = cardById(state, revengeTarget);
-    if (target.alive) eliminate(state, target, `báo thù của ${card.id}`);
+    if (target.alive) eliminate(state, target, `báo thù của ${card.id}`, { revealOnDeath });
   }
 }
 
@@ -428,7 +430,7 @@ function submitDay(state, action) {
     source.uses.revive -= 1;
     reveal(source);
     target.alive = true;
-    addLog(state, `${action.seat} dùng Phù thủy hồi sinh ${target.id}. Role hồi sinh vẫn công khai.`);
+    addLog(state, `${action.seat} dùng Phù thủy hồi sinh ${target.id}. Trạng thái công khai của lá được giữ nguyên.`);
     advanceDay(state, action.seat);
     return;
   }
@@ -551,7 +553,7 @@ function resolveNight(state) {
     }
   }
 
-  for (const item of pendingDeaths) eliminate(state, item.target, item.cause);
+  for (const item of pendingDeaths) eliminate(state, item.target, item.cause, { revealOnDeath: false });
   for (const seat of ["A", "B"]) {
     const player = state.players[seat];
     player.defense = null;

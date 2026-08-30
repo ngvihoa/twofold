@@ -12,6 +12,7 @@ Tài liệu ghi các thay đổi role/rule đã được đưa vào prototype. �
 | Bảo vệ | Không tự bảo vệ, không bảo vệ cùng lá hai đêm liên tiếp; khiên không chặn Tiên tri | Prototype | Khả năng chống số lượng attack tăng dần |
 | Kẻ báo thù | Mục tiêu bị đánh dấu có nhãn và sợi chỉ đỏ mờ nối với Kẻ báo thù cho tới Bình minh hoặc khi nguồn chết | Prototype · UI clarity | Đường nối có còn dễ đọc khi nhiều role cùng lộ không |
 | Lệnh đêm | Nguồn và mục tiêu đều giữ kín tới Bình minh; chỉ vị trí có khiên công khai ở Chạng vạng | Prototype | Người chơi có theo dõi được nguyên nhân–kết quả không |
+| Cái chết trong đêm | Lá còn ẩn chết ngay trên tay và tiếp tục giấu cả phe/role; lá đã lộ giữ nguyên thông tin công khai | Prototype · Information rule | Đủ phản hồi mà không khiến người tấn công snowball thông tin không |
 | Thanh trừng | Bắt đầu Vòng 6, chu kỳ Cắt bỏ → Đảo chiến tuyến → Ép lộ diện → Khóa mạch | Prototype | Có giảm thế bị động cuối trận mà không tạo snowball không |
 | Khóa mạch | Lá bị chọn không dùng skill và không làm voter trong vòng hiện tại | Prototype | Có khóa cứng một bên khi số lá ít không |
 

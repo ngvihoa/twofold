@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createGame, dispatch, ROLE_DEFS } from "./engine.mjs";
+import { createGame, dispatch, publicView, ROLE_DEFS } from "./engine.mjs";
 
 function lockSetup(state, seat) {
   return dispatch(state, {
@@ -103,6 +103,52 @@ test("Guard does not block Seer and night sources stay hidden until dawn", () =>
   state = dispatch(state, { type: "night.resolve" });
 
   assert.match(state.players.A.notes.at(-1), new RegExp(`${target.id} là Dân làng`));
+});
+
+test("a hidden card killed at night dies in hand without revealing faction or role", () => {
+  let state = createGame("hidden-night-death");
+  state = lockSetup(state, "A");
+  state = lockSetup(state, "B");
+  state = startRoundOne(state);
+  state.phase = "night-plan";
+
+  const wolf = state.players.A.board.find((card) => card.role === "wolf");
+  const target = state.players.B.board.find((card) => card.role === "villager");
+  state = dispatch(state, { type: "night.submit", seat: "A", kind: "attack", source: wolf.id, target: target.id });
+  state = dispatch(state, { type: "night.submit", seat: "B", kind: "pass" });
+  state = dispatch(state, { type: "defense.submit", seat: "A", pass: true });
+  state = dispatch(state, { type: "defense.submit", seat: "B", pass: true });
+  state = dispatch(state, { type: "night.resolve" });
+
+  const resolvedTarget = state.players.B.board.find((card) => card.id === target.id);
+  const publicTarget = publicView(state).board.B.find((card) => card.id === target.id);
+  assert.equal(resolvedTarget.alive, false);
+  assert.equal(resolvedTarget.revealed, false);
+  assert.equal(publicTarget.role, "?");
+  assert.equal(publicTarget.faction, "?");
+  assert.match(state.log.join("\n"), new RegExp(`${target.id} chết.*Danh tính vẫn ẩn`));
+  assert.doesNotMatch(state.log.join("\n"), new RegExp(`Role: ${ROLE_DEFS[target.role].name}`));
+});
+
+test("a card already revealed before a night kill remains public", () => {
+  let state = createGame("revealed-night-death");
+  state = lockSetup(state, "A");
+  state = lockSetup(state, "B");
+  state.phase = "night-plan";
+
+  const wolf = state.players.A.board.find((card) => card.role === "wolf");
+  const target = state.players.B.board.find((card) => card.role === "villager");
+  target.revealed = true;
+  state = dispatch(state, { type: "night.submit", seat: "A", kind: "attack", source: wolf.id, target: target.id });
+  state = dispatch(state, { type: "night.submit", seat: "B", kind: "pass" });
+  state = dispatch(state, { type: "defense.submit", seat: "A", pass: true });
+  state = dispatch(state, { type: "defense.submit", seat: "B", pass: true });
+  state = dispatch(state, { type: "night.resolve" });
+
+  const publicTarget = publicView(state).board.B.find((card) => card.id === target.id);
+  assert.equal(publicTarget.alive, false);
+  assert.equal(publicTarget.role, ROLE_DEFS[target.role].name);
+  assert.equal(publicTarget.faction, ROLE_DEFS[target.role].faction);
 });
 
 test("Purge lock disables skills and Vote for the current round", () => {
