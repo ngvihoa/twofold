@@ -12,17 +12,35 @@ export type PlayerSetupState =
   | { readonly status: 'LOCKED' };
 
 /**
- * Lựa chọn đã khóa của player trong Council: bỏ qua hoặc buộc tội một target
- * bằng đúng ba voter và một role dự đoán.
+ * Lựa chọn buộc tội đã khóa của player trong Council.
+ *
+ * Target đã lộ không cần dự đoán (`guessedRole: null`); target còn ẩn phải có
+ * role dự đoán. Accusation độc lập với reaction để một player có thể dùng cả
+ * hai trong cùng Council.
  */
 export type CouncilOrder =
   | { readonly type: 'PASS' }
   | {
       readonly type: 'ACCUSE';
       readonly targetId: CardId;
-      readonly guessedRole: CardRole;
+      readonly guessedRole: CardRole | null;
       readonly voterIds: readonly [CardId, CardId, CardId];
     };
+
+/** Reaction bí mật đã khóa trong Council, độc lập với accusation. */
+export type CouncilReactionOrder =
+  | { readonly type: 'PASS' }
+  | {
+      readonly type: 'WOLF_GUARD_RESCUE';
+      readonly sourceId: CardId;
+      readonly targetId: CardId;
+    };
+
+/** Hai slot Council độc lập; mỗi slot phải được khóa rõ ràng, kể cả `PASS`. */
+export interface CouncilSubmissionState {
+  readonly accusation: CouncilOrder | null;
+  readonly reaction: CouncilReactionOrder | null;
+}
 
 /**
  * Main Order bí mật của player trong Night phase.
@@ -76,7 +94,7 @@ export type PurgeOrder =
  * không nằm ở đây vì được xử lý tuần tự và resolve ngay bởi phase machine.
  */
 export interface PlayerSubmissionState {
-  readonly council: CouncilOrder | null;
+  readonly council: CouncilSubmissionState;
   readonly night: NightOrder | null;
   readonly defense: DefenseOrder | null;
   readonly purge: PurgeOrder | null;
@@ -150,7 +168,7 @@ export function createInitialPlayerState(
     board: [...board],
     setup: { status: 'ARRANGING' },
     submissions: {
-      council: null,
+      council: { accusation: null, reaction: null },
       night: null,
       defense: null,
       purge: null,

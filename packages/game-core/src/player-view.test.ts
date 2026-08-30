@@ -104,6 +104,36 @@ describe('ruleset v0.2 player view serializer', () => {
     expect('submissions' in opponentView).toBe(false);
   });
 
+  it('exposes Council accusation and reaction locks without either payload', () => {
+    const game = createViewTestGame();
+    const playerA: PlayerState = {
+      ...game.players[PlayerId.PLAYER_A],
+      submissions: {
+        ...game.players[PlayerId.PLAYER_A].submissions,
+        council: {
+          accusation: {
+            type: 'ACCUSE',
+            targetId: 'B1',
+            guessedRole: CardRole.WEREWOLF,
+            voterIds: ['A1', 'A2', 'A1'],
+          },
+          reaction: { type: 'PASS' },
+        },
+      },
+    };
+    const nextGame = {
+      ...game,
+      players: { ...game.players, [PlayerId.PLAYER_A]: playerA },
+    };
+    const opponentView = serializePlayerView(nextGame, PlayerId.PLAYER_B).opponent;
+
+    expect(opponentView.submissionLocks).toMatchObject({
+      councilAccusation: true,
+      councilReaction: true,
+    });
+    expect('submissions' in opponentView).toBe(false);
+  });
+
   it('keeps Seer intel private to its owner', () => {
     const game = createViewTestGame();
     const playerA: PlayerState = {

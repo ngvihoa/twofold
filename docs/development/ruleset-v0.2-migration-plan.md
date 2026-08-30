@@ -275,7 +275,10 @@ interface PlayerState {
   board: GameCard[];
   setup: { status: 'ARRANGING' } | { status: 'LOCKED' };
   submissions: {
-    council: CouncilOrder | null;
+    council: {
+      accusation: CouncilOrder | null;
+      reaction: CouncilReactionOrder | null;
+    };
     night: NightOrder | null;
     defense: DefenseOrder | null;
     purge: PurgeOrder | null;
@@ -290,7 +293,7 @@ interface PlayerState {
 
 - `PlayerState` là owner duy nhất của board; `MasterGameState` không còn giữ `cardsA/cardsB` song song.
 - Setup dùng discriminated state `ARRANGING | LOCKED`, không dùng boolean `setupLocked`.
-- Các order đồng thời được gom dưới `submissions`; `null` nghĩa là player chưa khóa order của phase đó.
+- Các order đồng thời được gom dưới `submissions`; `null` nghĩa là player chưa khóa slot tương ứng. Council có hai slot độc lập là `accusation` và `reaction`.
 - `PurgeOrder` lưu cả rule và target đã khóa để snapshot tự mô tả được resolution từ Vòng 6.
 - Không thêm `dayActionSubmitted`: Day là lượt tuần tự do phase machine quản lý và resolve ngay.
 - Blood Moon là `PlayerSpecialAbilityState` với `unlockRound`, `cooldownRounds`, `readyRound`.
@@ -440,7 +443,49 @@ Accusation yêu cầu:
 
 Nếu đoán sai, ba voter bị khóa khỏi Council kế tiếp. Nếu đoán đúng, target chết trừ khi Wolf Guard rescue thành công.
 
-Đề xuất Wolf Guard protection là một `CouncilReactionOrder` độc lập, để một bên có thể vừa accusation vừa bí mật bảo kê. Đây là quyết định còn cần review.
+Tạm chốt accusation và Wolf Guard protection là hai submission độc lập:
+
+```ts
+interface CouncilSubmissionState {
+  accusation: CouncilOrder | null;
+  reaction: CouncilReactionOrder | null;
+}
+
+type CouncilReactionOrder =
+  | { type: 'PASS' }
+  | { type: 'WOLF_GUARD_RESCUE'; sourceId: CardId; targetId: CardId };
+```
+
+Mỗi player có thể vừa gửi accusation vừa bí mật gửi reaction trong cùng Council.
+Council chỉ chuyển sang resolution sau khi cả hai player đã khóa đủ cả hai slot,
+tức bốn submission: accusation A/B và reaction A/B. Slot không dùng vẫn phải gửi
+`PASS`; không suy diễn `null` thành pass.
+
+Resolution đọc một snapshot chung sau khi đủ bốn slot: xác định accusation hợp
+lệ/thành công, áp dụng reaction khớp target, rồi mới tổng hợp các card chết và
+revenge chain. Việc một bên submit sớm không được kích hoạt resolution sớm và
+đối thủ chỉ được thấy trạng thái đã khóa của từng slot, không thấy payload.
+
+#### Notable cần xử lý hoặc review lại khi port Council
+
+- Đã tách contract/event thành hai command rõ nghĩa:
+  `COUNCIL_ACCUSATION_SUBMIT` và `COUNCIL_REACTION_SUBMIT`.
+- `PlayerSubmissionState` đã đổi từ một field `council` sang
+  `council.accusation` và `council.reaction` trong `game-core` ngày 30/08/2026.
+- Cần xác nhận Wolf Guard có tiêu resource và tự lộ khi reaction không khớp bất
+  kỳ accusation thành công nào hay chỉ khi cứu thực sự thành công. Khuyến nghị
+  hiện tại: chỉ tiêu resource và lộ source khi cứu thành công.
+- Với contract 1v1 hiện tại, mỗi target chỉ có thể bị accusation bởi đúng một
+  đối thủ; nếu sau này mở rộng số player thì phải review reaction chặn một hay
+  toàn bộ accusation cùng nhắm target.
+- Cần xác nhận reaction có còn resolve nếu Wolf Guard source đồng thời bị một
+  accusation hợp lệ loại. Khuyến nghị hiện tại: có, vì mọi order resolve từ
+  snapshot đầu Council.
+- Đã test hai accusation cùng thành công, rescue, reaction không khớp không tiêu
+  resource, accusation sai tạo `COUNCIL_LOCK`, revenge chain và không rò payload
+  qua `PlayerGameView`.
+- Sau playtest, review lại UX của bốn lần submit độc lập; có thể gom thao tác ở
+  presentation layer nhưng không được làm mất hai slot độc lập trong core.
 
 ---
 
@@ -448,23 +493,23 @@ Nếu đoán sai, ba voter bị khóa khỏi Council kế tiếp. Nếu đoán �
 
 > **Tiến độ pipeline:** Đã tạo validation/resolution entry point tại
 > `packages/game-core/src/rule-pipeline.ts`. Vertical slice đầu tiên đã port:
-> Setup lock, Day pass, Council pass, Night/Defense pass, Werewolf attack,
+> Setup lock, Day pass, Council accusation/reaction, Night/Defense pass, Werewolf attack,
 > Guard protect, Seer inspect, Witch poison và toàn bộ Day abilities: Shooter,
 > Avenger mark/revenge chain, Priest purify, Witch revive. Pipeline validate
 > trước khi mutate, khóa order đồng thời, resolve từ snapshot, cập nhật
 > role/card/player state, cleanup effect, kiểm tra elimination/Final Duel, phát
 > structured events và tự chuyển phase. Poison tiêu charge kể cả khi bị chặn;
-> revive giữ visibility; Day death lộ victim. Council accusation, Wolf Guard
-> rescue, Blood Moon, Purge và Final Duel guess chưa được port.
+> revive giữ visibility; Day death lộ victim. Council resolve đồng thời từ bốn
+> slot, hỗ trợ đoán role, reveal voter, `COUNCIL_LOCK`, Wolf Guard rescue và
+> information-safe lock view. Blood Moon, Purge và Final Duel guess chưa được port.
 
 Thay `USE_SKILL` chung bằng discriminated union cụ thể:
 
 ```ts
 type GameAction =
   | SetupLockAction
-  | CouncilAccuseAction
-  | CouncilProtectAction
-  | CouncilPassAction
+  | CouncilAccusationSubmitAction
+  | CouncilReactionSubmitAction
   | DayAction
   | NightOrderAction
   | DefenseOrderAction
@@ -769,7 +814,7 @@ Không đưa vào XState phía frontend:
 
 | ID | Câu hỏi | Khuyến nghị hiện tại | Trạng thái |
 |---|---|---|---|
-| RULE-001 | Wolf Guard protection có độc lập với accusation không? | Có, dùng reaction order riêng | Chưa chốt |
+| RULE-001 | Wolf Guard protection có độc lập với accusation không? | Có, dùng reaction order riêng; Council chờ đủ accusation và reaction của cả hai bên | Chốt tạm 30/08/2026; review lại sau playtest |
 | RULE-002 | Pass một vòng có gỡ hạn chế guard cùng target không? | Có; Guard không có charge, lưu target/round gần nhất và chỉ cấm cùng target ở hai vòng liên tiếp, không cần reset command | Đã chốt 30/08/2026 |
 | RULE-003 | Final Duel có kích hoạt sau mọi resolution tạo trạng thái 1–1 không? | Có | Chưa chốt |
 | RULE-004 | Giữ cả Thanh trừng và Blood Moon từ Vòng 6 hay chỉ một cơ chế? | Giữ đúng prototype cho phase spine, chưa port balance sâu trước playtest | Chờ GD-08 |

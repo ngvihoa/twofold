@@ -16,7 +16,7 @@ describe('ruleset v0.2 player state', () => {
       id: PlayerId.PLAYER_A,
       setup: { status: 'ARRANGING' },
       submissions: {
-        council: null,
+        council: { accusation: null, reaction: null },
         night: null,
         defense: null,
         purge: null,

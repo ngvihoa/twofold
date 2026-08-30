@@ -16,12 +16,14 @@ function createPipelineGame(): GameState {
       createInitialCard(PlayerId.PLAYER_A, 5, CardRole.SHOOTER),
       createInitialCard(PlayerId.PLAYER_A, 6, CardRole.PRIEST),
       createInitialCard(PlayerId.PLAYER_A, 7, CardRole.AVENGER),
+      createInitialCard(PlayerId.PLAYER_A, 8, CardRole.WOLF_GUARD),
     ]),
     [PlayerId.PLAYER_B]: createInitialPlayerState(PlayerId.PLAYER_B, [
       createInitialCard(PlayerId.PLAYER_B, 1, CardRole.VILLAGER),
       createInitialCard(PlayerId.PLAYER_B, 2, CardRole.GUARD),
       createInitialCard(PlayerId.PLAYER_B, 3, CardRole.SEER),
       createInitialCard(PlayerId.PLAYER_B, 4, CardRole.WEREWOLF),
+      createInitialCard(PlayerId.PLAYER_B, 5, CardRole.WOLF_GUARD),
     ]),
   });
 }
@@ -39,6 +41,45 @@ function enterDay(state = createPipelineGame()): GameState {
 
 function enterNight(state = createPipelineGame()): GameState {
   let next = enterDay(state);
+  next = dispatchPlayerAction(next, {
+    type: 'DAY_SUBMIT',
+    playerId: PlayerId.PLAYER_A,
+    action: { type: 'PASS' },
+  });
+  return dispatchPlayerAction(next, {
+    type: 'DAY_SUBMIT',
+    playerId: PlayerId.PLAYER_B,
+    action: { type: 'PASS' },
+  });
+}
+
+function enterRoundTwoDay(state = createPipelineGame()): GameState {
+  let next = enterNight(state);
+  next = dispatchPlayerAction(next, {
+    type: 'NIGHT_SUBMIT',
+    playerId: PlayerId.PLAYER_A,
+    order: { type: 'PASS' },
+  });
+  next = dispatchPlayerAction(next, {
+    type: 'NIGHT_SUBMIT',
+    playerId: PlayerId.PLAYER_B,
+    order: { type: 'PASS' },
+  });
+  next = dispatchPlayerAction(next, {
+    type: 'DEFENSE_SUBMIT',
+    playerId: PlayerId.PLAYER_A,
+    order: { type: 'PASS' },
+  });
+  next = dispatchPlayerAction(next, {
+    type: 'DEFENSE_SUBMIT',
+    playerId: PlayerId.PLAYER_B,
+    order: { type: 'PASS' },
+  });
+  return next;
+}
+
+function enterCouncil(state = createPipelineGame()): GameState {
+  let next = enterRoundTwoDay(state);
   next = dispatchPlayerAction(next, {
     type: 'DAY_SUBMIT',
     playerId: PlayerId.PLAYER_A,
@@ -93,12 +134,23 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
     expect(state.phase).toEqual({ type: 'COUNCIL_PLAN' });
 
     state = dispatchPlayerAction(state, {
-      type: 'COUNCIL_SUBMIT',
+      type: 'COUNCIL_ACCUSATION_SUBMIT',
       playerId: PlayerId.PLAYER_A,
       order: { type: 'PASS' },
     });
     state = dispatchPlayerAction(state, {
-      type: 'COUNCIL_SUBMIT',
+      type: 'COUNCIL_ACCUSATION_SUBMIT',
+      playerId: PlayerId.PLAYER_B,
+      order: { type: 'PASS' },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'COUNCIL_REACTION_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      order: { type: 'PASS' },
+    });
+    expect(state.phase).toEqual({ type: 'COUNCIL_PLAN' });
+    state = dispatchPlayerAction(state, {
+      type: 'COUNCIL_REACTION_SUBMIT',
       playerId: PlayerId.PLAYER_B,
       order: { type: 'PASS' },
     });
@@ -128,6 +180,268 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
         },
       })
     ).toThrow('A2 không sở hữu WEREWOLF_ATTACK.');
+  });
+
+  it('waits for both independent Council slots and resolves accusations simultaneously', () => {
+    let state = enterCouncil();
+    state = dispatchPlayerAction(state, {
+      type: 'COUNCIL_ACCUSATION_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      order: {
+        type: 'ACCUSE',
+        targetId: 'B4',
+        guessedRole: CardRole.WEREWOLF,
+        voterIds: ['A2', 'A3', 'A4'],
+      },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'COUNCIL_REACTION_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      order: { type: 'PASS' },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'COUNCIL_ACCUSATION_SUBMIT',
+      playerId: PlayerId.PLAYER_B,
+      order: {
+        type: 'ACCUSE',
+        targetId: 'A1',
+        guessedRole: CardRole.WEREWOLF,
+        voterIds: ['B1', 'B2', 'B3'],
+      },
+    });
+
+    expect(state.phase).toEqual({ type: 'COUNCIL_PLAN' });
+    expect(isCardAlive(state.players[PlayerId.PLAYER_A].board[0])).toBe(true);
+    expect(isCardAlive(state.players[PlayerId.PLAYER_B].board[3])).toBe(true);
+
+    state = dispatchPlayerAction(state, {
+      type: 'COUNCIL_REACTION_SUBMIT',
+      playerId: PlayerId.PLAYER_B,
+      order: { type: 'PASS' },
+    });
+
+    expect(state.phase).toEqual({ type: 'NIGHT_PLAN' });
+    expect(state.players[PlayerId.PLAYER_A].board[0].state).toEqual({
+      life: 'DEAD',
+      visibility: 'REVEALED',
+    });
+    expect(state.players[PlayerId.PLAYER_B].board[3].state).toEqual({
+      life: 'DEAD',
+      visibility: 'REVEALED',
+    });
+    expect(state.players[PlayerId.PLAYER_A].board[1].state.visibility).toBe('REVEALED');
+    expect(state.players[PlayerId.PLAYER_B].board[0].state.visibility).toBe('REVEALED');
+  });
+
+  it('consumes and reveals Wolf Guard only when its reaction rescues the target', () => {
+    let state = enterCouncil();
+    state = dispatchPlayerAction(state, {
+      type: 'COUNCIL_ACCUSATION_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      order: {
+        type: 'ACCUSE',
+        targetId: 'B4',
+        guessedRole: CardRole.WEREWOLF,
+        voterIds: ['A2', 'A3', 'A4'],
+      },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'COUNCIL_ACCUSATION_SUBMIT',
+      playerId: PlayerId.PLAYER_B,
+      order: { type: 'PASS' },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'COUNCIL_REACTION_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      order: { type: 'PASS' },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'COUNCIL_REACTION_SUBMIT',
+      playerId: PlayerId.PLAYER_B,
+      order: {
+        type: 'WOLF_GUARD_RESCUE',
+        sourceId: 'B5',
+        targetId: 'B4',
+      },
+    });
+
+    expect(isCardAlive(state.players[PlayerId.PLAYER_B].board[3])).toBe(true);
+    expect(state.players[PlayerId.PLAYER_B].board[4].state.visibility).toBe('REVEALED');
+    expect(
+      getRoleAbility(
+        state.players[PlayerId.PLAYER_B].board[4].role,
+        AbilityId.WOLF_GUARD_RESCUE
+      )?.remainingUses
+    ).toBe(0);
+    expect(state.events.map((event) => event.type)).toContain('WOLF_GUARD_RESCUED');
+  });
+
+  it('keeps Wolf Guard hidden and unspent when its reaction does not match', () => {
+    let state = enterCouncil();
+    for (const action of [
+      {
+        type: 'COUNCIL_ACCUSATION_SUBMIT' as const,
+        playerId: PlayerId.PLAYER_A,
+        order: {
+          type: 'ACCUSE' as const,
+          targetId: 'B4' as const,
+          guessedRole: CardRole.WEREWOLF,
+          voterIds: ['A2', 'A3', 'A4'] as const,
+        },
+      },
+      {
+        type: 'COUNCIL_ACCUSATION_SUBMIT' as const,
+        playerId: PlayerId.PLAYER_B,
+        order: { type: 'PASS' as const },
+      },
+      {
+        type: 'COUNCIL_REACTION_SUBMIT' as const,
+        playerId: PlayerId.PLAYER_A,
+        order: { type: 'PASS' as const },
+      },
+      {
+        type: 'COUNCIL_REACTION_SUBMIT' as const,
+        playerId: PlayerId.PLAYER_B,
+        order: {
+          type: 'WOLF_GUARD_RESCUE' as const,
+          sourceId: 'B5' as const,
+          targetId: 'B1' as const,
+        },
+      },
+    ]) {
+      state = dispatchPlayerAction(state, action);
+    }
+
+    expect(state.players[PlayerId.PLAYER_B].board[4].state.visibility).toBe('HIDDEN');
+    expect(
+      getRoleAbility(
+        state.players[PlayerId.PLAYER_B].board[4].role,
+        AbilityId.WOLF_GUARD_RESCUE
+      )?.remainingUses
+    ).toBe(1);
+    expect(state.events.map((event) => event.type)).not.toContain('WOLF_GUARD_RESCUED');
+  });
+
+  it('locks failed Council voters for the next Council only', () => {
+    let state = enterCouncil();
+    state = dispatchPlayerAction(state, {
+      type: 'COUNCIL_ACCUSATION_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      order: {
+        type: 'ACCUSE',
+        targetId: 'B4',
+        guessedRole: CardRole.VILLAGER,
+        voterIds: ['A2', 'A3', 'A4'],
+      },
+    });
+    for (const action of [
+      {
+        type: 'COUNCIL_ACCUSATION_SUBMIT' as const,
+        playerId: PlayerId.PLAYER_B,
+        order: { type: 'PASS' as const },
+      },
+      {
+        type: 'COUNCIL_REACTION_SUBMIT' as const,
+        playerId: PlayerId.PLAYER_A,
+        order: { type: 'PASS' as const },
+      },
+      {
+        type: 'COUNCIL_REACTION_SUBMIT' as const,
+        playerId: PlayerId.PLAYER_B,
+        order: { type: 'PASS' as const },
+      },
+    ]) {
+      state = dispatchPlayerAction(state, action);
+    }
+
+    expect(state.players[PlayerId.PLAYER_A].board[1].effects).toEqual([
+      expect.objectContaining({ kind: 'COUNCIL_LOCK' }),
+    ]);
+
+    for (const action of [
+      { type: 'NIGHT_SUBMIT' as const, playerId: PlayerId.PLAYER_A, order: { type: 'PASS' as const } },
+      { type: 'NIGHT_SUBMIT' as const, playerId: PlayerId.PLAYER_B, order: { type: 'PASS' as const } },
+      { type: 'DEFENSE_SUBMIT' as const, playerId: PlayerId.PLAYER_A, order: { type: 'PASS' as const } },
+      { type: 'DEFENSE_SUBMIT' as const, playerId: PlayerId.PLAYER_B, order: { type: 'PASS' as const } },
+      { type: 'DAY_SUBMIT' as const, playerId: PlayerId.PLAYER_A, action: { type: 'PASS' as const } },
+      { type: 'DAY_SUBMIT' as const, playerId: PlayerId.PLAYER_B, action: { type: 'PASS' as const } },
+    ]) {
+      state = dispatchPlayerAction(state, action);
+    }
+
+    expect(() =>
+      dispatchPlayerAction(state, {
+        type: 'COUNCIL_ACCUSATION_SUBMIT',
+        playerId: PlayerId.PLAYER_A,
+        order: {
+          type: 'ACCUSE',
+          targetId: 'B4',
+          guessedRole: CardRole.WEREWOLF,
+          voterIds: ['A2', 'A3', 'A4'],
+        },
+      })
+    ).toThrow('A2 đang bị khóa Council.');
+
+    for (const action of [
+      { type: 'COUNCIL_ACCUSATION_SUBMIT' as const, playerId: PlayerId.PLAYER_A, order: { type: 'PASS' as const } },
+      { type: 'COUNCIL_ACCUSATION_SUBMIT' as const, playerId: PlayerId.PLAYER_B, order: { type: 'PASS' as const } },
+      { type: 'COUNCIL_REACTION_SUBMIT' as const, playerId: PlayerId.PLAYER_A, order: { type: 'PASS' as const } },
+      { type: 'COUNCIL_REACTION_SUBMIT' as const, playerId: PlayerId.PLAYER_B, order: { type: 'PASS' as const } },
+    ]) {
+      state = dispatchPlayerAction(state, action);
+    }
+    expect(state.players[PlayerId.PLAYER_A].board[1].effects).toEqual([]);
+  });
+
+  it('resolves an Avenger chain from a Council elimination', () => {
+    let state = enterRoundTwoDay();
+    state = dispatchPlayerAction(state, {
+      type: 'DAY_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      action: { type: 'MARK', sourceId: 'A7', targetId: 'B4' },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'DAY_SUBMIT',
+      playerId: PlayerId.PLAYER_B,
+      action: { type: 'PASS' },
+    });
+    for (const action of [
+      {
+        type: 'COUNCIL_ACCUSATION_SUBMIT' as const,
+        playerId: PlayerId.PLAYER_A,
+        order: { type: 'PASS' as const },
+      },
+      {
+        type: 'COUNCIL_ACCUSATION_SUBMIT' as const,
+        playerId: PlayerId.PLAYER_B,
+        order: {
+          type: 'ACCUSE' as const,
+          targetId: 'A7' as const,
+          guessedRole: null,
+          voterIds: ['B1', 'B2', 'B3'] as const,
+        },
+      },
+      {
+        type: 'COUNCIL_REACTION_SUBMIT' as const,
+        playerId: PlayerId.PLAYER_A,
+        order: { type: 'PASS' as const },
+      },
+      {
+        type: 'COUNCIL_REACTION_SUBMIT' as const,
+        playerId: PlayerId.PLAYER_B,
+        order: { type: 'PASS' as const },
+      },
+    ]) {
+      state = dispatchPlayerAction(state, action);
+    }
+
+    expect(isCardAlive(state.players[PlayerId.PLAYER_A].board[6])).toBe(false);
+    expect(isCardAlive(state.players[PlayerId.PLAYER_B].board[3])).toBe(false);
+    expect(
+      state.events.some(
+        (event) => event.type === 'CARD_ELIMINATED' && event.cause.type === 'REVENGE'
+      )
+    ).toBe(true);
   });
 
   it('lets Guard block attack while Seer inspect bypasses protection', () => {

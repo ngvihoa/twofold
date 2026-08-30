@@ -59,7 +59,8 @@ export interface PublicCardView {
 
 /** Chỉ công khai việc đối thủ đã khóa slot, không công khai order payload. */
 export interface PlayerSubmissionLocks {
-  readonly council: boolean;
+  readonly councilAccusation: boolean;
+  readonly councilReaction: boolean;
   readonly night: boolean;
   readonly defense: boolean;
   readonly purge: boolean;
@@ -165,7 +166,8 @@ function serializeOpponentPlayer(player: PlayerState): OpponentPlayerView {
     board: player.board.map(serializePublicCard),
     setupLocked: player.setup.status === 'LOCKED',
     submissionLocks: {
-      council: player.submissions.council !== null,
+      councilAccusation: player.submissions.council.accusation !== null,
+      councilReaction: player.submissions.council.reaction !== null,
       night: player.submissions.night !== null,
       defense: player.submissions.defense !== null,
       purge: player.submissions.purge !== null,
@@ -223,15 +225,20 @@ function cloneAbilityState(ability: AbilityState): AbilityState {
 
 function cloneSubmissions(submissions: PlayerSubmissionState): PlayerSubmissionState {
   return {
-    council:
-      submissions.council?.type === 'ACCUSE'
-        ? {
-            ...submissions.council,
-            voterIds: [...submissions.council.voterIds],
-          }
-        : submissions.council
-          ? { ...submissions.council }
-          : null,
+    council: {
+      accusation:
+        submissions.council.accusation?.type === 'ACCUSE'
+          ? {
+              ...submissions.council.accusation,
+              voterIds: [...submissions.council.accusation.voterIds],
+            }
+          : submissions.council.accusation
+            ? { ...submissions.council.accusation }
+            : null,
+      reaction: submissions.council.reaction
+        ? { ...submissions.council.reaction }
+        : null,
+    },
     night: submissions.night ? { ...submissions.night } : null,
     defense: submissions.defense ? { ...submissions.defense } : null,
     purge: submissions.purge ? { ...submissions.purge } : null,
