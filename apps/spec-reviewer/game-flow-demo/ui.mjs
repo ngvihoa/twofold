@@ -77,6 +77,7 @@ const COMBAT_RESULTS = {
 };
 
 const app = document.querySelector("#app");
+const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 let state = createGame("codex-web-01");
 let seat = "A";
 let handVisible = true;
@@ -103,6 +104,8 @@ let playedMoveId = null;
 let matchStartedAt = null;
 let matchEndedAt = null;
 let clockTimer = null;
+let dealAnimationActive = !prefersReducedMotion;
+let dealAnimationTimer = null;
 const deathReasons = new Map();
 
 const otherSeat = (value) => value === "A" ? "B" : "A";
@@ -775,7 +778,7 @@ function presentationClassFor(cardId) {
   return `presentation-enter presentation-${isSource ? "source" : "outcome"} from-${cardId[0].toLowerCase()}`;
 }
 
-function cardMarkup(card, isOwn, setupIndex = -1) {
+function cardMarkup(card, isOwn, setupIndex = -1, dealIndex = -1) {
   const isSetup = setupIndex >= 0;
   const secret = isOwn ? privateCard(card.id) : null;
   const fullCard = state.players[card.id[0]]?.board.find((item) => item.id === card.id);
@@ -816,7 +819,7 @@ function cardMarkup(card, isOwn, setupIndex = -1) {
   const moveTarget = lastMove?.target === card.id;
   const presentationClass = presentationClassFor(card.id);
   const isRevengeTarget = Object.values(state.players).some((player) => player.revengeTarget === card.id);
-  return `<article class="role-card faction-${faction} phase-${phase} ${isSetup ? "setup-card" : ""} ${disabledReason ? "disabled-target" : ""} ${directAction ? "actionable" : ""} ${targetable ? "targetable" : ""} ${selected ? "selected-card" : ""} ${moveSource ? "move-source" : ""} ${moveTarget ? "move-target" : ""} ${presentationClass} ${card.staged ? "staged" : ""} ${card.alive ? "" : "dead"} ${isRevengeTarget ? "revenge-marked" : ""} ${isRevealed ? "revealed" : "hidden-role"} ${card.shielded ? "shielded" : ""}" data-card-id="${card.id}" ${isSetup ? `draggable="true" data-setup-card="${card.id}"` : ""} ${directAction ? `data-direct-source="${card.id}" data-direct-kind="${directAction.kind}"` : ""} ${targetable ? `data-direct-target="${card.id}"` : ""}>
+  return `<article class="role-card faction-${faction} phase-${phase} ${dealIndex >= 0 ? "deal-card" : ""} ${isSetup ? "setup-card" : ""} ${disabledReason ? "disabled-target" : ""} ${directAction ? "actionable" : ""} ${targetable ? "targetable" : ""} ${selected ? "selected-card" : ""} ${moveSource ? "move-source" : ""} ${moveTarget ? "move-target" : ""} ${presentationClass} ${card.staged ? "staged" : ""} ${card.alive ? "" : "dead"} ${isRevengeTarget ? "revenge-marked" : ""} ${isRevealed ? "revealed" : "hidden-role"} ${card.shielded ? "shielded" : ""}" data-card-id="${card.id}" ${dealIndex >= 0 ? `style="--deal-index:${dealIndex}"` : ""} ${isSetup ? `draggable="true" data-setup-card="${card.id}"` : ""} ${directAction ? `data-direct-source="${card.id}" data-direct-kind="${directAction.kind}"` : ""} ${targetable ? `data-direct-target="${card.id}"` : ""}>
     <div class="card-shell">
       <header class="card-head"><strong class="role-name" title="${shownName}">${shownName}</strong><span class="phase-rune" title="Pha kỹ năng">${phaseMark}</span></header>
       <div class="art-window">
@@ -846,7 +849,7 @@ function boardMarkup(boardSeat, label) {
   const hint = setupActive ? "Kéo thả hoặc dùng ‹ › để xếp" : "Role lộ diện được đưa vào giữa bàn";
   const slotMarkup = (card, index) => !setupActive && card.role !== "?"
     ? `<div class="lifted-slot ${card.alive ? "" : "dead"}"><span>${card.id}</span><strong>${card.role}</strong><small>TRÊN BÀN ĐẤU</small></div>`
-    : cardMarkup(card, own, setupActive ? index : -1);
+    : cardMarkup(card, own, setupActive ? index : -1, dealAnimationActive ? (boardSeat === seat ? index : visibleCards.length - 1 - index) : -1);
   return `<section class="board board-${boardSeat.toLowerCase()} board-${boardPosition} ${setupActive ? "board-setup" : ""}">
     <div class="board-title"><h2>${label} · Bên ${boardSeat}</h2><span>${hint}</span></div>
     ${boardSeat === seat && !handVisible
@@ -1183,7 +1186,7 @@ function render() {
   const targeting = interaction && (state.phase.startsWith("day-") || state.phase === "night-plan" || state.phase === "purge" || state.phase === "council" || state.phase === "dusk-defense") ? " targeting-active" : "";
   const councilSelecting = state.phase === "council" && interaction?.kind === "accuse" ? " council-selecting" : "";
   const dawnStage = dawnPresentation ? ` dawn-stage-${dawnPresentation.stage}` : "";
-  document.body.className = `duel-only scene-${visualScene()}${dawnStage}${targeting}${councilSelecting}`;
+  document.body.className = `duel-only scene-${visualScene()}${dawnStage}${targeting}${councilSelecting}${dealAnimationActive ? " dealing-cards" : ""}`;
   const topbar = `<header class="topbar"><div class="brand"><span class="brand-mark">TF</span>TWOFOLD</div><span class="round">Local playtest · Vòng ${state.round}</span><span class="match-clock" data-match-clock>THỜI GIAN · ${formatMatchTime(currentMatchTime())}</span><span class="phase-chip">${roundTitle()}</span><div class="seat-toggle"><span class="human-seat">A · BẠN</span><span class="bot-seat ${botNeedsTurn() ? "thinking" : ""}"><i></i>B · BOT</span></div><button class="reset" type="button" data-reset>Reset</button></header>`;
   const arena = arenaMarkup();
   const body = `<div class="play-grid">${arena}<aside class="side-rail" aria-label="Thông tin trận đấu">${historyMarkup()}</aside></div>`;
@@ -1194,6 +1197,14 @@ function render() {
     playCombatEffect();
   });
   scheduleMatchClock();
+  if (dealAnimationActive) {
+    clearTimeout(dealAnimationTimer);
+    dealAnimationTimer = setTimeout(() => {
+      dealAnimationActive = false;
+      dealAnimationTimer = null;
+      document.body.classList.remove("dealing-cards");
+    }, 1950);
+  }
   if (!dawnActive) scheduleBot();
   scheduleNightResolution();
 }
@@ -1390,6 +1401,9 @@ document.addEventListener("click", (event) => {
     clockTimer = null;
     clearTimeout(botTimer);
     botTimer = null;
+    clearTimeout(dealAnimationTimer);
+    dealAnimationTimer = null;
+    dealAnimationActive = !prefersReducedMotion;
     feedback = "Ván mới đã sẵn sàng.";
     return render();
   }
