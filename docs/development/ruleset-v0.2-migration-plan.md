@@ -446,6 +446,15 @@ Nếu đoán sai, ba voter bị khóa khỏi Council kế tiếp. Nếu đoán �
 
 ## 8. Action Contract
 
+> **Tiến độ pipeline:** Đã tạo validation/resolution entry point tại
+> `packages/game-core/src/rule-pipeline.ts`. Vertical slice đầu tiên đã port:
+> Setup lock, Day pass, Council pass, Night/Defense pass, Werewolf attack,
+> Guard protect và Seer inspect. Pipeline validate trước khi mutate, khóa order
+> đồng thời, resolve từ snapshot, cập nhật role/card/player state, cleanup effect,
+> kiểm tra elimination/Final Duel, phát structured events và tự chuyển phase.
+> Witch poison cũng đi qua cùng damage/protection pipeline và tiêu charge kể cả
+> khi bị chặn. Council accusation, Day abilities, Blood Moon và Purge chưa được port.
+
 Thay `USE_SKILL` chung bằng discriminated union cụ thể:
 
 ```ts
