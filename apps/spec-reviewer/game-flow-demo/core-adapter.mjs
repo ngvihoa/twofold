@@ -273,20 +273,87 @@ function lastGuardTargetFor(player) {
   return null;
 }
 
-function eventMessage(event) {
+function findCardById(core, cardId) {
+  for (const player of Object.values(core.players)) {
+    const card = player.board.find((candidate) => candidate.id === cardId);
+    if (card) return card;
+  }
+  return null;
+}
+
+function seatOfCard(cardId) {
+  return cardId?.[0] ?? '?';
+}
+
+function roleName(card) {
+  return getRoleDefinition(card.occupant.role.id).displayName;
+}
+
+function votePowerFor(core, voterIds) {
+  return voterIds.reduce((total, voterId) => {
+    const card = findCardById(core, voterId);
+    return total + (card?.occupant.role.id === CardRole.VILLAGER ? 2 : 1);
+  }, 0);
+}
+
+function causeLabel(event) {
+  const { cause } = event;
+  switch (cause.type) {
+    case 'COUNCIL':
+      return `Hội đồng của ${PLAYER_TO_SEAT[cause.playerId]}`;
+    case 'PLAYER_ABILITY':
+      return `Huyết Nguyệt của ${PLAYER_TO_SEAT[cause.playerId]}`;
+    case 'ABILITY':
+      if (cause.abilityId === AbilityId.WEREWOLF_ATTACK) {
+        return `Ma sói của ${seatOfCard(cause.sourceCardId)}`;
+      }
+      if (cause.abilityId === AbilityId.WITCH_POISON) {
+        return `độc của ${seatOfCard(cause.sourceCardId)}`;
+      }
+      if (cause.abilityId === AbilityId.SEER_INSPECT) {
+        return 'Tiên tri kết liễu';
+      }
+      return `năng lực ${cause.abilityId}`;
+    case 'PURGE':
+      return `Thanh trừng Vòng ${event.round}`;
+    case 'REVENGE':
+      return `báo thù của ${cause.sourceCardId}`;
+    default:
+      return 'nguyên nhân không rõ';
+  }
+}
+
+function eventMessage(event, core) {
   switch (event.type) {
     case 'CARD_REVEALED':
       return `${event.cardId} đã lộ role.`;
-    case 'CARD_ELIMINATED':
-      return `${event.cardId} đã bị loại.`;
+    case 'CARD_ELIMINATED': {
+      const card = findCardById(core, event.cardId);
+      const revealed = card?.occupant.state.visibility === 'REVEALED';
+      return `${event.cardId} chết do ${causeLabel(event)}.${
+        revealed ? ` Role: ${roleName(card)}.` : ' Danh tính vẫn ẩn.'
+      }`;
+    }
     case 'CARD_REVIVED':
       return `${event.cardId} đã được hồi sinh.`;
     case 'EFFECT_APPLIED':
+      if (event.effectKind === CardEffectKind.PROTECTION) {
+        return `${seatOfCard(event.targetCardId)} công khai khiên tại ${event.targetCardId}.`;
+      }
       return `${event.effectKind} được áp dụng lên ${event.targetCardId}.`;
     case 'EFFECT_BLOCKED':
       return `${event.targetCardId} đã chặn một effect.`;
-    case 'COUNCIL_FAILED':
-      return `Hội đồng của ${PLAYER_TO_SEAT[event.playerId]} thất bại.`;
+    case 'COUNCIL_ACCUSATION_RESOLVED': {
+      const seat = PLAYER_TO_SEAT[event.playerId];
+      const votePower = votePowerFor(core, event.voterIds);
+      return event.succeeded
+        ? `${seat} đạt ${votePower} phiếu và buộc tội đúng ${event.targetCardId}.`
+        : `${seat} buộc tội thất bại với ${votePower} phiếu hợp lệ.`;
+    }
+    case 'COUNCIL_PASSED':
+      return `${PLAYER_TO_SEAT[event.playerId]} bỏ qua Hội đồng.`;
+    case 'DEFENSE_SKIPPED':
+      return `${PLAYER_TO_SEAT[event.playerId]} không đặt khiên.`;
     case 'WOLF_GUARD_RESCUED':
       return `${event.sourceCardId} đã bảo kê ${event.targetCardId}.`;
     case 'PURGE_RESOLVED':
@@ -296,10 +363,34 @@ function eventMessage(event) {
     case 'DAWN_PRESENTATION_COMPLETED':
       return 'Bình minh đã hoàn tất.';
     case 'ABILITY_RESOLVED':
+      if (event.abilityId === AbilityId.SEER_INSPECT && event.targetCardId === null) {
+        return `${seatOfCard(event.sourceCardId)} dùng Tiên tri. Kết quả được giữ riêng.`;
+      }
       return `${event.abilityId} đã được xử lý.`;
     default:
       return null;
   }
+}
+
+function publicMessages(core) {
+  const events = core.events;
+  const messages = [];
+  for (let index = 0; index < events.length; index += 1) {
+    const event = events[index];
+    if (event.visibility.type !== 'PUBLIC') continue;
+    const following = events[index + 1];
+    if (
+      event.type === 'CARD_REVEALED' &&
+      following?.type === 'CARD_ELIMINATED' &&
+      following.cardId === event.cardId
+    ) {
+      // Reveal + loại bỏ cùng một lá được gộp thành một dòng chết kèm role.
+      continue;
+    }
+    const message = eventMessage(event, core);
+    if (message) messages.push(message);
+  }
+  return messages;
 }
 
 function projectPlayer(core, playerId, meta) {
@@ -347,10 +438,6 @@ function resultFor(result) {
 }
 
 function project(core, meta = {}) {
-  const publicMessages = core.events
-    .filter((event) => event.visibility.type === 'PUBLIC')
-    .map(eventMessage)
-    .filter(Boolean);
   return {
     __core: core,
     __pendingCore: meta.pendingCore ?? null,
@@ -367,7 +454,7 @@ function project(core, meta = {}) {
     result: resultFor(core.result),
     log: [
       'Hai bên bí mật xếp thứ tự 10 lá trước khi lên bàn.',
-      ...publicMessages,
+      ...publicMessages(core),
     ].slice(-10),
   };
 }

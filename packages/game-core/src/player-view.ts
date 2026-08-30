@@ -139,7 +139,7 @@ function cloneGameEvent(event: GameEvent): GameEvent {
       cause: { ...event.cause },
     };
   }
-  if (event.type === 'COUNCIL_FAILED') {
+  if (event.type === 'COUNCIL_ACCUSATION_RESOLVED') {
     return {
       ...event,
       visibility: { ...event.visibility },

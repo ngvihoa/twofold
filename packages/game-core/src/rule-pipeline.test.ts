@@ -338,6 +338,166 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
     expect(state.events.map((event) => event.type)).toContain('WOLF_GUARD_RESCUED');
   });
 
+  it('emits public council accusation outcome with voter context', () => {
+    let state = enterCouncil();
+    state = dispatchPlayerAction(state, {
+      type: 'COUNCIL_ACCUSATION_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      order: {
+        type: 'ACCUSE',
+        targetId: 'B4',
+        guessedRole: CardRole.WEREWOLF,
+        voterIds: ['A2', 'A3', 'A4'],
+      },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'COUNCIL_REACTION_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      order: { type: 'PASS' },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'COUNCIL_ACCUSATION_SUBMIT',
+      playerId: PlayerId.PLAYER_B,
+      order: { type: 'PASS' },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'COUNCIL_REACTION_SUBMIT',
+      playerId: PlayerId.PLAYER_B,
+      order: { type: 'PASS' },
+    });
+
+    const resolved = state.events.find(
+      (event) => event.type === 'COUNCIL_ACCUSATION_RESOLVED'
+    );
+    expect(resolved).toMatchObject({
+      playerId: PlayerId.PLAYER_A,
+      targetCardId: 'B4',
+      succeeded: true,
+      visibility: { type: 'PUBLIC' },
+    });
+    expect(resolved?.voterIds).toEqual(['A2', 'A3', 'A4']);
+
+    const types = state.events.map((event) => event.type);
+    expect(types.indexOf('COUNCIL_ACCUSATION_RESOLVED')).toBeLessThan(
+      types.indexOf('CARD_ELIMINATED')
+    );
+    expect(
+      state.events.find(
+        (event) => event.type === 'CARD_ELIMINATED' && event.cardId === 'B4'
+      )?.cause
+    ).toEqual({ type: 'COUNCIL', playerId: PlayerId.PLAYER_A });
+  });
+
+  it('marks failed accusations with voters and keeps passed councils public', () => {
+    let state = enterCouncil();
+    state = dispatchPlayerAction(state, {
+      type: 'COUNCIL_ACCUSATION_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      order: {
+        type: 'ACCUSE',
+        targetId: 'B1',
+        guessedRole: CardRole.WEREWOLF,
+        voterIds: ['A2', 'A3', 'A4'],
+      },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'COUNCIL_REACTION_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      order: { type: 'PASS' },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'COUNCIL_ACCUSATION_SUBMIT',
+      playerId: PlayerId.PLAYER_B,
+      order: { type: 'PASS' },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'COUNCIL_REACTION_SUBMIT',
+      playerId: PlayerId.PLAYER_B,
+      order: { type: 'PASS' },
+    });
+
+    const resolved = state.events.find(
+      (event) => event.type === 'COUNCIL_ACCUSATION_RESOLVED'
+    );
+    expect(resolved).toMatchObject({
+      playerId: PlayerId.PLAYER_A,
+      targetCardId: 'B1',
+      succeeded: false,
+    });
+    expect(resolved?.voterIds).toEqual(['A2', 'A3', 'A4']);
+    expect(
+      state.events
+        .filter((event) => event.type === 'COUNCIL_PASSED')
+        .map((event) => event.playerId)
+    ).toEqual([PlayerId.PLAYER_B]);
+  });
+
+  it('announces skipped defenses publicly', () => {
+    const state = enterRoundTwoDay();
+    const skipped = state.events.filter((event) => event.type === 'DEFENSE_SKIPPED');
+    expect(skipped.map((event) => event.playerId)).toEqual([
+      PlayerId.PLAYER_A,
+      PlayerId.PLAYER_B,
+    ]);
+    expect(skipped.every((event) => event.visibility.type === 'PUBLIC')).toBe(true);
+  });
+
+  it('announces seer inspection publicly while keeping the target private', () => {
+    let state = enterNight();
+    state = dispatchPlayerAction(state, {
+      type: 'NIGHT_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      order: { type: 'PASS' },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'NIGHT_SUBMIT',
+      playerId: PlayerId.PLAYER_B,
+      order: {
+        type: 'USE_ABILITY',
+        abilityId: AbilityId.SEER_INSPECT,
+        sourceId: 'B3',
+        targetId: 'A1',
+      },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'DEFENSE_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      order: { type: 'PASS' },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'DEFENSE_SUBMIT',
+      playerId: PlayerId.PLAYER_B,
+      order: { type: 'PASS' },
+    });
+
+    const seerEvents = state.events.filter(
+      (event) =>
+        event.type === 'ABILITY_RESOLVED' &&
+        event.abilityId === AbilityId.SEER_INSPECT
+    );
+    expect(
+      seerEvents.find((event) => event.visibility.type === 'PUBLIC')
+    ).toMatchObject({
+      sourceCardId: 'B3',
+      targetCardId: null,
+    });
+    expect(
+      seerEvents.find((event) => event.visibility.type === 'PRIVATE')
+    ).toMatchObject({
+      sourceCardId: 'B3',
+      targetCardId: 'A1',
+    });
+
+    const opponentView = serializePlayerView(state, PlayerId.PLAYER_A);
+    const opponentSeerEvents = opponentView.events.filter(
+      (event) =>
+        event.type === 'ABILITY_RESOLVED' &&
+        event.abilityId === AbilityId.SEER_INSPECT
+    );
+    expect(opponentSeerEvents).toHaveLength(1);
+    expect(opponentSeerEvents[0].targetCardId).toBeNull();
+  });
+
   it('keeps Wolf Guard hidden and unspent when its reaction does not match', () => {
     let state = enterCouncil();
     for (const action of [

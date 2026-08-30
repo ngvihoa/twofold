@@ -635,7 +635,14 @@ function resolveCouncil(state: GameState): GameState {
 
   for (const playerId of PLAYER_ORDER) {
     const accusation = accusationOrders[playerId];
-    if (accusation.type === 'PASS') continue;
+    if (accusation.type === 'PASS') {
+      events.push({
+        type: 'COUNCIL_PASSED',
+        visibility: { type: 'PUBLIC' },
+        playerId,
+      });
+      continue;
+    }
 
     for (const voterId of accusation.voterIds) {
       const voter = getCard(next, voterId);
@@ -661,16 +668,18 @@ function resolveCouncil(state: GameState): GameState {
       (originalTarget.occupant.state.visibility === 'REVEALED' ||
         originalTarget.occupant.role.id === accusation.guessedRole);
 
+    events.push({
+      type: 'COUNCIL_ACCUSATION_RESOLVED',
+      visibility: { type: 'PUBLIC' },
+      playerId,
+      targetCardId: accusation.targetId,
+      voterIds: accusation.voterIds,
+      succeeded: correct,
+    });
     if (correct) {
       successfulTargets.set(playerId, originalTarget.id);
     } else {
       failedVoters.push({ playerId, voterIds: accusation.voterIds });
-      events.push({
-        type: 'COUNCIL_FAILED',
-        visibility: { type: 'PUBLIC' },
-        playerId,
-        voterIds: accusation.voterIds,
-      });
     }
   }
 
@@ -1197,7 +1206,14 @@ function resolveNight(state: GameState): GameState {
 
   for (const playerId of PLAYER_ORDER) {
     const defense = defenseOrders[playerId];
-    if (defense.type !== 'PROTECT') continue;
+    if (defense.type !== 'PROTECT') {
+      events.push({
+        type: 'DEFENSE_SKIPPED',
+        visibility: { type: 'PUBLIC' },
+        playerId,
+      });
+      continue;
+    }
     const source = getCard(next, defense.sourceId);
     const target = getCard(next, defense.targetId);
     const updatedSource = {
@@ -1313,6 +1329,15 @@ function resolveNight(state: GameState): GameState {
       const known = next.players[playerId].privateIntel.find(
         (intel) => intel.targetInstanceId === target.occupant.id
       );
+      // Thông báo công khai "Tiên tri đã hành động" nhưng ẩn mục tiêu,
+      // khớp log prototype: "A dùng Tiên tri. Kết quả được giữ riêng."
+      events.push({
+        type: 'ABILITY_RESOLVED',
+        visibility: { type: 'PUBLIC' },
+        abilityId: order.abilityId,
+        sourceCardId: source.id,
+        targetCardId: null,
+      });
       events.push({
         type: 'ABILITY_RESOLVED',
         visibility: { type: 'PRIVATE', playerId },

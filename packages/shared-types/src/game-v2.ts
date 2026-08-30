@@ -269,7 +269,15 @@ export const GameEventPayloadSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('CARD_ELIMINATED'), cardId: CardIdSchema, cause: CardEliminationCauseSchema }),
   z.object({ type: z.literal('CARD_REVIVED'), cardId: CardIdSchema, sourceCardId: CardIdSchema }),
   z.object({ type: z.literal('PRIVATE_INSPECTION_RESULT'), intelId: z.string().min(1), targetCardId: CardIdSchema, discoveredRole: CardRoleSchema }),
-  z.object({ type: z.literal('COUNCIL_FAILED'), playerId: z.nativeEnum(PlayerId), voterIds: z.tuple([CardIdSchema, CardIdSchema, CardIdSchema]) }),
+  z.object({
+    type: z.literal('COUNCIL_ACCUSATION_RESOLVED'),
+    playerId: z.nativeEnum(PlayerId),
+    targetCardId: CardIdSchema,
+    voterIds: z.tuple([CardIdSchema, CardIdSchema, CardIdSchema]),
+    succeeded: z.boolean(),
+  }),
+  z.object({ type: z.literal('COUNCIL_PASSED'), playerId: z.nativeEnum(PlayerId) }),
+  z.object({ type: z.literal('DEFENSE_SKIPPED'), playerId: z.nativeEnum(PlayerId) }),
   z.object({ type: z.literal('WOLF_GUARD_RESCUED'), sourceCardId: CardIdSchema, targetCardId: CardIdSchema }),
   z.object({
     type: z.literal('PURGE_RESOLVED'),

@@ -66,10 +66,14 @@ export type GameEventPayload =
       readonly discoveredRole: CardRole;
     }
   | {
-      readonly type: 'COUNCIL_FAILED';
+      readonly type: 'COUNCIL_ACCUSATION_RESOLVED';
       readonly playerId: PlayerId;
+      readonly targetCardId: CardId;
       readonly voterIds: readonly [CardId, CardId, CardId];
+      readonly succeeded: boolean;
     }
+  | { readonly type: 'COUNCIL_PASSED'; readonly playerId: PlayerId }
+  | { readonly type: 'DEFENSE_SKIPPED'; readonly playerId: PlayerId }
   | {
       readonly type: 'WOLF_GUARD_RESCUED';
       readonly sourceCardId: CardId;

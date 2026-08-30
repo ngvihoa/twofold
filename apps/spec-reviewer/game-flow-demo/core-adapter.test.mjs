@@ -60,6 +60,8 @@ describe('spec-reviewer game-core adapter', () => {
     expect(state.round).toBe(2);
     expect(state.phase).toBe('day-A');
     expect(state.__core.events.at(-1).type).toBe('DAWN_PRESENTATION_COMPLETED');
+    expect(state.log).toContain('A không đặt khiên.');
+    expect(state.log).toContain('B không đặt khiên.');
   });
 
   it('maps one legacy Council choice into independent accusation and reaction slots', () => {
@@ -76,6 +78,8 @@ describe('spec-reviewer game-core adapter', () => {
     });
     state = dispatch(state, { type: 'council.submit', seat: 'B', kind: 'pass' });
     expect(state.phase).toBe('night-plan');
+    expect(state.log).toContain('A bỏ qua Hội đồng.');
+    expect(state.log).toContain('B bỏ qua Hội đồng.');
   });
 
   it('projects hidden opponent roles publicly and own roles privately', () => {
