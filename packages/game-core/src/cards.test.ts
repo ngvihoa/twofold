@@ -177,19 +177,18 @@ describe('ruleset v0.2 card state', () => {
 
   it('keeps the existing shared/web contract behind a legacy projection', () => {
     const engine = new GameEngine('card-view-test');
-    const target = engine.getState().players[PlayerId.PLAYER_B].board[0];
 
-    engine.send({ type: 'SETUP_LOCKED', playerId: PlayerId.PLAYER_A });
-    engine.send({ type: 'SETUP_LOCKED', playerId: PlayerId.PLAYER_B });
+    engine.dispatch({ type: 'SETUP_LOCK', playerId: PlayerId.PLAYER_A });
+    engine.dispatch({ type: 'SETUP_LOCK', playerId: PlayerId.PLAYER_B });
 
-    engine.handleHangAction(PlayerId.PLAYER_A, 0, target.occupant.role.id);
+    expect(engine.getState().phase.type).toBe('DAY_A');
 
     const view = engine.getPlayerView(PlayerId.PLAYER_A);
     expect(view.opponentCards[0]).toMatchObject({
       id: 'B1',
       index: 0,
-      status: CardStatus.DEAD,
-      role: target.occupant.role.id,
+      status: CardStatus.HIDDEN,
+      role: null,
     });
     expect(PlayerGameViewSchema.safeParse(view).success).toBe(true);
   });

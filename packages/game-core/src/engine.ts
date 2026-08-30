@@ -12,30 +12,33 @@ import {
 import { STANDARD_DECK } from './roles';
 import {
   CardEffectKind,
-  type CardId,
   type GameCard,
   createInitialCard,
   hasCardEffect,
   isCardAlive,
   isCardRevealed,
-  transitionCard,
 } from './cards';
 import {
   type PlayerState,
   createInitialPlayerState,
-  replacePlayerCard,
 } from './players';
 import {
   type GameState,
-  type GameStateEvent,
   createInitialGameState,
-  transitionGameState,
 } from './game-state';
 import { getActivePhasePlayer, type GamePhaseState } from './phase-machine';
 import { serializePlayerView, type GamePlayerView } from './player-view';
+import {
+  dispatchPlayerAction,
+  type PlayerGameAction,
+} from './rule-pipeline';
 
 /** GameState v0.2 kèm public log tạm phục vụ adapter contract v0.1. */
 export interface MasterGameState extends GameState {
+  /**
+   * Đã deprecate, giữ để tương thích contract v0.1
+   * Sẽ được xóa sau khi migrate shared-types/web sang v0.2
+   */
   logs: EventLogEntry[];
 }
 
@@ -139,13 +142,8 @@ export class GameEngine {
     return [...STANDARD_DECK];
   }
 
-  public getState(): MasterGameState {
+  public getState(): Readonly<MasterGameState> {
     return this.state;
-  }
-
-  /** Gửi một event cấp game/phase vào authoritative state machine. */
-  public send(event: GameStateEvent): void {
-    this.state = transitionGameState(this.state, event);
   }
 
   /** Tạo player view v0.2 đã lọc theo quyền biết của viewer. */
@@ -185,121 +183,11 @@ export class GameEngine {
     };
   }
 
-  /**
-   * Xử lý Treo cổ (Ban ngày): Đoán vai trò của 1 lá đối thủ
-   */
-  public handleHangAction(actor: PlayerId, targetIndex: number, guessedRole: CardRole): boolean {
-    if (getActivePhasePlayer(this.state.phase) !== actor) {
-      throw new Error('Không phải lượt Ban ngày của bạn!');
-    }
-
-    const opponentId =
-      actor === PlayerId.PLAYER_A ? PlayerId.PLAYER_B : PlayerId.PLAYER_A;
-    const opponent = this.state.players[opponentId];
-    const targetCard = opponent.board[targetIndex];
-
-    if (!targetCard || !isCardAlive(targetCard)) {
-      throw new Error('Mục tiêu không hợp lệ hoặc đã chết!');
-    }
-
-    const isCorrect = targetCard.occupant.role.id === guessedRole;
-
-    if (isCorrect) {
-      // Treo cổ đoán đúng có rule lộ riêng; ELIMINATE tự nó không được làm lộ card.
-      const revealedCard = transitionCard(targetCard, { type: 'REVEAL' });
-      const eliminatedCard = transitionCard(revealedCard, { type: 'ELIMINATE' });
-      this.state.players[opponentId] = replacePlayerCard(opponent, eliminatedCard);
-      this.addLog(
-        actor,
-        `${actor === PlayerId.PLAYER_A ? 'Người chơi A' : 'Người chơi B'} đã Treo cổ chính xác lá số ${targetIndex + 1} (${guessedRole})! Lá bài bị loại.`,
-        eliminatedCard.id,
-        eliminatedCard.id
-      );
-    } else {
-      this.addLog(
-        actor,
-        `${actor === PlayerId.PLAYER_A ? 'Người chơi A' : 'Người chơi B'} đoán sai vai trò lá số ${targetIndex + 1}! Không lá nào bị loại.`
-      );
-    }
-
-    this.checkWinCondition();
-    this.advanceDayTurn();
-    return isCorrect;
-  }
-
-  /**
-   * Chuyển lượt ban ngày: A -> B -> Chuyển sang Ban đêm
-   */
-  private advanceDayTurn(): void {
-    if (this.state.result) return;
-
-    if (this.state.phase.type === 'DAY_A') {
-      this.send({ type: 'DAY_ACTION_COMPLETED', playerId: PlayerId.PLAYER_A });
-      this.addLog(null, 'Ban ngày: Lượt của Người chơi B.');
-    } else {
-      this.send({ type: 'DAY_ACTION_COMPLETED', playerId: PlayerId.PLAYER_B });
-      this.addLog(
-        null,
-        this.state.phase.type === 'COUNCIL_PLAN'
-          ? 'Ban ngày hoàn tất. Hai bên bí mật khóa lựa chọn Hội đồng.'
-          : 'Màn đêm buông xuống! Cả hai người chơi chọn hành động bí mật.'
-      );
-    }
-  }
-
-  /**
-   * Kiểm tra điều kiện thắng / thua
-   */
-  public checkWinCondition(): PlayerId | null {
-    const aliveA = this.state.players[PlayerId.PLAYER_A].board.filter(isCardAlive).length;
-    const aliveB = this.state.players[PlayerId.PLAYER_B].board.filter(isCardAlive).length;
-
-    if (aliveA === 0 && aliveB === 0) {
-      // Cả 2 cùng hết bài -> Hòa hoặc xử lý theo rule
-      this.send({
-        type: 'GAME_ENDED',
-        result: { winner: null, reason: WinReason.ELIMINATION },
-      });
-      return null;
-    }
-
-    if (aliveA === 0) {
-      this.send({
-        type: 'GAME_ENDED',
-        result: { winner: PlayerId.PLAYER_B, reason: WinReason.ELIMINATION },
-      });
-      this.addLog(null, 'Người chơi B đã chiến thắng vì đối thủ hết bài trên sân!');
-      return PlayerId.PLAYER_B;
-    }
-
-    if (aliveB === 0) {
-      this.send({
-        type: 'GAME_ENDED',
-        result: { winner: PlayerId.PLAYER_A, reason: WinReason.ELIMINATION },
-      });
-      this.addLog(null, 'Người chơi A đã chiến thắng vì đối thủ hết bài trên sân!');
-      return PlayerId.PLAYER_A;
-    }
-
-    return null;
-  }
-
-  private addLog(
-    actor: PlayerId | null,
-    message: string,
-    revealedCardId?: CardId,
-    eliminatedCardId?: CardId
-  ): void {
-    this.state.logs.push({
-      id: `log_${Date.now()}_${this.state.logs.length}`,
-      round: this.state.round,
-      phase: toLegacyTurnPhase(this.state.phase),
-      timestamp: Date.now(),
-      actor,
-      message,
-      isPublic: true,
-      revealedCardId,
-      eliminatedCardId,
-    });
+  /** Gửi player action qua validation/resolution pipeline duy nhất của game. */
+  public dispatch(action: PlayerGameAction): void {
+    this.state = {
+      ...dispatchPlayerAction(this.state, action),
+      logs: this.state.logs,
+    };
   }
 }

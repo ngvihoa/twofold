@@ -765,6 +765,29 @@ Các event chính:
 
 Web chịu trách nhiệm dịch event thành nội dung và animation. Structured event cũng phục vụ reconnect, replay và audit rule.
 
+### 12.1. Chính sách legacy log trong thời gian migration
+
+`GameState.events` là event history authoritative duy nhất. Reconnect, replay,
+state synchronization, audit rule và presentation mới phải đọc structured
+event; không được đọc hoặc suy luận gameplay state từ chuỗi log.
+
+`MasterGameState.logs` và `PlayerGameView.logs` chỉ được giữ để contract v0.1
+trong `packages/shared-types` tiếp tục parse được trong thời gian migration:
+
+- legacy log **không authoritative** và không đảm bảo phản ánh các action sau
+  khi khởi tạo trận;
+- `GameEngine.dispatch()` chỉ preserve field này, không derive chuỗi tiếng Việt
+  từ structured event;
+- core không xây thêm mapper `GameEvent → EventLogEntry`, vì mapper đó là
+  presentation concern và sẽ tạo hai event history phải duy trì song song;
+- server, test rule và frontend mới không được dùng legacy log cho resolution,
+  replay hoặc synchronization;
+- `MasterGameState.logs`, `getPlayerView()` và legacy projection liên quan sẽ bị
+  xóa khi `packages/shared-types` có action/view/event contract v0.2.
+
+Nếu UI cần activity feed, UI tự map các `GameEvent` đã được lọc theo viewer sang
+nội dung bản địa hóa.
+
 ---
 
 ## 13. Web Responsibilities

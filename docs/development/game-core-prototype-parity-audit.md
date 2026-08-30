@@ -14,9 +14,10 @@ trực tiếp với prototype.
 
 Ba mismatch về Shooter và identity qua Purge SWAP đã được xử lý theo prototype:
 Shooter không reveal source; Guard memory và Seer intel theo immutable card
-instance thay vì slot. Chưa thể tuyên bố parity hoàn toàn vì legacy
-`GameEngine` vẫn còn method v0.1 có thể bypass rule pipeline và trace parity còn
-thiếu.
+instance thay vì slot. `GameEngine` cũng đã loại các action method v0.1 và chỉ
+dispatch gameplay action qua rule pipeline. Tuy nhiên, chưa thể tuyên bố parity
+hoàn toàn vì vẫn còn thiếu normalized full-match trace và contract v0.2 trong
+`shared-types`.
 
 ## Automated evidence
 
@@ -62,6 +63,9 @@ thiếu.
    biểu diễn bằng variant không có `remainingUses`.
 5. Core tự resolve Night sau đủ Defense order; client không gửi `night.resolve`.
 6. Structured event không chứa delay/animation timing.
+7. `MasterGameState.logs` chỉ là compatibility field v0.1, không authoritative
+   và không được derive từ structured events. `GameState.events` là history duy
+   nhất cho reconnect, replay, sync và audit.
 
 ## Mismatch và notable cần xử lý
 
@@ -70,13 +74,13 @@ thiếu.
 | ID-01 | Guard memory phải theo card vật lý qua Purge SWAP. | Rule Guard sau V7+ | **Đã xử lý:** `lastTarget.instanceId`; test xác nhận memory đi cùng occupant. |
 | ID-02 | Seer intel phải tiếp tục nhận diện đúng card sau SWAP. | Private knowledge và lần soi thứ hai | **Đã xử lý:** `targetInstanceId` + historical `observedAtSlotId`; test xác nhận mapping sau SWAP. |
 | RULE-11 | Prototype Shooter không reveal source khi bắn. | Public information/balance | **Đã xử lý:** SHOOT consume resource nhưng không phát `CARD_REVEALED` cho source. |
-| ARCH-01 | `GameEngine.handleHangAction` và một số helper legacy vẫn mutate theo rule v0.1 thay vì gọi `dispatchPlayerAction`. | Web có thể bypass authoritative pipeline nếu dùng legacy API | Giữ adapter read-only; loại action method legacy khi bắt đầu migration web. |
-| CONTRACT-01 | `shared-types` chưa có phase/action/event/result reason v0.2. | Legacy view phải hạ Final Duel reason thành `null` | Migrate contract ở PR riêng; chưa sửa trong phạm vi core. |
+| ARCH-01 | Gameplay mutation của `GameEngine` phải đi qua authoritative pipeline. | Tránh bypass validation/resolution. | **Đã xử lý:** bỏ action helper v0.1 và public phase-event sender; `dispatch(PlayerGameAction)` gọi `dispatchPlayerAction`. |
+| CONTRACT-01 | `shared-types` chưa có phase/action/event/result reason v0.2. | Legacy view phải hạ Final Duel reason thành `null`; legacy logs không đầy đủ. | Migrate contract ở PR riêng; xóa `MasterGameState.logs`, `getPlayerView()` và legacy projection khi hoàn tất. |
+| LEGACY-LOG-01 | Có nên derive `EventLogEntry[]` từ structured events không? | Có nguy cơ tạo hai event history và đưa presentation wording vào core. | **Đã chốt:** không derive. `GameState.events` authoritative; `logs` chỉ giữ để schema v0.1 parse được và sẽ bị xóa cùng legacy contract. |
 | TEST-01 | Smoke parity mới bao phủ Blood Moon và Final Duel, chưa replay cùng một standard-deck action trace cho toàn trận. | Chưa đủ bằng chứng xóa prototype engine | Thêm normalized trace harness. |
 
 ## Điều kiện để tuyên bố parity và xóa prototype engine
 
-- `GameEngine` legacy không còn đường action bypass pipeline.
 - Có ít nhất một standard-deck trace chạy qua Council, Night, một Purge cycle và
   Final Duel/elimination ở cả hai engine, rồi so normalized public outcome.
 - Player-view parity không rò hidden role, Night order, Council reaction hoặc
