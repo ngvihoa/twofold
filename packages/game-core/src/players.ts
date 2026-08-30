@@ -1,5 +1,5 @@
 import { AbilityId, CardRole, PlayerId } from '@twofold/shared-types';
-import type { CardId, GameCard } from './cards';
+import type { CardId, CardInstanceId, GameCard } from './cards';
 
 /**
  * Trạng thái submit setup của một player.
@@ -120,14 +120,16 @@ export type PlayerSpecialAbilityState = {
 /**
  * Một kết quả điều tra chỉ player sở hữu mới được biết.
  *
- * Intel tách khỏi source và target card để kiến thức không mất khi Seer chết
- * và không vô tình biến thành thông tin reveal công khai của target.
+ * Intel thuộc player để kiến thức không mất khi Seer chết. Source/target dùng
+ * instance identity nên kiến thức đi theo card vật lý qua Purge SWAP;
+ * `observedAtSlotId` chỉ ghi lại slot tại thời điểm điều tra để audit.
  */
 export interface PrivateIntelEntry {
   readonly id: string;
   readonly sourceAbilityId: AbilityId.SEER_INSPECT;
-  readonly sourceCardId: CardId;
-  readonly targetCardId: CardId;
+  readonly sourceInstanceId: CardInstanceId;
+  readonly targetInstanceId: CardInstanceId;
+  readonly observedAtSlotId: CardId;
   readonly discoveredRole: CardRole;
   readonly discoveredRound: number;
 }

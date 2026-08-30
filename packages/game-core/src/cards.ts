@@ -5,10 +5,18 @@ import { createInitialRoleState, type RoleState } from './roles';
 export type CardPosition = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 
 /**
- * ID ổn định của card trong một trận: prefix `A`/`B` xác định owner và phần số
- * xác định vị trí 1–10, ví dụ `A1` hoặc `B10`.
+ * ID ổn định của một board slot trong trận: prefix `A`/`B` xác định player sở
+ * hữu slot và phần số xác định vị trí 1–10, ví dụ `A1` hoặc `B10`.
  */
 export type CardId = `${'A' | 'B'}${CardPosition}`;
+
+/**
+ * Danh tính bất biến của card vật lý được chia lúc đầu trận.
+ *
+ * Khác với `CardId` là ID của slot hiện tại, ID này đi theo occupant qua Purge
+ * SWAP và được dùng cho memory/intel tồn tại qua nhiều vòng.
+ */
+export type CardInstanceId = `${'A' | 'B'}:${CardPosition}`;
 
 /**
  * Lifecycle state cốt lõi của card, tách khỏi các effect tạm thời.
@@ -51,7 +59,7 @@ export type CardEffectSource =
   | {
       readonly type: 'ABILITY';
       readonly abilityId: AbilityId;
-      readonly cardId: CardId;
+      readonly instanceId: CardInstanceId;
       readonly playerId: PlayerId;
     }
   | {
@@ -88,18 +96,29 @@ export interface CardEffectState {
 }
 
 /**
- * Authoritative state của một card trên board.
+ * Authoritative state của một card vật lý đang chiếm một board slot.
  *
  * Card sở hữu lifecycle, role runtime state và danh sách effect đang tác động
  * lên chính nó. Các knowledge riêng của player không được lưu trong card.
+ */
+export interface CardInstanceState {
+  readonly id: CardInstanceId;
+  readonly role: RoleState;
+  readonly state: CardRuntimeState;
+  readonly effects: readonly CardEffectState[];
+}
+
+/**
+ * Slot cố định trên board và card instance đang chiếm slot đó.
+ *
+ * `id`, `position`, `owner` thuộc slot và không đổi qua Purge SWAP. Toàn bộ
+ * lifecycle/role/ability/effect nằm trong `occupant` và đi theo card vật lý.
  */
 export interface GameCard {
   readonly id: CardId;
   readonly position: CardPosition;
   readonly owner: PlayerId;
-  readonly role: RoleState;
-  readonly state: CardRuntimeState;
-  readonly effects: readonly CardEffectState[];
+  readonly occupant: CardInstanceState;
 }
 
 /**
@@ -145,9 +164,12 @@ export function createInitialCard(
     id: `${CARD_PREFIX[owner]}${validPosition}`,
     position: validPosition,
     owner,
-    role: createInitialRoleState(role),
-    state: { life: 'ALIVE', visibility: 'HIDDEN' },
-    effects: [],
+    occupant: {
+      id: `${CARD_PREFIX[owner]}:${validPosition}`,
+      role: createInitialRoleState(role),
+      state: { life: 'ALIVE', visibility: 'HIDDEN' },
+      effects: [],
+    },
   };
 }
 
@@ -162,57 +184,80 @@ export function createInitialCard(
 export function transitionCard(card: GameCard, event: CardEvent): GameCard {
   switch (event.type) {
     case 'REVEAL':
-      if (card.state.visibility === 'REVEALED') return card;
-      return { ...card, state: { ...card.state, visibility: 'REVEALED' } };
-
-    case 'ELIMINATE':
-      if (card.state.life === 'DEAD') return card;
+      if (card.occupant.state.visibility === 'REVEALED') return card;
       return {
         ...card,
-        state: { life: 'DEAD', visibility: card.state.visibility },
-        effects: [],
+        occupant: {
+          ...card.occupant,
+          state: { ...card.occupant.state, visibility: 'REVEALED' },
+        },
+      };
+
+    case 'ELIMINATE':
+      if (card.occupant.state.life === 'DEAD') return card;
+      return {
+        ...card,
+        occupant: {
+          ...card.occupant,
+          state: { life: 'DEAD', visibility: card.occupant.state.visibility },
+          effects: [],
+        },
       };
 
     case 'REVIVE':
-      if (card.state.life === 'ALIVE') return card;
+      if (card.occupant.state.life === 'ALIVE') return card;
       return {
         ...card,
-        state: { life: 'ALIVE', visibility: card.state.visibility },
-        effects: [],
+        occupant: {
+          ...card.occupant,
+          state: { life: 'ALIVE', visibility: card.occupant.state.visibility },
+          effects: [],
+        },
       };
 
     case 'APPLY_EFFECT':
-      if (card.state.life === 'DEAD') {
+      if (card.occupant.state.life === 'DEAD') {
         throw new Error('Không thể áp dụng effect lên card đã chết.');
       }
-      if (card.effects.some((effect) => effect.id === event.effect.id)) {
+      if (card.occupant.effects.some((effect) => effect.id === event.effect.id)) {
         throw new Error(`Effect ID ${event.effect.id} đã tồn tại trên ${card.id}.`);
       }
-      return { ...card, effects: [...card.effects, event.effect] };
+      return {
+        ...card,
+        occupant: {
+          ...card.occupant,
+          effects: [...card.occupant.effects, event.effect],
+        },
+      };
 
     case 'REMOVE_EFFECT':
       return {
         ...card,
-        effects: card.effects.filter((effect) => effect.id !== event.effectId),
+        occupant: {
+          ...card.occupant,
+          effects: card.occupant.effects.filter(
+            (effect) => effect.id !== event.effectId
+          ),
+        },
       };
 
     case 'CLEAR_EFFECTS':
-      if (card.effects.length === 0) return card;
-      return { ...card, effects: [] };
+      if (card.occupant.effects.length === 0) return card;
+      return { ...card, occupant: { ...card.occupant, effects: [] } };
   }
 }
 
 /** Kiểm tra card còn sống dựa trên nhánh `life` của runtime state. */
 export function isCardAlive(card: GameCard): boolean {
-  return card.state.life === 'ALIVE';
+  return card.occupant.state.life === 'ALIVE';
 }
 
 /** Kiểm tra role của card đã được reveal công khai hay chưa. */
 export function isCardRevealed(card: GameCard): boolean {
-  return card.state.visibility === 'REVEALED';
+  return card.occupant.state.visibility === 'REVEALED';
 }
 
 /** Kiểm tra card hiện có ít nhất một effect thuộc `kind` được yêu cầu. */
 export function hasCardEffect(card: GameCard, kind: CardEffectKind): boolean {
-  return card.effects.some((effect) => effect.kind === kind);
+  return card.occupant.effects.some((effect) => effect.kind === kind);
 }

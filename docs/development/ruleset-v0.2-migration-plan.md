@@ -142,9 +142,9 @@ Thay `skillUsedDay`, `skillUsedNight`, `skillUsedTotal` bằng state riêng theo
 type AbilityState =
   | {
       abilityId: 'GUARD_PROTECT';
-      lastTarget: { cardId: CardId; round: number } | null;
+      lastTarget: { instanceId: CardInstanceId; round: number } | null;
     }
-  | { abilityId: 'SEER_INSPECT'; remainingUses: number }
+  | { abilityId: 'SEER_INSPECT' }
   | { abilityId: 'WITCH_REVIVE'; remainingUses: number }
   | { abilityId: 'WEREWOLF_ATTACK' }
   | { abilityId: 'AVENGER_MARK' }
@@ -154,7 +154,7 @@ type AbilityState =
 | Ability | Giới hạn/state ban đầu |
 |---|---|
 | Guard | Không giới hạn lượt; `lastTarget: null` |
-| Seer inspect | 3 |
+| Seer inspect | Không giới hạn tổng lượt; phe sáng đã biết không được soi lại |
 | Witch revive | 1 |
 | Witch poison | 1 |
 | Shooter bullet | 1 |
@@ -163,13 +163,16 @@ type AbilityState =
 | Werewolf attack | Không giới hạn |
 | Avenger mark | Không giới hạn, chỉ một mark đang hoạt động |
 
-Guard chỉ bị cấm chọn cùng target ở hai vòng liên tiếp. State lưu cả target và round của lần dùng gần nhất; nếu Guard pass hoặc không đặt khiên một vòng thì record tự trở nên cũ và target trước có thể được chọn lại mà không cần reset command.
+Guard chỉ bị cấm chọn cùng card vật lý ở hai vòng liên tiếp. State lưu
+`CardInstanceId` và round của lần dùng gần nhất; nếu Guard pass hoặc không đặt
+khiên một vòng thì record tự trở nên cũ. Việc target đổi slot qua `SWAP` không
+làm mất restriction này.
 
 ---
 
 ## 4. Card State
 
-> **Tiến độ:** Đã triển khai model nội bộ trong `packages/game-core` ngày 29/08/2026; tổng quát hóa effect source/Council lock và chuyển runtime ability state về dưới `RoleState` ngày 30/08/2026. DEV-02A hoàn thành ngày 30/08: lifecycle/visibility độc lập, eliminate/revive giữ visibility và reveal giữ lifecycle. Guard hiện không có charge, chỉ giữ target/round gần nhất. Chưa migrate `packages/shared-types` hoặc `apps/web`; core đang giữ legacy projection tạm thời cho contract v0.1.
+> **Tiến độ:** Đã triển khai model nội bộ trong `packages/game-core` ngày 29/08/2026; tổng quát hóa effect source/Council lock và chuyển runtime ability state về dưới `RoleState` ngày 30/08/2026. DEV-02A hoàn thành ngày 30/08: lifecycle/visibility độc lập, eliminate/revive giữ visibility và reveal giữ lifecycle. Ngày 30/08, core tách slot `CardId` khỏi `CardInstanceId` bất biến để role/runtime/effect/memory đi theo card vật lý qua Purge SWAP. Chưa migrate `packages/shared-types` hoặc `apps/web`; core đang giữ legacy projection tạm thời cho contract v0.1.
 
 ### 4.1. Runtime state
 
@@ -180,14 +183,18 @@ type CardRuntimeState =
   | { life: 'ALIVE'; visibility: 'HIDDEN' | 'REVEALED' }
   | { life: 'DEAD'; visibility: 'HIDDEN' | 'REVEALED' };
 
+interface CardInstanceState {
+  id: CardInstanceId;
+  role: RoleState;
+  state: CardRuntimeState;
+  effects: CardEffectState[];
+}
+
 interface GameCard {
   id: CardId;
   position: number;
   owner: PlayerId;
-  role: RoleState;
-
-  state: CardRuntimeState;
-  effects: CardEffectState[];
+  occupant: CardInstanceState;
 }
 ```
 
@@ -198,7 +205,7 @@ transitionCard(card, cardCommand);
 transitionRole(role, {
   type: 'ABILITY_USED',
   abilityId,
-  targetId,
+  targetInstanceId,
   round,
 });
 ```
@@ -219,7 +226,7 @@ interface CardEffectState {
     | {
         type: 'ABILITY';
         abilityId: AbilityId;
-        cardId: CardId;
+        instanceId: CardInstanceId;
         playerId: PlayerId;
       }
     | {
@@ -242,28 +249,32 @@ Một card có thể chứa nhiều effect đồng thời, kể cả nhiều eff
 
 `councilCooldown` không còn là field riêng. Một lần buộc tội sai áp dụng effect `COUNCIL_LOCK` có source rule `FAILED_COUNCIL` và expiry `AFTER_PHASE/COUNCIL_RESOLUTION` cho ba voter liên quan. Khiên và dấu Báo thù dùng `AFTER_PHASE/NIGHT_RESOLUTION`, nên effect vẫn tồn tại trong lúc resolve đêm rồi mới được cleanup.
 
-### 4.3. Card identity
+### 4.3. Slot và card-instance identity
 
-Chuẩn hóa ID theo prototype:
+Chuẩn hóa slot ID theo prototype:
 
 ```text
 A1…A10
 B1…B10
 ```
 
-- `position` có giá trị 1–10.
-- Sau khi setup khóa, ID không được đổi trong suốt trận.
+- `CardId` (`A1…B10`) và `position` thuộc slot; owner của slot không đổi.
+- `CardInstanceId` (`A:1…B:10`) được tạo khi chia bài và đi theo card vật lý.
+- Sau khi setup khóa, cả hai loại ID đều bất biến; `SWAP` chỉ đổi instance đang
+  chiếm mỗi slot.
 - Không dùng song song format `A_0` và `A1`.
 
 ### 4.4. State không thuộc card
 
 Ownership đã chốt:
 
-- Guard target memory nằm trong `GUARD_PROTECT` ability state dưới `RoleState` của source card.
+- Guard target memory nằm trong `GUARD_PROTECT` ability state dưới `RoleState`
+  của source instance và trỏ tới target bằng `CardInstanceId`.
 - Revenge target được biểu diễn bằng `REVENGE_MARK` effect trên target card.
 - Blood Moon không thuộc board card; unlock/cooldown nằm trong player special-ability state.
 - Pending Council, Night, Defense và Purge order nằm trong player submission của game phase.
-- Private Seer intel là knowledge của player và vẫn tồn tại nếu Seer chết.
+- Private Seer intel là knowledge của player, vẫn tồn tại nếu Seer chết và trỏ
+  tới card vật lý bằng `CardInstanceId` thay vì slot hiện tại.
 
 ---
 
@@ -297,7 +308,9 @@ interface PlayerState {
 - `PurgeOrder` lưu cả rule và target đã khóa để snapshot tự mô tả được resolution từ Vòng 6.
 - Không thêm `dayActionSubmitted`: Day là lượt tuần tự do phase machine quản lý và resolve ngay.
 - Blood Moon là `PlayerSpecialAbilityState` với `unlockRound`, `cooldownRounds`, `readyRound`.
-- Seer intel nằm trong `privateIntel`, tách khỏi card để knowledge vẫn tồn tại nếu source Seer chết.
+- Seer intel nằm trong `privateIntel`, tách khỏi card để knowledge vẫn tồn tại
+  nếu source Seer chết. Entry giữ source/target instance cùng slot quan sát lịch
+  sử để theo đúng card vật lý qua `SWAP`.
 - Payload order hiện chỉ là contract tối thiểu. Validation/resolution thuộc phần Rule Flow và Action Contract.
 
 Bỏ `eliminationSpent`. Budget được mô hình hóa trực tiếp theo phase:
@@ -505,7 +518,11 @@ revenge chain. Việc một bên submit sớm không được kích hoạt resol
 > mở từ Vòng 6, chỉ đánh target đã lộ, cooldown hai vòng, không có source card và
 > vẫn vào cooldown khi bị Guard chặn. Purge pipeline cũng đã được port đủ chu kỳ
 > `CUT → SWAP → REVEAL → LOCK`. Final Duel guess đã được port với hai submission
-> bí mật, reveal đồng thời và kết quả thắng/hòa từ snapshot.
+> bí mật, reveal đồng thời và kết quả thắng/hòa từ snapshot. Full-match tests và
+> smoke parity với prototype được theo dõi tại
+> `docs/development/game-core-prototype-parity-audit.md`.
+> Policy reveal của Day ability theo prototype: `SHOOT` không reveal source;
+> `MARK`, `PURIFY` và `REVIVE` reveal source khi resolve.
 
 Thay `USE_SKILL` chung bằng discriminated union cụ thể:
 
@@ -590,11 +607,12 @@ dùng được vì thuộc player. Theo prototype, passive Avenger revenge vẫn
 
 Notable cần review sau playtest:
 
-- `SWAP` giữ `CardId`, position và owner của slot, đồng thời hoán đổi role,
-  lifecycle, ability resource và effect của card. Đây là semantics đang dùng để
-  không phá invariant ID `A1…B10`.
-- Seer intel cũ vẫn là historical knowledge gắn với ID tại thời điểm điều tra;
-  nó không tự đổi thành role mới sau `SWAP`.
+- `SWAP` giữ `CardId`, position và owner của slot, chỉ hoán đổi `occupant`.
+  `CardInstanceId`, role, lifecycle, ability resource, memory và effect đi cùng
+  card vật lý.
+- Seer intel trỏ tới `targetInstanceId`; `observedAtSlotId` chỉ là lịch sử slot
+  tại thời điểm soi. Vì vậy intel vẫn nhận diện đúng card sau `SWAP` và không bị
+  hiểu nhầm là role mới đang chiếm slot cũ.
 - Nếu hai order `SWAP` chọn trùng bất kỳ vị trí nào, resolution bị từ chối và
   không mutate board; player cần submit lại order gây conflict.
 - `PURGE_RESOLVED` là public event sau resolution, nhưng payload order vẫn được
@@ -678,6 +696,7 @@ Không gửi master state trực tiếp cho client.
 ```ts
 interface PublicCardView {
   id: CardId;
+  instanceId: CardInstanceId;
   position: number;
   owner: PlayerId;
   state: CardRuntimeState;

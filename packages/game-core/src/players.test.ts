@@ -49,7 +49,7 @@ describe('ruleset v0.2 player state', () => {
     const deadCard = transitionCard(initialCard, { type: 'ELIMINATE' });
     const nextPlayer = replacePlayerCard(player, deadCard);
 
-    expect(nextPlayer.board[0].state.life).toBe('DEAD');
-    expect(player.board[0].state.life).toBe('ALIVE');
+    expect(nextPlayer.board[0].occupant.state.life).toBe('DEAD');
+    expect(player.board[0].occupant.state.life).toBe('ALIVE');
   });
 });

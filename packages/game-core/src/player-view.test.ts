@@ -142,8 +142,9 @@ describe('ruleset v0.2 player view serializer', () => {
         {
           id: 'intel-a1-b1-round-1',
           sourceAbilityId: AbilityId.SEER_INSPECT,
-          sourceCardId: 'A1',
-          targetCardId: 'B1',
+          sourceInstanceId: 'A:1',
+          targetInstanceId: 'B:1',
+          observedAtSlotId: 'B1',
           discoveredRole: CardRole.WEREWOLF,
           discoveredRound: 1,
         },
@@ -170,7 +171,7 @@ describe('ruleset v0.2 player view serializer', () => {
       source: {
         type: 'ABILITY',
         abilityId: AbilityId.GUARD_PROTECT,
-        cardId: 'A2',
+        instanceId: 'A:2',
         playerId: PlayerId.PLAYER_A,
       },
       appliedRound: 1,

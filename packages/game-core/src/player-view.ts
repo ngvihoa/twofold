@@ -3,6 +3,7 @@ import type {
   CardEffectExpiry,
   CardEffectKind,
   CardId,
+  CardInstanceId,
   CardPosition,
   CardRuntimeState,
   GameCard,
@@ -37,6 +38,7 @@ export interface VisibleCardEffect {
 /** Card thuộc viewer: luôn bao gồm role và runtime ability state của chính họ. */
 export interface PrivateCardView {
   readonly id: CardId;
+  readonly instanceId: CardInstanceId;
   readonly position: CardPosition;
   readonly owner: PlayerId;
   readonly state: CardRuntimeState;
@@ -50,6 +52,7 @@ export interface PrivateCardView {
  */
 export interface PublicCardView {
   readonly id: CardId;
+  readonly instanceId: CardInstanceId;
   readonly position: CardPosition;
   readonly owner: PlayerId;
   readonly state: CardRuntimeState;
@@ -179,26 +182,33 @@ function serializeOpponentPlayer(player: PlayerState): OpponentPlayerView {
 function serializePrivateCard(card: GameCard): PrivateCardView {
   return {
     id: card.id,
+    instanceId: card.occupant.id,
     position: card.position,
     owner: card.owner,
-    state: { ...card.state },
-    role: cloneRoleState(card.role),
-    effects: card.effects.map(serializeVisibleEffect),
+    state: { ...card.occupant.state },
+    role: cloneRoleState(card.occupant.role),
+    effects: card.occupant.effects.map(serializeVisibleEffect),
   };
 }
 
 function serializePublicCard(card: GameCard): PublicCardView {
   return {
     id: card.id,
+    instanceId: card.occupant.id,
     position: card.position,
     owner: card.owner,
-    state: { ...card.state },
-    role: card.state.visibility === 'REVEALED' ? card.role.id : null,
-    effects: card.effects.map(serializeVisibleEffect),
+    state: { ...card.occupant.state },
+    role:
+      card.occupant.state.visibility === 'REVEALED'
+        ? card.occupant.role.id
+        : null,
+    effects: card.occupant.effects.map(serializeVisibleEffect),
   };
 }
 
-function serializeVisibleEffect(cardEffect: GameCard['effects'][number]): VisibleCardEffect {
+function serializeVisibleEffect(
+  cardEffect: GameCard['occupant']['effects'][number]
+): VisibleCardEffect {
   return {
     kind: cardEffect.kind,
     appliedRound: cardEffect.appliedRound,

@@ -1,5 +1,5 @@
 import { AbilityId, CardRole, Faction } from '@twofold/shared-types';
-import type { CardId } from './cards';
+import type { CardInstanceId } from './cards';
 
 /**
  * Metadata bất biến của một role trong ruleset.
@@ -23,10 +23,13 @@ export interface RoleDefinition {
  */
 export type AbilityState =
   | { readonly abilityId: AbilityId.WEREWOLF_ATTACK }
-  | { readonly abilityId: AbilityId.SEER_INSPECT; readonly remainingUses: number }
+  | { readonly abilityId: AbilityId.SEER_INSPECT }
   | {
       readonly abilityId: AbilityId.GUARD_PROTECT;
-      readonly lastTarget: { readonly cardId: CardId; readonly round: number } | null;
+      readonly lastTarget: {
+        readonly instanceId: CardInstanceId;
+        readonly round: number;
+      } | null;
     }
   | { readonly abilityId: AbilityId.WITCH_REVIVE; readonly remainingUses: number }
   | { readonly abilityId: AbilityId.WITCH_POISON; readonly remainingUses: number }
@@ -55,7 +58,7 @@ export interface RoleState {
 export type RoleCommand = {
   readonly type: 'ABILITY_USED';
   readonly abilityId: AbilityId;
-  readonly targetId?: CardId;
+  readonly targetInstanceId?: CardInstanceId;
   readonly round: number;
 };
 
@@ -142,7 +145,7 @@ function createInitialAbilityStates(role: CardRole): readonly AbilityState[] {
     case CardRole.WEREWOLF:
       return [{ abilityId: AbilityId.WEREWOLF_ATTACK }];
     case CardRole.SEER:
-      return [{ abilityId: AbilityId.SEER_INSPECT, remainingUses: 3 }];
+      return [{ abilityId: AbilityId.SEER_INSPECT }];
     case CardRole.GUARD:
       return [{ abilityId: AbilityId.GUARD_PROTECT, lastTarget: null }];
     case CardRole.WITCH:
@@ -196,16 +199,16 @@ export function transitionRole(role: RoleState, command: RoleCommand): RoleState
   let nextAbility: AbilityState;
 
   if (ability.abilityId === AbilityId.GUARD_PROTECT) {
-    if (!command.targetId) throw new Error('Guard ability cần target.');
+    if (!command.targetInstanceId) throw new Error('Guard ability cần target.');
     if (
-      ability.lastTarget?.cardId === command.targetId &&
+      ability.lastTarget?.instanceId === command.targetInstanceId &&
       ability.lastTarget.round >= command.round - 1
     ) {
       throw new Error('Không được bảo vệ cùng một target ở hai vòng liên tiếp.');
     }
     nextAbility = {
       ...ability,
-      lastTarget: { cardId: command.targetId, round: command.round },
+      lastTarget: { instanceId: command.targetInstanceId, round: command.round },
     };
   } else if ('remainingUses' in ability) {
     if (ability.remainingUses < 1) {

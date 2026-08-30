@@ -51,7 +51,7 @@ function toLegacyCard(card: GameCard): LegacyCard {
     id: card.id,
     index: card.position - 1,
     owner: card.owner,
-    role: card.role.id,
+    role: card.occupant.role.id,
     status: toLegacyCardStatus(card),
     skillUsedDay: false,
     skillUsedNight: false,
@@ -167,7 +167,7 @@ export class GameEngine {
       index: c.position - 1,
       owner: c.owner,
       status: toLegacyCardStatus(c),
-      role: isCardRevealed(c) ? c.role.id : null,
+      role: isCardRevealed(c) ? c.occupant.role.id : null,
     }));
 
     return {
@@ -202,7 +202,7 @@ export class GameEngine {
       throw new Error('Mục tiêu không hợp lệ hoặc đã chết!');
     }
 
-    const isCorrect = targetCard.role.id === guessedRole;
+    const isCorrect = targetCard.occupant.role.id === guessedRole;
 
     if (isCorrect) {
       // Treo cổ đoán đúng có rule lộ riêng; ELIMINATE tự nó không được làm lộ card.

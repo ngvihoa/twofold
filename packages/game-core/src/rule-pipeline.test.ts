@@ -14,7 +14,7 @@ import {
 import { serializePlayerView } from './player-view';
 import { PlayerSpecialAbilityId, createInitialPlayerState } from './players';
 import { dispatchPlayerAction, RuleValidationError } from './rule-pipeline';
-import { getRoleAbility } from './roles';
+import { getRoleAbility, transitionRole } from './roles';
 
 function createPipelineGame(): GameState {
   return createInitialGameState('pipeline-test', 'pipeline-seed', {
@@ -283,16 +283,16 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
     });
 
     expect(state.phase).toEqual({ type: 'NIGHT_PLAN' });
-    expect(state.players[PlayerId.PLAYER_A].board[0].state).toEqual({
+    expect(state.players[PlayerId.PLAYER_A].board[0].occupant.state).toEqual({
       life: 'DEAD',
       visibility: 'REVEALED',
     });
-    expect(state.players[PlayerId.PLAYER_B].board[3].state).toEqual({
+    expect(state.players[PlayerId.PLAYER_B].board[3].occupant.state).toEqual({
       life: 'DEAD',
       visibility: 'REVEALED',
     });
-    expect(state.players[PlayerId.PLAYER_A].board[1].state.visibility).toBe('REVEALED');
-    expect(state.players[PlayerId.PLAYER_B].board[0].state.visibility).toBe('REVEALED');
+    expect(state.players[PlayerId.PLAYER_A].board[1].occupant.state.visibility).toBe('REVEALED');
+    expect(state.players[PlayerId.PLAYER_B].board[0].occupant.state.visibility).toBe('REVEALED');
   });
 
   it('consumes and reveals Wolf Guard only when its reaction rescues the target', () => {
@@ -328,10 +328,10 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
     });
 
     expect(isCardAlive(state.players[PlayerId.PLAYER_B].board[3])).toBe(true);
-    expect(state.players[PlayerId.PLAYER_B].board[4].state.visibility).toBe('REVEALED');
+    expect(state.players[PlayerId.PLAYER_B].board[4].occupant.state.visibility).toBe('REVEALED');
     expect(
       getRoleAbility(
-        state.players[PlayerId.PLAYER_B].board[4].role,
+        state.players[PlayerId.PLAYER_B].board[4].occupant.role,
         AbilityId.WOLF_GUARD_RESCUE
       )?.remainingUses
     ).toBe(0);
@@ -374,10 +374,10 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
       state = dispatchPlayerAction(state, action);
     }
 
-    expect(state.players[PlayerId.PLAYER_B].board[4].state.visibility).toBe('HIDDEN');
+    expect(state.players[PlayerId.PLAYER_B].board[4].occupant.state.visibility).toBe('HIDDEN');
     expect(
       getRoleAbility(
-        state.players[PlayerId.PLAYER_B].board[4].role,
+        state.players[PlayerId.PLAYER_B].board[4].occupant.role,
         AbilityId.WOLF_GUARD_RESCUE
       )?.remainingUses
     ).toBe(1);
@@ -416,7 +416,7 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
       state = dispatchPlayerAction(state, action);
     }
 
-    expect(state.players[PlayerId.PLAYER_A].board[1].effects).toEqual([
+    expect(state.players[PlayerId.PLAYER_A].board[1].occupant.effects).toEqual([
       expect.objectContaining({ kind: 'COUNCIL_LOCK' }),
     ]);
 
@@ -452,7 +452,7 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
     ]) {
       state = dispatchPlayerAction(state, action);
     }
-    expect(state.players[PlayerId.PLAYER_A].board[1].effects).toEqual([]);
+    expect(state.players[PlayerId.PLAYER_A].board[1].occupant.effects).toEqual([]);
   });
 
   it('resolves an Avenger chain from a Council elimination', () => {
@@ -541,22 +541,23 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
 
     expect(isCardAlive(state.players[PlayerId.PLAYER_B].board[0])).toBe(true);
     expect(state.players[PlayerId.PLAYER_B].privateIntel[0]).toMatchObject({
-      targetCardId: 'A1',
+      targetInstanceId: 'A:1',
+      observedAtSlotId: 'A1',
       discoveredRole: CardRole.WEREWOLF,
     });
-    expect(state.players[PlayerId.PLAYER_B].board[0].effects).toEqual([]);
+    expect(state.players[PlayerId.PLAYER_B].board[0].occupant.effects).toEqual([]);
     expect(
       getRoleAbility(
-        state.players[PlayerId.PLAYER_B].board[1].role,
+        state.players[PlayerId.PLAYER_B].board[1].occupant.role,
         AbilityId.GUARD_PROTECT
       )?.lastTarget
-    ).toEqual({ cardId: 'B1', round: 1 });
+    ).toEqual({ instanceId: 'B:1', round: 1 });
     expect(
       getRoleAbility(
-        state.players[PlayerId.PLAYER_B].board[2].role,
+        state.players[PlayerId.PLAYER_B].board[2].occupant.role,
         AbilityId.SEER_INSPECT
-      )?.remainingUses
-    ).toBe(2);
+      )
+    ).toEqual({ abilityId: AbilityId.SEER_INSPECT });
     expect(state.events.map((event) => event.type)).toContain('EFFECT_BLOCKED');
     expect(state.events.map((event) => event.type)).toContain(
       'PRIVATE_INSPECTION_RESULT'
@@ -595,7 +596,7 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
       order: { type: 'PASS' },
     });
 
-    expect(state.players[PlayerId.PLAYER_B].board[0].state).toEqual({
+    expect(state.players[PlayerId.PLAYER_B].board[0].occupant.state).toEqual({
       life: 'DEAD',
       visibility: 'HIDDEN',
     });
@@ -673,14 +674,14 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
       order: { type: 'PASS' },
     });
 
-    expect(state.players[PlayerId.PLAYER_B].board[0].state).toEqual({
+    expect(state.players[PlayerId.PLAYER_B].board[0].occupant.state).toEqual({
       life: 'DEAD',
       visibility: 'REVEALED',
     });
     expect(state.players[PlayerId.PLAYER_A].specialAbilities[0].readyRound).toBe(8);
     expect(
       state.players[PlayerId.PLAYER_A].board.every(
-        (card) => card.state.visibility === 'HIDDEN'
+        (card) => card.occupant.state.visibility === 'HIDDEN'
       )
     ).toBe(true);
     expect(
@@ -786,11 +787,11 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
     });
 
     expect(state.phase).toEqual({ type: 'DAY_A' });
-    expect(state.players[PlayerId.PLAYER_A].board[1].state).toEqual({
+    expect(state.players[PlayerId.PLAYER_A].board[1].occupant.state).toEqual({
       life: 'DEAD',
       visibility: 'REVEALED',
     });
-    expect(state.players[PlayerId.PLAYER_B].board[0].state).toEqual({
+    expect(state.players[PlayerId.PLAYER_B].board[0].occupant.state).toEqual({
       life: 'DEAD',
       visibility: 'REVEALED',
     });
@@ -801,6 +802,42 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
 
   it('swaps four unique card slots from one round-seven snapshot', () => {
     let state = enterPurge(7);
+    const guardSlot = state.players[PlayerId.PLAYER_B].board[1];
+    const guardWithMemory = {
+      ...guardSlot,
+      occupant: {
+        ...guardSlot.occupant,
+        role: transitionRole(guardSlot.occupant.role, {
+          type: 'ABILITY_USED',
+          abilityId: AbilityId.GUARD_PROTECT,
+          targetInstanceId: 'B:1',
+          round: 6,
+        }),
+      },
+    };
+    state = {
+      ...state,
+      players: {
+        ...state.players,
+        [PlayerId.PLAYER_B]: {
+          ...state.players[PlayerId.PLAYER_B],
+          board: state.players[PlayerId.PLAYER_B].board.map((card) =>
+            card.id === guardSlot.id ? guardWithMemory : card
+          ),
+          privateIntel: [
+            {
+              id: 'intel-b3-a1-round-6',
+              sourceAbilityId: AbilityId.SEER_INSPECT,
+              sourceInstanceId: 'B:3',
+              targetInstanceId: 'A:1',
+              observedAtSlotId: 'A1',
+              discoveredRole: CardRole.WEREWOLF,
+              discoveredRound: 6,
+            },
+          ],
+        },
+      },
+    };
     state = dispatchPlayerAction(state, {
       type: 'PURGE_SUBMIT',
       playerId: PlayerId.PLAYER_A,
@@ -817,16 +854,29 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
       id: 'A1',
       owner: PlayerId.PLAYER_A,
       position: 1,
-      role: { id: CardRole.VILLAGER },
+      occupant: { id: 'B:1', role: { id: CardRole.VILLAGER } },
     });
     expect(state.players[PlayerId.PLAYER_B].board[0]).toMatchObject({
       id: 'B1',
       owner: PlayerId.PLAYER_B,
       position: 1,
-      role: { id: CardRole.WEREWOLF },
+      occupant: { id: 'A:1', role: { id: CardRole.WEREWOLF } },
     });
-    expect(state.players[PlayerId.PLAYER_A].board[1].role.id).toBe(CardRole.GUARD);
-    expect(state.players[PlayerId.PLAYER_B].board[1].role.id).toBe(CardRole.VILLAGER);
+    expect(state.players[PlayerId.PLAYER_A].board[1].occupant.role.id).toBe(CardRole.GUARD);
+    expect(state.players[PlayerId.PLAYER_B].board[1].occupant.role.id).toBe(CardRole.VILLAGER);
+    expect(
+      getRoleAbility(
+        state.players[PlayerId.PLAYER_A].board[1].occupant.role,
+        AbilityId.GUARD_PROTECT
+      )?.lastTarget
+    ).toEqual({ instanceId: 'B:1', round: 6 });
+    expect(state.players[PlayerId.PLAYER_B].privateIntel[0]).toMatchObject({
+      targetInstanceId: 'A:1',
+      observedAtSlotId: 'A1',
+    });
+    expect(state.players[PlayerId.PLAYER_B].board[0].occupant.id).toBe(
+      state.players[PlayerId.PLAYER_B].privateIntel[0].targetInstanceId
+    );
   });
 
   it('rejects overlapping round-seven Purge SWAP positions', () => {
@@ -859,8 +909,8 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
       playerId: PlayerId.PLAYER_B,
       order: { rule: 'REVEAL', targetId: 'B1' },
     });
-    expect(state.players[PlayerId.PLAYER_A].board[0].state.visibility).toBe('REVEALED');
-    expect(state.players[PlayerId.PLAYER_B].board[0].state.visibility).toBe('REVEALED');
+    expect(state.players[PlayerId.PLAYER_A].board[0].occupant.state.visibility).toBe('REVEALED');
+    expect(state.players[PlayerId.PLAYER_B].board[0].occupant.state.visibility).toBe('REVEALED');
 
     const hiddenState = enterPurge(8);
     expect(() =>
@@ -910,7 +960,7 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
       order: { rule: 'LOCK', targetId: 'B4' },
     });
 
-    expect(state.players[PlayerId.PLAYER_A].board[5].effects).toEqual([
+    expect(state.players[PlayerId.PLAYER_A].board[5].occupant.effects).toEqual([
       expect.objectContaining({ kind: CardEffectKind.PURGE_LOCK }),
     ]);
     expect(() =>
@@ -958,7 +1008,7 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
     }
 
     expect(state).toMatchObject({ round: 10, phase: { type: 'PURGE_PLAN' } });
-    expect(state.players[PlayerId.PLAYER_A].board[5].effects).toEqual([]);
+    expect(state.players[PlayerId.PLAYER_A].board[5].occupant.effects).toEqual([]);
   });
 
   it('rejects a Purge rule that does not match the current round', () => {
@@ -1012,8 +1062,8 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
       winner: PlayerId.PLAYER_A,
       reason: FinalDuelResultReason.VICTORY,
     });
-    expect(state.players[PlayerId.PLAYER_A].board[0].state.visibility).toBe('REVEALED');
-    expect(state.players[PlayerId.PLAYER_B].board[0].state.visibility).toBe('REVEALED');
+    expect(state.players[PlayerId.PLAYER_A].board[0].occupant.state.visibility).toBe('REVEALED');
+    expect(state.players[PlayerId.PLAYER_B].board[0].occupant.state.visibility).toBe('REVEALED');
     expect(state.players[PlayerId.PLAYER_A].submissions.finalGuess).toBeNull();
     expect(state.players[PlayerId.PLAYER_B].submissions.finalGuess).toBeNull();
     expect(state.events.at(-1)).toMatchObject({
@@ -1239,7 +1289,7 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
     expect(isCardAlive(state.players[PlayerId.PLAYER_B].board[0])).toBe(true);
     expect(
       getRoleAbility(
-        state.players[PlayerId.PLAYER_A].board[3].role,
+        state.players[PlayerId.PLAYER_A].board[3].occupant.role,
         AbilityId.WITCH_POISON
       )?.remainingUses
     ).toBe(0);
@@ -1268,17 +1318,24 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
     });
 
     expect(state.phase).toEqual({ type: 'DAY_B' });
-    expect(state.players[PlayerId.PLAYER_A].board[4].state.visibility).toBe('REVEALED');
-    expect(state.players[PlayerId.PLAYER_B].board[0].state).toEqual({
+    expect(state.players[PlayerId.PLAYER_A].board[4].occupant.state.visibility).toBe(
+      'HIDDEN'
+    );
+    expect(state.players[PlayerId.PLAYER_B].board[0].occupant.state).toEqual({
       life: 'DEAD',
       visibility: 'REVEALED',
     });
     expect(
       getRoleAbility(
-        state.players[PlayerId.PLAYER_A].board[4].role,
+        state.players[PlayerId.PLAYER_A].board[4].occupant.role,
         AbilityId.SHOOTER_SHOOT
       )?.remainingUses
     ).toBe(0);
+    expect(
+      state.events.some(
+        (event) => event.type === 'CARD_REVEALED' && event.cardId === 'A5'
+      )
+    ).toBe(false);
   });
 
   it('revives an own hidden corpse without changing its visibility', () => {
@@ -1305,13 +1362,13 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
       action: { type: 'REVIVE', sourceId: 'A4', targetId: 'A2' },
     });
 
-    expect(state.players[PlayerId.PLAYER_A].board[1].state).toEqual({
+    expect(state.players[PlayerId.PLAYER_A].board[1].occupant.state).toEqual({
       life: 'ALIVE',
       visibility: 'HIDDEN',
     });
     expect(
       getRoleAbility(
-        state.players[PlayerId.PLAYER_A].board[3].role,
+        state.players[PlayerId.PLAYER_A].board[3].occupant.role,
         AbilityId.WITCH_REVIVE
       )?.remainingUses
     ).toBe(0);
@@ -1325,11 +1382,11 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
       action: { type: 'PURIFY', sourceId: 'A6', targetId: 'B4' },
     });
 
-    expect(state.players[PlayerId.PLAYER_B].board[3].state).toEqual({
+    expect(state.players[PlayerId.PLAYER_B].board[3].occupant.state).toEqual({
       life: 'DEAD',
       visibility: 'REVEALED',
     });
-    expect(state.players[PlayerId.PLAYER_A].board[5].state).toEqual({
+    expect(state.players[PlayerId.PLAYER_A].board[5].occupant.state).toEqual({
       life: 'ALIVE',
       visibility: 'REVEALED',
     });
@@ -1343,11 +1400,11 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
       action: { type: 'PURIFY', sourceId: 'A6', targetId: 'B1' },
     });
 
-    expect(state.players[PlayerId.PLAYER_A].board[5].state).toEqual({
+    expect(state.players[PlayerId.PLAYER_A].board[5].occupant.state).toEqual({
       life: 'DEAD',
       visibility: 'REVEALED',
     });
-    expect(state.players[PlayerId.PLAYER_B].board[0].state).toEqual({
+    expect(state.players[PlayerId.PLAYER_B].board[0].occupant.state).toEqual({
       life: 'ALIVE',
       visibility: 'HIDDEN',
     });
@@ -1391,11 +1448,11 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
       order: { type: 'PASS' },
     });
 
-    expect(state.players[PlayerId.PLAYER_A].board[6].state).toEqual({
+    expect(state.players[PlayerId.PLAYER_A].board[6].occupant.state).toEqual({
       life: 'DEAD',
       visibility: 'REVEALED',
     });
-    expect(state.players[PlayerId.PLAYER_B].board[0].state).toEqual({
+    expect(state.players[PlayerId.PLAYER_B].board[0].occupant.state).toEqual({
       life: 'DEAD',
       visibility: 'HIDDEN',
     });

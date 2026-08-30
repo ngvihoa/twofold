@@ -4,6 +4,7 @@ import {
   CardEffectRule,
   type CardEffectState,
   type CardId,
+  type CardInstanceId,
   type GameCard,
   hasCardEffect,
   isCardAlive,
@@ -154,10 +155,14 @@ function resolveDayAction(
       const ability = requireAvailableAbility(source, AbilityId.SHOOTER_SHOOT);
       const target = getOpponentLivingCard(state, playerId, action.targetId, 'Shooter target');
       const opponent = state.players[target.owner];
-      if (target.state.visibility !== 'REVEALED') {
+      if (target.occupant.state.visibility !== 'REVEALED') {
         throw new RuleValidationError('Shooter chỉ bắn được target đã lộ.');
       }
-      if (opponent.board.filter((card) => card.state.visibility === 'REVEALED').length < 2) {
+      if (
+        opponent.board.filter(
+          (card) => card.occupant.state.visibility === 'REVEALED'
+        ).length < 2
+      ) {
         throw new RuleValidationError('Shooter cần đối thủ có ít nhất hai role đã lộ.');
       }
       if (ability.remainingUses < 1) {
@@ -169,7 +174,8 @@ function resolveDayAction(
         source,
         AbilityId.SHOOTER_SHOOT,
         target.id,
-        events
+        events,
+        false
       );
       next = resolvedSource.state;
       const eliminated = eliminateCard(next, target.id, true, {
@@ -192,7 +198,10 @@ function resolveDayAction(
         target.id,
         events
       );
-      next = removeExistingRevengeMark(resolvedSource.state, source.id);
+      next = removeExistingRevengeMark(
+        resolvedSource.state,
+        source.occupant.id
+      );
       const currentTarget = getCard(next, target.id);
       const mark: CardEffectState = {
         id: `revenge:${playerId}:${source.id}:${target.id}:round:${next.round}`,
@@ -200,7 +209,7 @@ function resolveDayAction(
         source: {
           type: 'ABILITY',
           abilityId: AbilityId.AVENGER_MARK,
-          cardId: source.id,
+          instanceId: source.occupant.id,
           playerId,
         },
         appliedRound: next.round,
@@ -235,7 +244,7 @@ function resolveDayAction(
       );
       next = resolvedSource.state;
       const targetIsWolf =
-        getRoleDefinition(target.role.id).faction === Faction.WEREWOLF;
+        getRoleDefinition(target.occupant.role.id).faction === Faction.WEREWOLF;
       const victimId = targetIsWolf ? target.id : source.id;
       const eliminated = eliminateCard(next, victimId, true, {
         type: 'ABILITY',
@@ -306,7 +315,7 @@ function requireAvailableAbility<TAbilityId extends AbilityId>(
   abilityId: TAbilityId
 ): Extract<AbilityState, { abilityId: TAbilityId }> {
   assertCardAbilitySourceAvailable(source);
-  const ability = getRoleAbility(source.role, abilityId);
+  const ability = getRoleAbility(source.occupant.role, abilityId);
   if (!ability) {
     throw new RuleValidationError(`${source.id} không sở hữu ${abilityId}.`);
   }
@@ -321,11 +330,12 @@ function useAndRevealSource(
   source: GameCard,
   abilityId: AbilityId,
   targetId: CardId,
-  events: GameEventDraft[]
+  events: GameEventDraft[],
+  revealSource = true
 ): { readonly state: GameState; readonly source: GameCard } {
   let next = state;
   let updatedSource = getCard(next, source.id);
-  if (updatedSource.state.visibility === 'HIDDEN') {
+  if (revealSource && updatedSource.occupant.state.visibility === 'HIDDEN') {
     updatedSource = transitionCard(updatedSource, { type: 'REVEAL' });
     events.push({
       type: 'CARD_REVEALED',
@@ -335,12 +345,15 @@ function useAndRevealSource(
   }
   updatedSource = {
     ...updatedSource,
-    role: transitionRole(updatedSource.role, {
-      type: 'ABILITY_USED',
-      abilityId,
-      targetId,
-      round: next.round,
-    }),
+    occupant: {
+      ...updatedSource.occupant,
+      role: transitionRole(updatedSource.occupant.role, {
+        type: 'ABILITY_USED',
+        abilityId,
+        targetInstanceId: getCard(next, targetId).occupant.id,
+        round: next.round,
+      }),
+    },
   };
   next = replaceCard(next, updatedSource);
   events.push({
@@ -363,7 +376,7 @@ function eliminateCard(
   let card = getCard(state, cardId);
   if (!isCardAlive(card)) return { state, eliminatedIds: [] };
   let next = state;
-  if (revealOnDeath && card.state.visibility === 'HIDDEN') {
+  if (revealOnDeath && card.occupant.state.visibility === 'HIDDEN') {
     card = transitionCard(card, { type: 'REVEAL' });
     next = replaceCard(next, card);
     events.push({
@@ -398,9 +411,9 @@ function resolveRevengeChain(
     if (!sourceId || resolvedSources.has(sourceId)) continue;
     resolvedSources.add(sourceId);
     const source = getCard(next, sourceId);
-    if (!getRoleAbility(source.role, AbilityId.AVENGER_MARK)) continue;
+    if (!getRoleAbility(source.occupant.role, AbilityId.AVENGER_MARK)) continue;
 
-    const markedTarget = findRevengeTarget(next, source.id);
+    const markedTarget = findRevengeTarget(next, source.occupant.id);
     if (!markedTarget || !isCardAlive(markedTarget)) continue;
     const eliminated = eliminateCard(
       next,
@@ -415,15 +428,18 @@ function resolveRevengeChain(
   return next;
 }
 
-function findRevengeTarget(state: GameState, sourceCardId: CardId): GameCard | null {
+function findRevengeTarget(
+  state: GameState,
+  sourceInstanceId: CardInstanceId
+): GameCard | null {
   for (const playerId of PLAYER_ORDER) {
     for (const card of state.players[playerId].board) {
       if (
-        card.effects.some(
+        card.occupant.effects.some(
           (effect) =>
             effect.kind === CardEffectKind.REVENGE_MARK &&
             effect.source.type === 'ABILITY' &&
-            effect.source.cardId === sourceCardId
+            effect.source.instanceId === sourceInstanceId
         )
       ) {
         return card;
@@ -433,15 +449,18 @@ function findRevengeTarget(state: GameState, sourceCardId: CardId): GameCard | n
   return null;
 }
 
-function removeExistingRevengeMark(state: GameState, sourceCardId: CardId): GameState {
+function removeExistingRevengeMark(
+  state: GameState,
+  sourceInstanceId: CardInstanceId
+): GameState {
   let next = state;
   for (const playerId of PLAYER_ORDER) {
     for (const card of next.players[playerId].board) {
-      const marks = card.effects.filter(
+      const marks = card.occupant.effects.filter(
         (effect) =>
           effect.kind === CardEffectKind.REVENGE_MARK &&
           effect.source.type === 'ABILITY' &&
-          effect.source.cardId === sourceCardId
+          effect.source.instanceId === sourceInstanceId
       );
       let updated = card;
       for (const mark of marks) {
@@ -495,7 +514,7 @@ function validateCouncilAccusation(
     order.targetId,
     'Council target'
   );
-  if (target.state.visibility === 'REVEALED') {
+  if (target.occupant.state.visibility === 'REVEALED') {
     if (order.guessedRole !== null) {
       throw new RuleValidationError('Target đã lộ không cần guessedRole.');
     }
@@ -513,7 +532,7 @@ function validateCouncilAccusation(
   }
   for (const voterId of order.voterIds) {
     const voter = getOwnedLivingCard(state, playerId, voterId, 'Council voter');
-    if (getRoleDefinition(voter.role.id).faction !== Faction.VILLAGE) {
+    if (getRoleDefinition(voter.occupant.role.id).faction !== Faction.VILLAGE) {
       throw new RuleValidationError(`${voter.id} không thuộc phe Dân.`);
     }
     if (hasCardEffect(voter, CardEffectKind.COUNCIL_LOCK)) {
@@ -536,8 +555,11 @@ function availableCouncilRoleGuesses(
     remaining.set(role, (remaining.get(role) ?? 0) + 1);
   }
   for (const card of state.players[targetPlayerId].board) {
-    if (card.state.visibility !== 'REVEALED') continue;
-    remaining.set(card.role.id, Math.max(0, (remaining.get(card.role.id) ?? 0) - 1));
+    if (card.occupant.state.visibility !== 'REVEALED') continue;
+    remaining.set(
+      card.occupant.role.id,
+      Math.max(0, (remaining.get(card.occupant.role.id) ?? 0) - 1)
+    );
   }
   return Object.values(CardRole).filter((role) => (remaining.get(role) ?? 0) > 0);
 }
@@ -616,7 +638,7 @@ function resolveCouncil(state: GameState): GameState {
 
     for (const voterId of accusation.voterIds) {
       const voter = getCard(next, voterId);
-      if (voter.state.visibility === 'HIDDEN') {
+      if (voter.occupant.state.visibility === 'HIDDEN') {
         next = replaceCard(next, transitionCard(voter, { type: 'REVEAL' }));
         events.push({
           type: 'CARD_REVEALED',
@@ -630,13 +652,13 @@ function resolveCouncil(state: GameState): GameState {
     if (!originalTarget) throw new Error(`Thiếu Council target ${accusation.targetId}.`);
     const votePower = accusation.voterIds.reduce((total, voterId) => {
       const voter = initialCards.get(voterId);
-      return total + (voter?.role.id === CardRole.VILLAGER ? 2 : 1);
+      return total + (voter?.occupant.role.id === CardRole.VILLAGER ? 2 : 1);
     }, 0);
     const correct =
       votePower >= 3 &&
       isCardAlive(originalTarget) &&
-      (originalTarget.state.visibility === 'REVEALED' ||
-        originalTarget.role.id === accusation.guessedRole);
+      (originalTarget.occupant.state.visibility === 'REVEALED' ||
+        originalTarget.occupant.role.id === accusation.guessedRole);
 
     if (correct) {
       successfulTargets.set(playerId, originalTarget.id);
@@ -683,7 +705,7 @@ function resolveCouncil(state: GameState): GameState {
     const reaction = reactionOrders[defenderId];
     if (reaction.type === 'WOLF_GUARD_RESCUE' && reaction.targetId === targetId) {
       let source = getCard(next, reaction.sourceId);
-      if (source.state.visibility === 'HIDDEN') {
+      if (source.occupant.state.visibility === 'HIDDEN') {
         source = transitionCard(source, { type: 'REVEAL' });
         events.push({
           type: 'CARD_REVEALED',
@@ -693,12 +715,15 @@ function resolveCouncil(state: GameState): GameState {
       }
       source = {
         ...source,
-        role: transitionRole(source.role, {
-          type: 'ABILITY_USED',
-          abilityId: AbilityId.WOLF_GUARD_RESCUE,
-          targetId,
-          round: next.round,
-        }),
+        occupant: {
+          ...source.occupant,
+          role: transitionRole(source.occupant.role, {
+            type: 'ABILITY_USED',
+            abilityId: AbilityId.WOLF_GUARD_RESCUE,
+            targetInstanceId: getCard(next, targetId).occupant.id,
+            round: next.round,
+          }),
+        },
       };
       next = replaceCard(next, source);
       events.push({
@@ -748,7 +773,7 @@ function clearExpiredCouncilLocks(state: GameState): GameState {
   for (const playerId of PLAYER_ORDER) {
     for (const card of next.players[playerId].board) {
       let updated = card;
-      for (const effect of card.effects) {
+      for (const effect of card.occupant.effects) {
         if (
           effect.kind === CardEffectKind.COUNCIL_LOCK &&
           effect.expires.type === 'AFTER_PHASE' &&
@@ -828,7 +853,8 @@ function validatePurgeOrder(
 
   if (order.rule === 'REVEAL' && order.targetId === null) {
     const hasHiddenLivingCard = state.players[playerId].board.some(
-      (card) => isCardAlive(card) && card.state.visibility === 'HIDDEN'
+      (card) =>
+        isCardAlive(card) && card.occupant.state.visibility === 'HIDDEN'
     );
     if (hasHiddenLivingCard) {
       throw new RuleValidationError('Purge REVEAL cần chọn một card sống còn ẩn.');
@@ -840,7 +866,10 @@ function validatePurgeOrder(
     throw new RuleValidationError(`Purge ${order.rule} cần target.`);
   }
   const target = getOwnedLivingCard(state, playerId, order.targetId, 'Purge target');
-  if (order.rule === 'REVEAL' && target.state.visibility === 'REVEALED') {
+  if (
+    order.rule === 'REVEAL' &&
+    target.occupant.state.visibility === 'REVEALED'
+  ) {
     throw new RuleValidationError('Purge REVEAL cần một card đang ẩn.');
   }
 }
@@ -967,10 +996,8 @@ function resolvePurge(state: GameState): GameState {
 
 function moveCardRuntimeToSlot(source: GameCard, slot: GameCard): GameCard {
   return {
-    ...source,
-    id: slot.id,
-    position: slot.position,
-    owner: slot.owner,
+    ...slot,
+    occupant: source.occupant,
   };
 }
 
@@ -1008,7 +1035,7 @@ function resolveFinalDuel(state: GameState): GameState {
   const events: GameEventDraft[] = [];
   let next = state;
   for (const card of [cardA, cardB]) {
-    if (card.state.visibility === 'REVEALED') continue;
+    if (card.occupant.state.visibility === 'REVEALED') continue;
     next = replaceCard(next, transitionCard(card, { type: 'REVEAL' }));
     events.push({
       type: 'CARD_REVEALED',
@@ -1017,8 +1044,8 @@ function resolveFinalDuel(state: GameState): GameState {
     });
   }
 
-  const correctA = guesses[PlayerId.PLAYER_A] === cardB.role.id;
-  const correctB = guesses[PlayerId.PLAYER_B] === cardA.role.id;
+  const correctA = guesses[PlayerId.PLAYER_A] === cardB.occupant.role.id;
+  const correctB = guesses[PlayerId.PLAYER_B] === cardA.occupant.role.id;
   events.push({
     type: 'FINAL_DUEL_RESOLVED',
     visibility: { type: 'PUBLIC' },
@@ -1092,7 +1119,7 @@ function validateNightOrder(state: GameState, playerId: PlayerId, order: NightOr
       order.targetId,
       'Blood Moon target'
     );
-    if (target.state.visibility !== 'REVEALED') {
+    if (target.occupant.state.visibility !== 'REVEALED') {
       throw new RuleValidationError('Blood Moon chỉ đánh được role đã lộ.');
     }
     return;
@@ -1101,7 +1128,7 @@ function validateNightOrder(state: GameState, playerId: PlayerId, order: NightOr
   const source = getOwnedLivingCard(state, playerId, order.sourceId, 'Night source');
   const target = getOpponentLivingCard(state, playerId, order.targetId, 'Night target');
   assertCardAbilitySourceAvailable(source);
-  const ability = getRoleAbility(source.role, order.abilityId);
+  const ability = getRoleAbility(source.occupant.role, order.abilityId);
   if (!ability) {
     throw new RuleValidationError(`${source.id} không sở hữu ${order.abilityId}.`);
   }
@@ -1111,7 +1138,7 @@ function validateNightOrder(state: GameState, playerId: PlayerId, order: NightOr
 
   if (order.abilityId === AbilityId.SEER_INSPECT) {
     const known = state.players[playerId].privateIntel.find(
-      (intel) => intel.targetCardId === target.id
+      (intel) => intel.targetInstanceId === target.occupant.id
     );
     if (known && getRoleDefinition(known.discoveredRole).faction !== Faction.WEREWOLF) {
       throw new RuleValidationError('Không thể soi lại target phe sáng đã biết.');
@@ -1147,13 +1174,13 @@ function validateDefenseOrder(
   const source = getOwnedLivingCard(state, playerId, order.sourceId, 'Guard source');
   const target = getOwnedLivingCard(state, playerId, order.targetId, 'Guard target');
   assertCardAbilitySourceAvailable(source);
-  const guard = getRoleAbility(source.role, AbilityId.GUARD_PROTECT);
+  const guard = getRoleAbility(source.occupant.role, AbilityId.GUARD_PROTECT);
   if (!guard) throw new RuleValidationError(`${source.id} không phải Guard hợp lệ.`);
   if (source.id === target.id) {
     throw new RuleValidationError('Guard không được tự bảo vệ.');
   }
   if (
-    guard.lastTarget?.cardId === target.id &&
+    guard.lastTarget?.instanceId === target.occupant.id &&
     guard.lastTarget.round >= state.round - 1
   ) {
     throw new RuleValidationError('Không được bảo vệ cùng target ở hai vòng liên tiếp.');
@@ -1174,12 +1201,15 @@ function resolveNight(state: GameState): GameState {
     const target = getCard(next, defense.targetId);
     const updatedSource = {
       ...source,
-      role: transitionRole(source.role, {
-        type: 'ABILITY_USED',
-        abilityId: AbilityId.GUARD_PROTECT,
-        targetId: target.id,
-        round: next.round,
-      }),
+      occupant: {
+        ...source.occupant,
+        role: transitionRole(source.occupant.role, {
+          type: 'ABILITY_USED',
+          abilityId: AbilityId.GUARD_PROTECT,
+          targetInstanceId: target.occupant.id,
+          round: next.round,
+        }),
+      },
     };
     next = replaceCard(next, updatedSource);
 
@@ -1189,7 +1219,7 @@ function resolveNight(state: GameState): GameState {
       source: {
         type: 'ABILITY',
         abilityId: AbilityId.GUARD_PROTECT,
-        cardId: source.id,
+        instanceId: source.occupant.id,
         playerId,
       },
       appliedRound: next.round,
@@ -1254,7 +1284,7 @@ function resolveNight(state: GameState): GameState {
 
     let source = getCard(next, order.sourceId);
     const target = getCard(next, order.targetId);
-    if (source.state.visibility === 'HIDDEN') {
+    if (source.occupant.state.visibility === 'HIDDEN') {
       source = transitionCard(source, { type: 'REVEAL' });
       next = replaceCard(next, source);
       events.push({
@@ -1266,18 +1296,21 @@ function resolveNight(state: GameState): GameState {
 
     source = {
       ...source,
-      role: transitionRole(source.role, {
-        type: 'ABILITY_USED',
-        abilityId: order.abilityId,
-        targetId: target.id,
-        round: next.round,
-      }),
+      occupant: {
+        ...source.occupant,
+        role: transitionRole(source.occupant.role, {
+          type: 'ABILITY_USED',
+          abilityId: order.abilityId,
+          targetInstanceId: target.occupant.id,
+          round: next.round,
+        }),
+      },
     };
     next = replaceCard(next, source);
 
     if (order.abilityId === AbilityId.SEER_INSPECT) {
       const known = next.players[playerId].privateIntel.find(
-        (intel) => intel.targetCardId === target.id
+        (intel) => intel.targetInstanceId === target.occupant.id
       );
       events.push({
         type: 'ABILITY_RESOLVED',
@@ -1296,9 +1329,10 @@ function resolveNight(state: GameState): GameState {
         const intel = {
           id: `intel:${playerId}:${source.id}:${target.id}:round:${next.round}`,
           sourceAbilityId: AbilityId.SEER_INSPECT as const,
-          sourceCardId: source.id,
-          targetCardId: target.id,
-          discoveredRole: target.role.id,
+          sourceInstanceId: source.occupant.id,
+          targetInstanceId: target.occupant.id,
+          observedAtSlotId: target.id,
+          discoveredRole: target.occupant.role.id,
           discoveredRound: next.round,
         };
         next = updatePlayer(next, playerId, (player) => ({
@@ -1310,7 +1344,7 @@ function resolveNight(state: GameState): GameState {
           visibility: { type: 'PRIVATE', playerId },
           intelId: intel.id,
           targetCardId: target.id,
-          discoveredRole: target.role.id,
+          discoveredRole: target.occupant.role.id,
         });
       }
       continue;
@@ -1372,7 +1406,7 @@ function clearNightEffects(state: GameState): GameState {
   for (const playerId of PLAYER_ORDER) {
     for (const card of next.players[playerId].board) {
       let updated = card;
-      for (const effect of card.effects) {
+      for (const effect of card.occupant.effects) {
         if (
           effect.kind === CardEffectKind.PROTECTION ||
           effect.kind === CardEffectKind.REVENGE_MARK ||

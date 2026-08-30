@@ -96,7 +96,7 @@ Thứ tự trong mỗi nhóm là thứ tự làm. Chỉ kéo tối đa hai task 
 | Khu vực | Bằng chứng hiện có | Kết luận |
 |---|---|---|
 | Game-flow demo | Full loop local, bot B, UI/motion gameplay, match clock và mirrored opening deal | Playtest/Review; không phải production multiplayer |
-| `packages/game-core` | Model role/card/player; lifecycle/visibility độc lập và unit test dead-hidden | Đang làm; DEV-02A xong, chưa có phase machine v0.2 |
+| `packages/game-core` | Model role/card/player, phase machine, rule pipeline, player view, structured events, full-match và parity smoke tests | Đang làm; identity qua SWAP và Shooter reveal đã khớp prototype, còn legacy adapter/trace parity trước parity hoàn toàn |
 | `packages/shared-types` | Enum/schema/room và WebSocket DTO sơ bộ | Đang làm; chưa có action/view/event v0.2 đầy đủ |
 | `apps/web` | Home/room/play routes với mock state | Graybox/scaffold; chưa nối authoritative server, còn random outcome |
 | Human playtest | Chưa có record 3–5 trận theo build hiện tại | Chưa xác minh cân bằng và comprehension |

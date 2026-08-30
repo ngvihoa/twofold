@@ -29,10 +29,14 @@ describe('ruleset v0.2 roles and deck', () => {
     const engine = new GameEngine('role-deck-test');
 
     expect(
-      engine.getState().players[PlayerId.PLAYER_A].board.map((card) => card.role.id)
+      engine
+        .getState()
+        .players[PlayerId.PLAYER_A].board.map((card) => card.occupant.role.id)
     ).toEqual(STANDARD_DECK);
     expect(
-      engine.getState().players[PlayerId.PLAYER_B].board.map((card) => card.role.id)
+      engine
+        .getState()
+        .players[PlayerId.PLAYER_B].board.map((card) => card.occupant.role.id)
     ).toEqual(STANDARD_DECK);
     expect(engine.getDefaultDeck()).not.toBe(STANDARD_DECK);
   });
@@ -42,19 +46,19 @@ describe('ruleset v0.2 roles and deck', () => {
     const usedInRoundThree = transitionRole(initial, {
       type: 'ABILITY_USED',
       abilityId: AbilityId.GUARD_PROTECT,
-      targetId: 'A1',
+      targetInstanceId: 'A:1',
       round: 3,
     });
 
     expect(getRoleAbility(usedInRoundThree, AbilityId.GUARD_PROTECT)).toEqual({
       abilityId: AbilityId.GUARD_PROTECT,
-      lastTarget: { cardId: 'A1', round: 3 },
+      lastTarget: { instanceId: 'A:1', round: 3 },
     });
     expect(() =>
       transitionRole(usedInRoundThree, {
         type: 'ABILITY_USED',
         abilityId: AbilityId.GUARD_PROTECT,
-        targetId: 'A1',
+        targetInstanceId: 'A:1',
         round: 4,
       })
     ).toThrow('Không được bảo vệ cùng một target ở hai vòng liên tiếp.');
@@ -63,24 +67,23 @@ describe('ruleset v0.2 roles and deck', () => {
       transitionRole(usedInRoundThree, {
         type: 'ABILITY_USED',
         abilityId: AbilityId.GUARD_PROTECT,
-        targetId: 'A1',
+        targetInstanceId: 'A:1',
         round: 5,
       })
     ).not.toThrow();
   });
 
-  it('consumes remaining uses for limited abilities', () => {
+  it('keeps unlimited Seer inspect available after use', () => {
     const seer = createInitialRoleState(CardRole.SEER);
     const afterInspect = transitionRole(seer, {
       type: 'ABILITY_USED',
       abilityId: AbilityId.SEER_INSPECT,
-      targetId: 'B1',
+      targetInstanceId: 'B:1',
       round: 1,
     });
 
     expect(getRoleAbility(afterInspect, AbilityId.SEER_INSPECT)).toEqual({
       abilityId: AbilityId.SEER_INSPECT,
-      remainingUses: 2,
     });
   });
 });
