@@ -867,6 +867,14 @@ Không đưa vào XState phía frontend:
 
 - Dùng cùng seed và action sequence cho prototype và core TypeScript.
 - So sánh public outcome, private intel và result trước khi xóa engine prototype.
+- `packages/game-core/src/normalized-trace-parity.test.ts` đã chạy cùng một
+  standard deck qua Setup, Seer/Guard, Council, Night, Blood Moon, đủ chu kỳ
+  `CUT → SWAP → REVEAL → LOCK` và Final Duel. Comparator normalize slot/instance,
+  lifecycle, visibility, finite resources, effects, Guard memory, Seer intel,
+  cooldown, phase/round và result; không so các divergence presentation đã chốt.
+- Trace phát hiện và khóa regression thứ tự Dawn: sau Night, elimination được
+  kiểm tra ở round hiện tại; trạng thái 1–1 chỉ vào Final Duel sau khi
+  `DAWN_COMPLETED` đã tăng sang round kế tiếp như prototype.
 
 ---
 

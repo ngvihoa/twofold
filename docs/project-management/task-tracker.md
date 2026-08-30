@@ -46,6 +46,7 @@ Thứ tự trong mỗi nhóm là thứ tự làm. Chỉ kéo tối đa hai task 
 | DEV-02C | Tạo serializer view riêng cho A và B | Xong | Test chứng minh role bài úp, target đêm và Seer intel không rò sang view đối thủ | DEV-02A |
 | DEV-02D | Định nghĩa structured event cho presentation | Xong | Fixture có thứ tự reveal source → effect → death/revive → Dawn complete; `GameState.events` là history authoritative; legacy logs không được derive và sẽ bị xóa cùng contract v0.1 | DEV-02B |
 | DEV-02E | Khóa authoritative `GameEngine` facade | Xong | Gameplay chỉ qua `dispatch(PlayerGameAction)`; invalid action không mutate; `getState()` trả snapshot cô lập; legacy view không rò state/log reference | DEV-02B, DEV-02C, DEV-02D |
+| DEV-02F | Normalized full-trace parity với prototype | Xong | Cùng standard deck đi qua Council, Night, Blood Moon, CUT/SWAP/REVEAL/LOCK và Final Duel; so state theo checkpoint; regression Dawn/Final-Duel round đã được khóa | DEV-02A–E |
 
 ### UI/UX Game
 
@@ -97,7 +98,7 @@ Thứ tự trong mỗi nhóm là thứ tự làm. Chỉ kéo tối đa hai task 
 | Khu vực | Bằng chứng hiện có | Kết luận |
 |---|---|---|
 | Game-flow demo | Full loop local, bot B, UI/motion gameplay, match clock và mirrored opening deal | Playtest/Review; không phải production multiplayer |
-| `packages/game-core` | Model role/card/player, phase machine, rule pipeline, player view, structured events, full-match và parity smoke tests | Đang làm; identity qua SWAP và Shooter reveal đã khớp prototype, còn legacy adapter/trace parity trước parity hoàn toàn |
+| `packages/game-core` | Model role/card/player, phase machine, rule pipeline, player view, structured events, full-match và normalized parity trace | Rule-outcome parity đã có evidence end-to-end; còn legacy adapter cho tới khi migrate `shared-types` v0.2 |
 | `packages/shared-types` | Enum/schema/room và WebSocket DTO sơ bộ | Đang làm; chưa có action/view/event v0.2 đầy đủ |
 | `apps/web` | Home/room/play routes với mock state | Graybox/scaffold; chưa nối authoritative server, còn random outcome |
 | Human playtest | Chưa có record 3–5 trận theo build hiện tại | Chưa xác minh cân bằng và comprehension |

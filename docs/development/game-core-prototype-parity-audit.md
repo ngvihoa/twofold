@@ -9,15 +9,16 @@
 
 Core TypeScript đã có full-match deterministic từ Setup tới Final Duel/Ended và
 đã port toàn bộ vertical slice chính: Day, Council, Night/Defense, Blood Moon,
-Purge và Final Duel. Smoke parity tự động hiện so sánh Blood Moon và Final Duel
-trực tiếp với prototype.
+Purge và Final Duel. Ngoài smoke parity cho Blood Moon/Final Duel, core hiện có
+một standard-deck normalized trace chạy xuyên Council, Night, đủ bốn Purge rule
+và kết thúc bằng Final Duel trên cả hai engine.
 
 Ba mismatch về Shooter và identity qua Purge SWAP đã được xử lý theo prototype:
 Shooter không reveal source; Guard memory và Seer intel theo immutable card
 instance thay vì slot. `GameEngine` cũng đã loại các action method v0.1 và chỉ
-dispatch gameplay action qua rule pipeline. Tuy nhiên, chưa thể tuyên bố parity
-hoàn toàn vì vẫn còn thiếu normalized full-match trace và contract v0.2 trong
-`shared-types`.
+dispatch gameplay action qua rule pipeline. Rule-outcome parity hiện có bằng
+chứng end-to-end; phần migration còn lại là contract v0.2 trong `shared-types`
+và chuyển consumer khỏi prototype/legacy adapter.
 
 ## Automated evidence
 
@@ -29,6 +30,7 @@ hoàn toàn vì vẫn còn thiếu normalized full-match trace và contract v0.2
 | Final Duel cả hai đoán đúng so với prototype | `packages/game-core/src/prototype-parity.test.ts` | Pass |
 | Day/Council/Night/Purge đều có thể mở Final Duel | `packages/game-core/src/rule-pipeline.test.ts` | Pass |
 | GameEngine chỉ dispatch qua pipeline, reject không mutate và snapshot cô lập | `packages/game-core/src/engine.test.ts` | Pass |
+| Standard deck: Setup → Seer/Guard → Council → CUT/SWAP/REVEAL/LOCK → Blood Moon → Final Duel | `packages/game-core/src/normalized-trace-parity.test.ts` | Pass |
 
 ## Parity matrix
 
@@ -52,7 +54,7 @@ hoàn toàn vì vẫn còn thiếu normalized full-match trace và contract v0.2
 | Purge LOCK | Chặn active skill và Vote trong round | `PURGE_LOCK` chặn ability source/Council, hết hạn sau Night | Khớp |
 | Purge SWAP | Card instance di chuyển, slot ID giữ nguyên | Hoán đổi `occupant`; slot ID/owner giữ nguyên | Khớp |
 | Day reveal | Shooter ẩn; Avenger/Priest/Witch lộ khi dùng | Cùng policy theo từng ability | Khớp |
-| Final Duel | Hai guess kín; một đúng thắng, cùng đúng/sai hòa | Cùng rule và public result event | Khớp; có smoke parity |
+| Final Duel | Hoàn tất Dawn/tăng round rồi vào duel khi Night còn 1–1; hai guess kín | Cùng thứ tự round và outcome | Khớp; có normalized trace |
 | Presentation | Log string + client animation state | Structured deterministic events | Intentional architecture divergence |
 
 ## Intentional divergences đã chấp nhận
@@ -78,12 +80,11 @@ hoàn toàn vì vẫn còn thiếu normalized full-match trace và contract v0.2
 | ARCH-01 | Gameplay mutation của `GameEngine` phải đi qua authoritative pipeline. | Tránh bypass validation/resolution. | **Đã xử lý:** bỏ action helper v0.1 và public phase-event sender; `dispatch(PlayerGameAction)` gọi `dispatchPlayerAction`; `getState()` trả deep snapshot cô lập. |
 | CONTRACT-01 | `shared-types` chưa có phase/action/event/result reason v0.2. | Legacy view phải hạ Final Duel reason thành `null`; legacy logs không đầy đủ. | Migrate contract ở PR riêng; xóa `MasterGameState.logs`, `getPlayerView()` và legacy projection khi hoàn tất. |
 | LEGACY-LOG-01 | Có nên derive `EventLogEntry[]` từ structured events không? | Có nguy cơ tạo hai event history và đưa presentation wording vào core. | **Đã chốt:** không derive. `GameState.events` authoritative; `logs` chỉ giữ để schema v0.1 parse được và sẽ bị xóa cùng legacy contract. |
-| TEST-01 | Smoke parity mới bao phủ Blood Moon và Final Duel, chưa replay cùng một standard-deck action trace cho toàn trận. | Chưa đủ bằng chứng xóa prototype engine | Thêm normalized trace harness. |
+| TEST-01 | Cần replay cùng một standard-deck action trace cho toàn trận. | Bằng chứng parity xuyên phase. | **Đã xử lý:** normalized trace so board slot/instance, lifecycle, visibility, resources, effects, Guard memory, Seer intel, cooldown, phase/round và result tại từng checkpoint. |
+| PHASE-01 | Core từng vào Final Duel từ Dawn trước khi tăng round, trong khi prototype tăng round trước. | Final Duel sau Night lệch round number. | **Đã xử lý:** elimination check vẫn ở round hiện tại; nếu còn 1–1 thì hoàn tất Dawn/tăng round trước `FINAL_DUEL_REQUIRED`. |
 
 ## Điều kiện để tuyên bố parity và xóa prototype engine
 
-- Có ít nhất một standard-deck trace chạy qua Council, Night, một Purge cycle và
-  Final Duel/elimination ở cả hai engine, rồi so normalized public outcome.
 - Player-view parity không rò hidden role, Night order, Council reaction hoặc
   private Seer intel.
 - Spec reviewer chuyển sang import `game-core`; sau đó mới xóa `engine.mjs`.

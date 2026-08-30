@@ -1394,11 +1394,13 @@ function resolveNight(state: GameState): GameState {
 
   const result = getEliminationResult(next);
   if (result) return transitionGameState(next, { type: 'GAME_ENDED', result });
+
+  next = transitionGameState(next, { type: 'DAWN_COMPLETED' });
   if (hasFinalDuelBoard(next)) {
     return transitionGameState(next, { type: 'FINAL_DUEL_REQUIRED' });
   }
 
-  return transitionGameState(next, { type: 'DAWN_COMPLETED' });
+  return next;
 }
 
 function clearNightEffects(state: GameState): GameState {
