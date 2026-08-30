@@ -691,6 +691,11 @@ Không gửi master state trực tiếp cho client.
 > `effect.source` khỏi view để không rò Night source. Contract Zod/wire trong
 > `packages/shared-types` vẫn thuộc PR migration tiếp theo.
 
+`GameEngine` chỉ nhận gameplay mutation qua `dispatch(PlayerGameAction)`.
+`getState()` trả deep snapshot độc lập thay vì reference nội bộ; caller không
+thể dùng state đọc được để bypass validation/resolution pipeline. Facade
+invariant được kiểm tra riêng trong `packages/game-core/src/engine.test.ts`.
+
 ### 11.1. Public card
 
 ```ts
@@ -778,6 +783,8 @@ trong `packages/shared-types` tiếp tục parse được trong thời gian migr
   khi khởi tạo trận;
 - `GameEngine.dispatch()` chỉ preserve field này, không derive chuỗi tiếng Việt
   từ structured event;
+- legacy logs được khai báo readonly; snapshot và legacy view không nhận mutable
+  reference tới array nội bộ;
 - core không xây thêm mapper `GameEvent → EventLogEntry`, vì mapper đó là
   presentation concern và sẽ tạo hai event history phải duy trì song song;
 - server, test rule và frontend mới không được dùng legacy log cho resolution,

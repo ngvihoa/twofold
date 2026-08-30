@@ -36,10 +36,10 @@ import {
 /** GameState v0.2 kèm public log tạm phục vụ adapter contract v0.1. */
 export interface MasterGameState extends GameState {
   /**
-   * Đã deprecate, giữ để tương thích contract v0.1
-   * Sẽ được xóa sau khi migrate shared-types/web sang v0.2
+   * @deprecated Chỉ giữ để tương thích contract v0.1; `events` mới là history
+   * authoritative. Field này sẽ bị xóa sau migration shared-types/web v0.2.
    */
-  logs: EventLogEntry[];
+  readonly logs: readonly EventLogEntry[];
 }
 
 /** Adapter tạm cho shared-types/web v0.1; authoritative card state vẫn ở game-core. */
@@ -142,8 +142,12 @@ export class GameEngine {
     return [...STANDARD_DECK];
   }
 
-  public getState(): Readonly<MasterGameState> {
-    return this.state;
+  /**
+   * Trả snapshot độc lập để caller không thể mutate authoritative state ngoài
+   * `dispatch(PlayerGameAction)`.
+   */
+  public getState(): MasterGameState {
+    return structuredClone(this.state);
   }
 
   /** Tạo player view v0.2 đã lọc theo quyền biết của viewer. */
@@ -177,7 +181,7 @@ export class GameEngine {
       roundNumber: this.state.round,
       myCards,
       opponentCards: publicOpponentCards,
-      logs: this.state.logs,
+      logs: [...this.state.logs],
       winner: this.state.result?.winner ?? null,
       winReason: toLegacyWinReason(this.state.result?.reason ?? null),
     };

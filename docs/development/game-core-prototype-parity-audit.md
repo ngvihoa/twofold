@@ -28,6 +28,7 @@ hoàn toàn vì vẫn còn thiếu normalized full-match trace và contract v0.2
 | Blood Moon kill/cooldown so với prototype | `packages/game-core/src/prototype-parity.test.ts` | Pass |
 | Final Duel cả hai đoán đúng so với prototype | `packages/game-core/src/prototype-parity.test.ts` | Pass |
 | Day/Council/Night/Purge đều có thể mở Final Duel | `packages/game-core/src/rule-pipeline.test.ts` | Pass |
+| GameEngine chỉ dispatch qua pipeline, reject không mutate và snapshot cô lập | `packages/game-core/src/engine.test.ts` | Pass |
 
 ## Parity matrix
 
@@ -74,7 +75,7 @@ hoàn toàn vì vẫn còn thiếu normalized full-match trace và contract v0.2
 | ID-01 | Guard memory phải theo card vật lý qua Purge SWAP. | Rule Guard sau V7+ | **Đã xử lý:** `lastTarget.instanceId`; test xác nhận memory đi cùng occupant. |
 | ID-02 | Seer intel phải tiếp tục nhận diện đúng card sau SWAP. | Private knowledge và lần soi thứ hai | **Đã xử lý:** `targetInstanceId` + historical `observedAtSlotId`; test xác nhận mapping sau SWAP. |
 | RULE-11 | Prototype Shooter không reveal source khi bắn. | Public information/balance | **Đã xử lý:** SHOOT consume resource nhưng không phát `CARD_REVEALED` cho source. |
-| ARCH-01 | Gameplay mutation của `GameEngine` phải đi qua authoritative pipeline. | Tránh bypass validation/resolution. | **Đã xử lý:** bỏ action helper v0.1 và public phase-event sender; `dispatch(PlayerGameAction)` gọi `dispatchPlayerAction`. |
+| ARCH-01 | Gameplay mutation của `GameEngine` phải đi qua authoritative pipeline. | Tránh bypass validation/resolution. | **Đã xử lý:** bỏ action helper v0.1 và public phase-event sender; `dispatch(PlayerGameAction)` gọi `dispatchPlayerAction`; `getState()` trả deep snapshot cô lập. |
 | CONTRACT-01 | `shared-types` chưa có phase/action/event/result reason v0.2. | Legacy view phải hạ Final Duel reason thành `null`; legacy logs không đầy đủ. | Migrate contract ở PR riêng; xóa `MasterGameState.logs`, `getPlayerView()` và legacy projection khi hoàn tất. |
 | LEGACY-LOG-01 | Có nên derive `EventLogEntry[]` từ structured events không? | Có nguy cơ tạo hai event history và đưa presentation wording vào core. | **Đã chốt:** không derive. `GameState.events` authoritative; `logs` chỉ giữ để schema v0.1 parse được và sẽ bị xóa cùng legacy contract. |
 | TEST-01 | Smoke parity mới bao phủ Blood Moon và Final Duel, chưa replay cùng một standard-deck action trace cho toàn trận. | Chưa đủ bằng chứng xóa prototype engine | Thêm normalized trace harness. |

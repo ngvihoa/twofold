@@ -45,6 +45,7 @@ Thứ tự trong mỗi nhóm là thứ tự làm. Chỉ kéo tối đa hai task 
 | DEV-02B | Dựng xương sống phase v0.2 tới Vòng 6 | Xong | Test tất định đi qua Setup → Day A/B → Council từ Vòng 2 → Night/Defense/Dawn → Purge Vòng 6; role có thể Pass | DEV-02A, GD-08 |
 | DEV-02C | Tạo serializer view riêng cho A và B | Xong | Test chứng minh role bài úp, target đêm và Seer intel không rò sang view đối thủ | DEV-02A |
 | DEV-02D | Định nghĩa structured event cho presentation | Xong | Fixture có thứ tự reveal source → effect → death/revive → Dawn complete; `GameState.events` là history authoritative; legacy logs không được derive và sẽ bị xóa cùng contract v0.1 | DEV-02B |
+| DEV-02E | Khóa authoritative `GameEngine` facade | Xong | Gameplay chỉ qua `dispatch(PlayerGameAction)`; invalid action không mutate; `getState()` trả snapshot cô lập; legacy view không rò state/log reference | DEV-02B, DEV-02C, DEV-02D |
 
 ### UI/UX Game
 

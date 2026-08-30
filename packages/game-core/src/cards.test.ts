@@ -2,8 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   AbilityId,
   CardRole,
-  CardStatus,
-  PlayerGameViewSchema,
   PlayerId,
 } from '@twofold/shared-types';
 import {
@@ -14,7 +12,6 @@ import {
   hasCardEffect,
   transitionCard,
 } from './cards';
-import { GameEngine } from './engine';
 
 const protectionEffect: CardEffectState = {
   id: 'effect-guard-a5-round-1',
@@ -175,21 +172,4 @@ describe('ruleset v0.2 card state', () => {
     ).toThrow(`Effect ID ${protectionEffect.id} đã tồn tại trên A1.`);
   });
 
-  it('keeps the existing shared/web contract behind a legacy projection', () => {
-    const engine = new GameEngine('card-view-test');
-
-    engine.dispatch({ type: 'SETUP_LOCK', playerId: PlayerId.PLAYER_A });
-    engine.dispatch({ type: 'SETUP_LOCK', playerId: PlayerId.PLAYER_B });
-
-    expect(engine.getState().phase.type).toBe('DAY_A');
-
-    const view = engine.getPlayerView(PlayerId.PLAYER_A);
-    expect(view.opponentCards[0]).toMatchObject({
-      id: 'B1',
-      index: 0,
-      status: CardStatus.HIDDEN,
-      role: null,
-    });
-    expect(PlayerGameViewSchema.safeParse(view).success).toBe(true);
-  });
 });
