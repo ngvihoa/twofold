@@ -121,4 +121,4 @@ Mất mạng hoặc refresh ngắn không được tính là thua ngay. Thời l
 - Một hành động/người/pha có đủ lựa chọn nhưng vẫn giữ trận trong 8–15 phút không?
 - Công bố vai trò hoàn toàn khi dùng kỹ năng có làm suy luận quá dễ không?
 - Treo cổ bằng cách đoán chính xác vai trò có đủ hấp dẫn và công bằng không?
-- Tai họa từ Vòng 7 có đẩy nhịp mà không tạo cảm giác game quyết định thay người chơi không?
+- Thanh trừng từ Vòng 6, đặc biệt khi tồn tại cùng Blood Moon, có đẩy nhịp mà không tạo cảm giác game quyết định thay người chơi không?

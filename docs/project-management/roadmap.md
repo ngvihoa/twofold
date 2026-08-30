@@ -4,6 +4,23 @@
 - Mục tiêu phát hành: 30/10/2026
 - Team: Game Designer/PO, UI/UX Game, Developer
 
+## Snapshot tiến độ — 30/08/2026
+
+- **Đã có:** prototype local chơi được từ xếp bài tới kết quả, bot B, bộ 10 role v0.2, Hội đồng từ Vòng 2, Bình minh tuần tự, Thanh trừng từ Vòng 6 và các hiệu ứng gameplay chính.
+- **Đã có nền kỹ thuật:** monorepo, `apps/web` TanStack, contract sơ bộ trong `shared-types`, model card/role/player nền trong `game-core` và ADR cho thông tin bài úp chết ban đêm.
+- **Chưa có bằng chứng hoàn thành:** multiplayer authoritative, reconnect, full match chạy bằng `game-core`, information-leak test và human playtest đủ số trận.
+- **Rủi ro hiện tại:** prototype chạy trước tài liệu và production engine; một số rule đang đúng trong demo nhưng contract/core cũ vẫn biểu diễn khác.
+
+### Lát công việc hiện tại: 30/08–07/09
+
+Chỉ làm đủ để biến prototype đã có thành nguồn đầu vào rõ ràng cho Dev và UI/UX:
+
+1. **Game Designer/PO:** chơi 3–5 trận đầy đủ, ghi lại các điểm chưa hiểu và chốt tạm Council Vòng 2, bài úp chết vẫn ẩn, Thanh trừng Vòng 6.
+2. **Developer:** sửa model để biểu diễn được bài chết nhưng chưa lộ; sau đó dựng xương sống phase tới Vòng 6 bằng test tất định. Chưa port toàn bộ skill.
+3. **UI/UX Game:** lập inventory trạng thái gameplay và motion spec cho các transition đã xuất hiện. Chưa mở thêm Home/Lobby/branding mới.
+
+Chi tiết owner, thứ tự và điều kiện hoàn thành nằm trong [Task Tracker](./task-tracker.md).
+
 ## Nguyên tắc điều hành
 
 - Mỗi tuần trả lời một câu hỏi sản phẩm lớn, không đo tiến độ bằng số màn hình đã vẽ hoặc số feature đã code.
@@ -13,14 +30,14 @@
 
 ## Các milestone
 
-| Mốc | Ngày | Câu hỏi cần trả lời | Deliverable bắt buộc |
-|---|---:|---|---|
-| M1 — Nền móng | 07/09 | Một trận chơi từ đầu đến cuối như thế nào? | Game flow, round/turn flow, rule v0.1, bộ role test; moodboard + hướng visual + screen inventory; nghiên cứu room/realtime/state sync và rủi ro kỹ thuật |
-| M2 — Prototype | 14/09 | Luật có chơi được và tạo quyết định không? | Paper/Figma playable; kết quả playtest đầu; room/realtime POC; kiến trúc state machine sơ bộ |
-| M3 — Một vòng thật | 21/09 | Day/Night và hidden information có chạy đúng trên web? | Hai client vào cùng room và chơi trọn 1 vòng Day → Night → Bình minh |
-| M4 — Full match | 05/10 | Có thể chơi một trận hoàn chỉnh không cần dev can thiệp? | Chọn 10 lá, full loop, thắng/thua, Tai họa tối thiểu, reconnect cơ bản, rematch, log trận |
-| M5 — Internal Alpha | 19/10 | Đồng nghiệp có tự hiểu và muốn chơi lại không? | Build ổn định; onboarding tối thiểu; ít nhất 10 session quan sát; tổng hợp lỗi, UX và cân bằng |
-| M6 — Web Alpha | 30/10 | Bản Alpha có đủ ổn định để chia sẻ nội bộ rộng hơn? | Release web, checklist smoke test, analytics/log tối thiểu, known issues và kế hoạch vòng sau |
+| Mốc | Ngày | Câu hỏi cần trả lời | Deliverable bắt buộc | Trạng thái 30/08 |
+|---|---:|---|---|---|
+| M1 — Nền móng | 07/09 | Một trận chơi từ đầu đến cuối như thế nào? | Game flow, round/turn flow, rule v0.1, bộ role test; moodboard + hướng visual + screen inventory; nghiên cứu room/realtime/state sync và rủi ro kỹ thuật | **Đang làm:** gameplay prototype đã vượt mốc; docs, core và bằng chứng playtest chưa đồng bộ |
+| M2 — Prototype | 14/09 | Luật có chơi được và tạo quyết định không? | Paper/Figma playable; kết quả playtest đầu; room/realtime POC; kiến trúc state machine sơ bộ | **Một phần:** local prototype có thể chơi; chưa có human playtest có ghi nhận hoặc realtime POC |
+| M3 — Một vòng thật | 21/09 | Day/Night và hidden information có chạy đúng trên web? | Hai client vào cùng room và chơi trọn 1 vòng Day → Night → Bình minh | Chưa bắt đầu |
+| M4 — Full match | 05/10 | Có thể chơi một trận hoàn chỉnh không cần dev can thiệp? | Chọn 10 lá, full loop, thắng/thua, Tai họa tối thiểu, reconnect cơ bản, rematch, log trận | Chưa bắt đầu trên production app |
+| M5 — Internal Alpha | 19/10 | Đồng nghiệp có tự hiểu và muốn chơi lại không? | Build ổn định; onboarding tối thiểu; ít nhất 10 session quan sát; tổng hợp lỗi, UX và cân bằng | Chưa bắt đầu |
+| M6 — Web Alpha | 30/10 | Bản Alpha có đủ ổn định để chia sẻ nội bộ rộng hơn? | Release web, checklist smoke test, analytics/log tối thiểu, known issues và kế hoạch vòng sau | Chưa bắt đầu |
 
 ## Kế hoạch theo giai đoạn
 

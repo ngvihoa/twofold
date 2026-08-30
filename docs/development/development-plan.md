@@ -1,9 +1,22 @@
 # Kế hoạch Phát triển Kỹ thuật (Technical Development Plan) — Twofold Web Alpha 2026
 
-- **Phiên bản:** 1.1 (Đã chốt Tech Stack)
-- **Ngày cập nhật:** 28/08/2026
+- **Phiên bản:** 1.2 (Đồng bộ trạng thái triển khai)
+- **Ngày cập nhật:** 30/08/2026
 - **Mục tiêu phát hành:** Web Alpha nội bộ trước 30/10/2026
 - **Phạm vi áp dụng:** Toàn bộ Monorepo (`apps/web`, `packages/game-core`, `packages/shared-types`, `packages/cli`)
+
+---
+
+## 0. Snapshot triển khai 30/08/2026
+
+| Khu vực | Đã có | Chưa có / không được suy diễn |
+|---|---|---|
+| `apps/spec-reviewer/game-flow-demo` | Full-loop local prototype, bot B, gameplay UI/motion và bộ role v0.2 | Không phải authoritative multiplayer và chưa có human playtest có ghi nhận |
+| `apps/web` | TanStack routes Home/Room/Play và mock UI | Chưa có room server/realtime hoàn chỉnh; Play vẫn tự chuyển state và dùng random outcome |
+| `packages/shared-types` | Enum, schema, room contract và WebSocket DTO sơ bộ | Chưa có action/view/event contract v0.2 đầy đủ |
+| `packages/game-core` | Model card, role, ability, effect và player nền | Chưa có phase machine v0.2; model hiện chưa biểu diễn được bài chết nhưng còn ẩn |
+
+Lát triển khai kế tiếp không port toàn bộ prototype. Dev làm lần lượt: (1) sửa lifecycle/visibility theo ADR-0004, (2) phase spine tới Purge Vòng 6, (3) player-view serializer, (4) structured presentation events. Owner và acceptance criteria nằm tại [Task Tracker](../project-management/task-tracker.md).
 
 ---
 
@@ -91,7 +104,7 @@ twofold/
 │   │   │   ├── state/               # State machine, state transitions, state serializer
 │   │   │   ├── resolution/          # Night Resolution Pipeline (Bảo vệ -> Tấn công -> Hồi sinh -> Trigger)
 │   │   │   ├── actions/             # Handlers cho Dùng skill, Treo cổ, Bỏ lượt
-│   │   │   ├── calamity/            # Calamity logic từ Vòng 7
+│   │   │   ├── late-game/           # Purge/Blood Moon sau khi rule được playtest
 │   │   │   └── index.ts             # Public API của Engine
 │   │   ├── tests/                   # Vitest test suite (Deterministic & Conflict tests)
 │   │   └── package.json
@@ -153,24 +166,30 @@ flowchart TD
     P7 --> Finish([Chuyển sang Pha Bình minh & Broadcast Event Log])
 ```
 
-### Bộ 10 Vai trò Alpha Skeleton:
-1. **Dân làng (Villager x2):** Không có kỹ năng kích hoạt; mồi nhử và tham gia Treo cổ.
+### Bộ 10 Vai trò đang dùng để playtest:
+1. **Dân làng (Villager x1):** Không có main skill; có trọng số Hội đồng 2.
 2. **Ma sói (Werewolf x2):** Ban đêm chọn 1 lá đối thủ để tấn công (gây chết nếu không được bảo vệ).
 3. **Tiên tri (Seer x1):** Ban đêm soi 1 lá đối thủ (kết quả chỉ Tiên tri biết trong Private View).
 4. **Bảo vệ (Bodyguard x1):** Ban đêm chọn 1 lá phe mình để nhận `PROTECTED` (chặn 1 nguồn sát thương đêm).
 5. **Phù thủy (Witch x1):** Ban ngày hồi sinh 1 lá đồng minh đã chết; Ban đêm đầu độc 1 lá đối thủ. (Mỗi kỹ năng dùng 1 lần/trận).
-6. **Thợ săn (Hunter x1):** Bị động: Khi bị loại, lập tức chọn 1 lá đối thủ kéo theo.
-7. **Trưởng làng (Mayor x1):** Ban ngày: Có 1 lần Treo cổ sai mà không mất lượt của vòng đó.
-8. **Kẻ ngụy trang (Disguiser x1):** Đổi vị trí hoặc che dấu vết trước Tiên tri.
+6. **Xạ thủ (Shooter x1):** Ban ngày bắn một mục tiêu; 1 viên đạn.
+7. **Kẻ báo thù (Avenger x1):** Đánh dấu một mục tiêu và duy trì một dấu đang hoạt động.
+8. **Mục sư (Priest x1):** Thanh tẩy một mục tiêu; 1 lần, có phản sát khi chọn nhầm phe Dân.
+9. **Sói Hộ Vệ (Wolf Guard x1):** Cứu một mục tiêu khỏi Hội đồng; 1 lần.
+
+Đây là bộ prototype v0.2, chưa phải kết luận cân bằng cho Alpha.
 
 ---
 
 ## 6. Lộ trình Triển khai Kỹ thuật Chi tiết (Roadmap & Work Breakdown)
 
 ### Giai đoạn 1: Nền móng & Schemas (M1: 28/08 – 07/09/2026)
-- [ ] **ST-01:** Khởi tạo `packages/shared-types` (Zod schemas, Enums, oRPC Contracts, WebSocket DTOs).
-- [ ] **WEB-INIT:** Khởi tạo `apps/web` với TanStack Start, TailwindCSS, oRPC router và Nitro WebSocket handler.
-- [ ] **GC-01:** Thiết lập khung State Machine trong `packages/game-core`.
+- [x] **ST-01A:** Khởi tạo `packages/shared-types` với schema/enum/contract/DTO nền.
+- [ ] **ST-01B:** Đồng bộ action, player view và event contract v0.2.
+- [x] **WEB-INIT-A:** Khởi tạo `apps/web` với TanStack Start và các route graybox.
+- [ ] **WEB-INIT-B:** Kết nối oRPC/Nitro WebSocket thật; scaffold hiện chưa phải bằng chứng realtime hoàn chỉnh.
+- [x] **GC-01A:** Thiết lập model card/role/effect/player nền trong `packages/game-core`.
+- [ ] **GC-01B:** Dựng authoritative phase spine v0.2; xem DEV-02A–D trong Task Tracker.
 
 ### Giai đoạn 2: Game Core Engine & Test Matrix (M2: 08/09 – 14/09/2026)
 - [ ] **GC-02:** Cài đặt toàn bộ Actions ban ngày (Dùng skill, Treo cổ đoán vai trò, Bỏ lượt).
@@ -184,7 +203,7 @@ flowchart TD
 
 ### Giai đoạn 4: Full Match Loop & Feature Freeze (M4: 22/09 – 05/10/2026)
 - [ ] **WEB-04:** Màn hình Setup trước trận: Chọn/gán 10 vai trò cho 10 vị trí, Ready countdown 3s.
-- [ ] **GC-04:** Cài đặt hệ thống **Tai họa (Calamity)** tự động kích hoạt từ Vòng 7.
+- [ ] **GC-04:** Cài đặt cơ chế ép late-game đã được GD-08 chốt sau playtest; prototype hiện mở Thanh trừng/Blood Moon từ Vòng 6.
 - [ ] **NET-01:** Xử lý Reconnect Window (20–60s) khi mất mạng/F5 và phát hiện đối thủ rời phòng.
 - [ ] **WEB-05:** Màn hình Kết quả, Thắng/Thua, Đấu lại (Rematch) và Thoát phòng.
 - [ ] **MILESTONE:** **Feature Freeze vào ngày 05/10/2026**.

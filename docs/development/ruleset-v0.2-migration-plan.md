@@ -1,6 +1,6 @@
 # Kế hoạch đồng bộ Ruleset v0.2 từ Game Flow Demo
 
-- **Trạng thái:** Draft để review và triển khai dần
+- **Trạng thái:** Đang đồng bộ; rule correction 30/08/2026 cần được port theo task DEV-02A–D
 - **Ngày tạo:** 29/08/2026
 - **Nguồn tham chiếu hành vi:** `apps/spec-reviewer/game-flow-demo`
 - **Phạm vi ảnh hưởng:** `packages/shared-types`, `packages/game-core`, `apps/web`, `apps/spec-reviewer`
@@ -39,11 +39,22 @@ Frontend machine phải reconcile được với server snapshot sau reconnect h
 |---|---|---|---|
 | Deck | 1 Dân, 2 Sói, Tiên tri, Bảo vệ, Phù thủy, Xạ thủ, Báo thù, Mục sư, Sói Hộ Vệ | 2 Dân, 2 Sói, Tiên tri, Bảo vệ, Phù thủy, Thợ săn, Trưởng làng, Ngụy trang | Blocker |
 | Phase | Setup, Day A/B, Night plan, Defense, Resolution, Dawn, Council, Final Duel | Setup, Countdown, Day, Night, Dawn, Calamity, Ended | Blocker |
-| Hội đồng | Từ Vòng 3, ba role phe Dân, xử lý đồng thời, có Wolf Guard rescue | Treo cổ trực tiếp trong Day action | Blocker |
+| Hội đồng | Từ Vòng 2, sau Day B; ba role phe Dân, xử lý đồng thời, có Wolf Guard rescue | Treo cổ trực tiếp trong Day action | Blocker |
 | Action | Action riêng theo từng phase và ability | `USE_SKILL`, `HANG`, `PASS`, `HUNTER_REVENGE` | Blocker |
 | Card state | Alive, revealed, shielded và resource độc lập | Một `CardStatus` và ba field `skillUsed*` | Blocker |
 | Late game | Blood Moon từ Vòng 6 và Final Duel khi còn 1–1 | Calamity từ Vòng 7, thắng khi đối thủ hết bài | Rule conflict |
 | Web | Flow demo tương đối đầy đủ | Local mock, treo cổ dùng kết quả ngẫu nhiên | Chưa tích hợp |
+
+### 2.1. Rule correction sau prototype ngày 30/08/2026
+
+Các điểm dưới đây thay thế mô tả cũ trong bản kế hoạch ngày 29/08:
+
+- Hội đồng bắt đầu từ **Vòng 2**, sau Day B và trước Night plan.
+- Cái chết và lộ danh tính là hai transition độc lập; bài úp chết trong đêm vẫn úp theo ADR-0004.
+- Source và target lệnh đêm giữ kín trong lúc chọn; source chỉ lộ tuần tự ở Bình minh theo rule kỹ năng.
+- Khiên chặn attack, poison và Blood Moon; **không chặn Seer inspect**.
+- Hồi sinh giữ visibility trước khi chết.
+- Prototype hiện có cả Blood Moon và chu kỳ Thanh trừng từ Vòng 6. Việc giữ cả hai là giả thuyết playtest, chưa được phép xóa một cơ chế chỉ dựa trên migration plan.
 
 ---
 
@@ -162,12 +173,12 @@ Guard chỉ bị cấm chọn cùng target ở hai vòng liên tiếp. State lư
 
 ### 4.1. Runtime state
 
-Runtime state chỉ chứa lifecycle và visibility. Discriminated union đảm bảo card chết luôn lộ role ở cả compile time.
+Runtime state chỉ chứa lifecycle và visibility. Hai trục này độc lập để biểu diễn được bài úp đã chết.
 
 ```ts
 type CardRuntimeState =
   | { life: 'ALIVE'; visibility: 'HIDDEN' | 'REVEALED' }
-  | { life: 'DEAD'; visibility: 'REVEALED' };
+  | { life: 'DEAD'; visibility: 'HIDDEN' | 'REVEALED' };
 
 interface GameCard {
   id: CardId;
@@ -192,7 +203,7 @@ transitionRole(role, {
 });
 ```
 
-Card command chỉ gồm `REVEAL`, `ELIMINATE`, `REVIVE`, `APPLY_EFFECT`, `REMOVE_EFFECT`, `CLEAR_EFFECTS`; không chứa command riêng cho Guard hoặc role khác. `ABILITY_USED` làm giảm `remainingUses` đối với ability hữu hạn, hoặc ghi `lastTarget` đối với Guard.
+Card command chỉ gồm `REVEAL`, `ELIMINATE`, `REVIVE`, `APPLY_EFFECT`, `REMOVE_EFFECT`, `CLEAR_EFFECTS`; không chứa command riêng cho Guard hoặc role khác. `ELIMINATE` và `REVIVE` không tự đổi visibility. `ABILITY_USED` làm giảm `remainingUses` đối với ability hữu hạn, hoặc ghi `lastTarget` đối với Guard.
 
 Event log mô tả kết quả đã xảy ra sẽ dùng past-tense wording riêng ở lớp resolution, ví dụ `CARD_REVEALED` hoặc `EFFECT_APPLIED`.
 
@@ -322,13 +333,14 @@ type GamePhase =
   | 'SETUP'
   | 'DAY_A'
   | 'DAY_B'
+  | 'COUNCIL_PLAN'
+  | 'COUNCIL_RESOLUTION'
   | 'NIGHT_PLAN'
-  | 'DUSK_REVEAL'
   | 'DUSK_DEFENSE'
   | 'NIGHT_RESOLUTION'
   | 'DAWN'
-  | 'COUNCIL_PLAN'
-  | 'COUNCIL_RESOLUTION'
+  | 'PURGE_PLAN'
+  | 'PURGE_RESOLUTION'
   | 'FINAL_DUEL'
   | 'ENDED';
 ```
@@ -337,13 +349,14 @@ type GamePhase =
 SETUP
   → DAY_A
   → DAY_B
+      ├─ round = 1 → NIGHT_PLAN
+      └─ round ≥ 2 → COUNCIL_PLAN → COUNCIL_RESOLUTION → NIGHT_PLAN
   → NIGHT_PLAN
-  → DUSK_REVEAL
   → DUSK_DEFENSE
   → NIGHT_RESOLUTION
   → DAWN
-      ├─ round < 3 → DAY_A
-      ├─ round ≥ 3 → COUNCIL_PLAN → COUNCIL_RESOLUTION → DAY_A
+      ├─ vòng kế < 6 → DAY_A
+      ├─ vòng kế ≥ 6 → PURGE_PLAN → PURGE_RESOLUTION → DAY_A
       ├─ còn 1–1 → FINAL_DUEL
       └─ một bên hết bài → ENDED
 ```
@@ -377,17 +390,16 @@ Sau mọi action có thể gây chết:
 3. Kiểm tra trạng thái 1–1.
 4. Nếu chưa kết thúc mới chuyển lượt.
 
-### 7.4. Night plan, reveal và Defense
+### 7.4. Night plan và Defense
 
 Hai bên khóa Night Order đồng thời và bí mật. Sau khi cả hai khóa:
 
-1. Công khai source của `attack`, `inspect`, `poison`.
-2. Không công khai target.
-3. `bloodmoon` không có card source.
-4. Chuyển sang Defense.
-5. Hai bên bí mật chọn khiên hoặc pass.
-6. Khi cả hai khóa, công khai vị trí khiên.
-7. Server tự resolve.
+1. Không công khai source, target hoặc loại action ở thời điểm khóa lệnh.
+2. `bloodmoon` không có card source.
+3. Chuyển sang Defense.
+4. Hai bên bí mật chọn khiên hoặc pass.
+5. Khi cả hai khóa, công khai vị trí khiên; role Bảo vệ và role mục tiêu vẫn ẩn nếu chưa có rule lộ khác.
+6. Server resolve và tạo event cho Bình minh trình bày tuần tự A → B; source chỉ lộ khi event/rule của kỹ năng yêu cầu.
 
 Client không gửi `night.resolve`. Action này trong prototype chỉ phục vụ animation. Server sinh event sequence và timestamp để web trình bày.
 
@@ -395,18 +407,19 @@ Client không gửi `night.resolve`. Action này trong prototype chỉ phục v�
 
 Dawn công bố và cleanup:
 
-- card chết và role thật;
+- source kỹ năng cần lộ, effect và nguyên nhân theo event sequence;
+- card chết; role chỉ công khai nếu card đã lộ trước đó hoặc có rule lộ riêng;
 - effect bị shield chặn;
 - revenge chain;
 - reset shield;
 - hết hạn Avenger mark;
 - tăng round;
 - kiểm tra win hoặc Final Duel;
-- mở Council từ Vòng 3.
+- mở Thanh trừng từ Vòng 6 trước Day A.
 
 ### 7.6. Council
 
-Council là action phụ, đồng thời cho hai bên.
+Council là action phụ từ Vòng 2, diễn ra sau Day B và trước Night plan, đồng thời cho hai bên.
 
 Accusation yêu cầu:
 
@@ -466,18 +479,19 @@ Night resolution dùng pipeline xác định:
 6. Gom pending deaths.
 7. Apply deaths đồng thời.
 8. Resolve Avenger chain.
-9. Reveal mọi card chết.
+9. Giữ visibility hiện có của card chết; chỉ apply `REVEAL` khi có rule/event riêng.
 10. Kiểm tra kết quả.
 11. Cleanup round state.
 
 Rule lấy từ prototype:
 
-- Khiên chặn attack, poison, inspect và Blood Moon.
+- Khiên chặn attack, poison và Blood Moon; không chặn Seer inspect.
 - `remainingUses` vẫn bị trừ nếu effect bị khiên chặn; Guard không có charge để trừ.
 - Source vẫn thực hiện action nếu chết trong cùng resolution.
 - Hai board cùng hết bài tạo kết quả hòa.
-- Witch revive giữ target ở trạng thái công khai.
+- Witch revive giữ visibility target có trước khi chết.
 - Blood Moon mở từ Vòng 6, cooldown hai vòng.
+- Thanh trừng mở từ Vòng 6 theo chu kỳ prototype; balance của việc tồn tại cùng Blood Moon chưa xác minh.
 
 ---
 
@@ -510,7 +524,7 @@ type WinReason =
   | 'DRAW_FINAL_DUEL';
 ```
 
-Đề xuất loại `CALAMITY` khỏi v0.2 và dùng Blood Moon làm cơ chế ép late-game duy nhất.
+Không tự loại Thanh trừng/Calamity khỏi v0.2 trong lúc migration. Prototype hiện dùng chu kỳ Thanh trừng từ Vòng 6 đồng thời với Blood Moon; GD-08 phải chốt sau playtest trước khi Dev port sâu hơn phase spine.
 
 ---
 
@@ -532,6 +546,8 @@ interface PublicCardView {
   councilEligible: boolean;
 }
 ```
+
+`alive: false` không suy ra `revealed: true`. Khi `revealed: false`, `role` bắt buộc là `null` kể cả card đã chết.
 
 ### 11.2. Private player view
 
@@ -575,6 +591,7 @@ Các event chính:
 - `EFFECT_BLOCKED`
 - `CARD_ELIMINATED`
 - `CARD_REVIVED`
+- `DAWN_PRESENTATION_COMPLETED`
 - `COUNCIL_FAILED`
 - `WOLF_GUARD_RESCUED`
 - `PRIVATE_INSPECTION_RESULT`
@@ -637,7 +654,8 @@ Không đưa vào XState phía frontend:
 - State transition table cho toàn bộ phase.
 - Mỗi role có validation và resolution test riêng.
 - Council đúng, sai, cooldown và Wolf Guard rescue.
-- Shield matrix với attack, poison, inspect và Blood Moon.
+- Shield matrix với attack, poison và Blood Moon; test riêng chứng minh inspect không bị chặn.
+- Eliminate/revive cho cả bài ẩn và bài đã lộ, không tự đổi visibility.
 - Simultaneous deaths và Avenger chain.
 - Final Duel sau Day, Council và Night.
 - Resource/cooldown reset theo vòng.
@@ -660,7 +678,7 @@ Không đưa vào XState phía frontend:
 ### PR 1 — Shared types v0.2
 
 - [x] Role và deck mới.
-- [ ] Migrate Card State contract sau khi game-core model ổn định.
+- [ ] Migrate Card State contract để hỗ trợ `DEAD + HIDDEN` theo ADR-0004.
 - [ ] Phase mới.
 - [ ] Action union mới.
 - [ ] Public/private view.
@@ -714,10 +732,13 @@ Không đưa vào XState phía frontend:
 | RULE-001 | Wolf Guard protection có độc lập với accusation không? | Có, dùng reaction order riêng | Chưa chốt |
 | RULE-002 | Pass một vòng có gỡ hạn chế guard cùng target không? | Có; Guard không có charge, lưu target/round gần nhất và chỉ cấm cùng target ở hai vòng liên tiếp, không cần reset command | Đã chốt 30/08/2026 |
 | RULE-003 | Final Duel có kích hoạt sau mọi resolution tạo trạng thái 1–1 không? | Có | Chưa chốt |
-| RULE-004 | Có bỏ hoàn toàn Calamity để chỉ giữ Blood Moon không? | Có trong v0.2 | Chưa chốt |
+| RULE-004 | Giữ cả Thanh trừng và Blood Moon từ Vòng 6 hay chỉ một cơ chế? | Giữ đúng prototype cho phase spine, chưa port balance sâu trước playtest | Chờ GD-08 |
 | RULE-005 | Card source chết trong cùng Night resolution có còn resolve action không? | Có, resolve từ snapshot order | Chưa chốt |
 | RULE-006 | Charge có bị tiêu khi effect bị shield chặn không? | Có | Chưa chốt |
 | RULE-007 | Có giữ format wire `PLAYER_A/B` hay đổi thành `A/B` không? | Giữ `PLAYER_A/B`; chỉ Card ID dùng `A1/B1` | Chưa chốt |
+| RULE-008 | Council bắt đầu từ vòng nào? | Vòng 2, sau Day B và trước Night plan | Chốt tạm theo prototype 30/08/2026 |
+| RULE-009 | Bài úp chết trong đêm có lộ role không? | Không; lifecycle và visibility độc lập | Đã chốt cho prototype qua ADR-0004 |
+| RULE-010 | Khiên có chặn Seer inspect không? | Không | Chốt tạm theo prototype 30/08/2026 |
 
 Khi một quyết định được chốt, cập nhật bảng này và tạo ADR trong `docs/decisions` nếu quyết định ảnh hưởng lớn đến contract hoặc state machine.
 
