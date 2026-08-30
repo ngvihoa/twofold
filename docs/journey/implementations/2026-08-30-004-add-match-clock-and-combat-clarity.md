@@ -8,7 +8,7 @@
 - Commit trước khi làm: `e7a11a1`
 - Commit implementation: cùng commit với record này
 - Conversation/task source: owner yêu cầu đồng hồ thời lượng trận, guide giữa sân, chỉ đỏ Báo thù và card chết xám khi chọn 3 voter
-- Trạng thái: Hoàn thành implementation; còn giới hạn human playtest ghi bên dưới
+- Trạng thái: Hoàn thành implementation; vị trí overlay của guide được thay thế bởi layout 3 dải trong record `2026-08-30-005`
 
 ## Yêu cầu
 
@@ -91,7 +91,7 @@ git diff --check
 ### Đã chốt
 
 - Timer bắt đầu khi người chơi chủ động mở Vòng 1, không tính thời gian setup.
-- Guide/action ở center; side rail chỉ giữ history/private notes.
+- Guide/action ở center; side rail chỉ giữ history/private notes. Cách đặt overlay tuyệt đối ban đầu đã được thay bằng một dải riêng trong record `2026-08-30-005` vì che và ép không gian bài công khai.
 - Revenge thread dùng layer riêng để không bị combat FX xóa.
 - Card chết có treatment mạnh hơn chỉ trong mode chọn voter.
 
