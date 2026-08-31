@@ -26,7 +26,8 @@ pnpm tf check web
 Gameplay client dùng `VITE_GAME_WS_URL` làm endpoint cho WebSocket contract v0.2.
 Frontend không chạy `game-core` để thay authoritative server; nếu biến môi trường
 không tồn tại, `/play/$id` hiển thị trạng thái cấu hình thay vì dùng kết quả
-ngẫu nhiên cho Setup.
+ngẫu nhiên. Setup, player board và action panel đều đọc contract v0.2; action
+panel chỉ gửi command và chờ snapshot authoritative từ server.
 
 ## Mục tiêu phát hành
 

@@ -9,6 +9,7 @@ import {
   selectSessionError,
   selectView,
 } from '../../features/game/session/game-session-machine';
+import { PrototypeGameBoard } from './-Prototype.GameBoard';
 import { GameSetupPanel } from './-GameSetupPanel';
 
 export interface GameSessionRuntimeProps {
@@ -16,8 +17,6 @@ export interface GameSessionRuntimeProps {
   readonly playerName: string;
   readonly reconnectSessionId?: string;
   readonly transport: GameTransport;
-  /** Temporary board for phases that PR 4.3 has not migrated yet. */
-  readonly legacyGameplay: React.ReactNode;
 }
 
 /** Mount stable session/presentation actors for one gameplay route instance. */
@@ -36,13 +35,13 @@ export function GameSessionRuntime(props: GameSessionRuntimeProps) {
       }}
     >
       <GamePresentationActorContext.Provider>
-        <GameSessionContent legacyGameplay={props.legacyGameplay} />
+        <GameSessionContent />
       </GamePresentationActorContext.Provider>
     </GameSessionActorContext.Provider>
   );
 }
 
-function GameSessionContent({ legacyGameplay }: { readonly legacyGameplay: React.ReactNode }) {
+function GameSessionContent() {
   const actor = GameSessionActorContext.useActorRef();
   const connection = GameSessionActorContext.useSelector(selectConnection);
   const view = GameSessionActorContext.useSelector(selectView);
@@ -105,5 +104,13 @@ function GameSessionContent({ legacyGameplay }: { readonly legacyGameplay: React
     );
   }
 
-  return legacyGameplay;
+  return (
+    <PrototypeGameBoard
+      view={view}
+      pendingAction={pendingAction}
+      error={error}
+      canSubmit={canSubmit}
+      onSubmit={(action) => actor.send({ type: 'SUBMIT_ACTION', action })}
+    />
+  );
 }

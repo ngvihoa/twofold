@@ -937,10 +937,10 @@ Không đưa vào XState phía frontend:
 - [x] Tạo `gameSessionMachine` và `gamePresentationMachine`.
 - [x] Reconcile machine từ authoritative `PlayerGameView` sau reconnect/state update.
 - [x] Setup reorder thật.
-- [ ] Render player view mới.
-- [ ] Action panel theo phase.
+- [x] Render player view mới.
+- [x] Action panel theo phase.
 - [ ] Event-driven Council, Dusk và Dawn presentation.
-- [ ] Loại bỏ toàn bộ mock rule và random outcome.
+- [x] Loại bỏ toàn bộ mock rule và random outcome.
 
 #### PR 4.1 — Session machine foundation
 
@@ -1053,14 +1053,61 @@ Acceptance criteria PR 4.3:
 > tạm render legacy board cho tới PR 4.4–4.6. Browser transport chỉ làm I/O và
 > JSON serialization; inbound schema validation vẫn thuộc session machine.
 
+#### PR 4.4 — Player board và phase action panels
+
+PR 4.4 thay legacy gameplay board bằng `GamePlayerViewV2` cho toàn bộ phase.
+Visual ở lát này chưa phải UI đã được designer chốt: nó chủ động bám information
+architecture của PO prototype để làm presentation reference. Trên desktop,
+arena và history rail nằm side-by-side; trong arena là opponent board → center
+battlefield/command dock → self board. Mobile xếp dọc.
+
+Component thuộc route được colocate side-by-side trong `routes/play.$id/`.
+Component mô phỏng UI prototype dùng filename `-Prototype.<PascalName>.tsx`
+và export có prefix `Prototype`, ví dụ `-Prototype.GameBoard.tsx` /
+`PrototypeGameBoard`. Prefix này giúp thay presentation bằng thiết kế chính
+thức sau này mà không nhầm với model/action contract có thể tái sử dụng.
+
+- Self board render private role/ability/effect; opponent board chỉ render role
+  khi public view đã reveal.
+- Lifecycle `ALIVE/DEAD` và visibility `HIDDEN/REVEALED` được trình bày độc lập.
+- Action panel switch theo discriminated `view.phase.type`; resolution/Dawn/
+  Ended chỉ hiển thị trạng thái, không tạo action.
+- Day, Council accusation/reaction, Night, Defense, Purge và Final Duel đều chỉ
+  build `PlayerGameAction`; không resolve outcome hoặc mutate player view.
+- UI chỉ lọc điều kiện hiển nhiên có sẵn trong filtered view. Điều kiện rule sâu
+  vẫn do authoritative pipeline validate và trả `ACTION_REJECTED`.
+- Pending action và submission state khóa đúng form tương ứng; phase/board chỉ
+  đổi khi session nhận snapshot mới.
+- PR này chưa derive history wording và chưa chạy animation queue; hai phần đó
+  thuộc PR 4.5.
+
+Acceptance criteria PR 4.4:
+
+- [x] Route gameplay chỉ compose runtime, không chứa mock rule/local board.
+- [x] Desktop arena/history rail side-by-side và command dock nằm giữa hai board.
+- [x] Component prototype được colocate, dùng `-Prototype.<PascalName>.tsx`.
+- [x] Render self/opponent card đúng private/public visibility invariant.
+- [x] Có typed action builder cho mọi action variant sau Setup.
+- [x] Action panel cover Day, Council, Night, Defense, Purge và Final Duel.
+- [x] Resolution/Dawn/Ended không cho submit gameplay action.
+- [x] Pending/submitted/rejected state có presentation rõ ràng.
+- [x] Unit/render tests và web typecheck/build pass.
+
+> Hoàn thành PR 4.4 ngày 31/08/2026. `/play/$id` không còn legacy local board,
+> mock phase/log hay random outcome. Route chỉ compose transport và runtime;
+> presentation tạm dùng component prefix `Prototype` và bám arena/side-rail của
+> PO prototype, không được xem là UI designer đã chốt. Board dùng filtered
+> `GamePlayerViewV2`, còn command dock chỉ tạo `PlayerGameAction` đã qua shared
+> schema và chờ snapshot authoritative từ server. `pnpm --filter @twofold/web
+> check` pass đủ 33 tests, typecheck, client build và SSR build.
+
 #### Các lát tiếp theo của PR 4
 
-1. **PR 4.4 — Board/action panels:** render `GamePlayerViewV2` và tạo action form
-   theo discriminated phase; component chỉ dispatch `PlayerGameAction`.
-2. **PR 4.5 — Structured history:** derive wording/presentation từ
+1. **PR 4.5 — Structured history:** derive wording/presentation từ
    `GameEventV2`, giữ private event đúng viewer boundary.
-3. **PR 4.6 — Mock removal:** xóa local phase/card/log, `Math.random()` và toàn
-   bộ contract v0.1 khỏi route gameplay.
+2. **PR 4.6 — Compatibility cleanup:** kiểm tra và xóa contract v0.1/adapter
+   còn sót sau khi structured history đã thay toàn bộ presentation cũ. Local
+   phase/card/log và `Math.random()` trong route gameplay đã được xóa ở PR 4.4.
 
 ### PR 5 — Cleanup và documentation
 
