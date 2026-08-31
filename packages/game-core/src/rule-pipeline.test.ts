@@ -1039,7 +1039,46 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
     );
   });
 
-  it('rejects overlapping round-seven Purge SWAP positions', () => {
+  it('skips the later overlapping round-seven Purge SWAP instead of failing the round', () => {
+    let state = enterPurge(7);
+    state = dispatchPlayerAction(state, {
+      type: 'PURGE_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      order: { rule: 'SWAP', ownTargetId: 'A1', opponentTargetId: 'B1' },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'PURGE_SUBMIT',
+      playerId: PlayerId.PLAYER_B,
+      order: { rule: 'SWAP', ownTargetId: 'B1', opponentTargetId: 'A2' },
+    });
+
+    expect(state.phase).toEqual({ type: 'DAY_A' });
+    expect(state.players[PlayerId.PLAYER_A].submissions.purge).toBeNull();
+    expect(state.players[PlayerId.PLAYER_B].submissions.purge).toBeNull();
+    // Lệnh SWAP của A vẫn thực thi trên snapshot đầu vòng.
+    expect(state.players[PlayerId.PLAYER_A].board[0]).toMatchObject({
+      id: 'A1',
+      occupant: { id: 'B:1' },
+    });
+    expect(state.players[PlayerId.PLAYER_B].board[0]).toMatchObject({
+      id: 'B1',
+      occupant: { id: 'A:1' },
+    });
+    // Lệnh của B trùng lá đã bị chọn trước nên bị bỏ qua, B2/A2 giữ nguyên.
+    expect(state.players[PlayerId.PLAYER_B].board[1].occupant.id).toBe('B:2');
+    expect(state.players[PlayerId.PLAYER_A].board[1].occupant.id).toBe('A:2');
+    const swapEvents = state.events.filter(
+      (event) => event.type === 'PURGE_RESOLVED' && event.rule === 'SWAP'
+    );
+    expect(swapEvents).toHaveLength(2);
+    expect(swapEvents[1]).toMatchObject({
+      playerId: PlayerId.PLAYER_B,
+      targetCardId: null,
+      swapTargetCardId: null,
+    });
+  });
+
+  it('rejects skipping round-seven Purge SWAP while a valid pair remains', () => {
     let state = enterPurge(7);
     state = dispatchPlayerAction(state, {
       type: 'PURGE_SUBMIT',
@@ -1051,10 +1090,54 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
       dispatchPlayerAction(state, {
         type: 'PURGE_SUBMIT',
         playerId: PlayerId.PLAYER_B,
-        order: { rule: 'SWAP', ownTargetId: 'B1', opponentTargetId: 'A2' },
+        order: { rule: 'SWAP', ownTargetId: null, opponentTargetId: null },
       })
-    ).toThrow('Purge SWAP bị trùng vị trí');
+    ).toThrow('Purge SWAP vẫn còn cặp lá hợp lệ');
     expect(state.players[PlayerId.PLAYER_B].submissions.purge).toBeNull();
+  });
+
+  it('lets Purge SWAP skip when the only living opponent card is already taken', () => {
+    let state = enterPurge(7);
+    state = {
+      ...state,
+      players: {
+        ...state.players,
+        [PlayerId.PLAYER_A]: {
+          ...state.players[PlayerId.PLAYER_A],
+          board: state.players[PlayerId.PLAYER_A].board.map((card, index) =>
+            index === 0 ? card : transitionCard(card, { type: 'ELIMINATE' })
+          ),
+        },
+      },
+    };
+    state = dispatchPlayerAction(state, {
+      type: 'PURGE_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      order: { rule: 'SWAP', ownTargetId: 'A1', opponentTargetId: 'B1' },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'PURGE_SUBMIT',
+      playerId: PlayerId.PLAYER_B,
+      order: { rule: 'SWAP', ownTargetId: null, opponentTargetId: null },
+    });
+
+    expect(state.phase).toEqual({ type: 'DAY_A' });
+    // Swap của A vẫn chạy: A1 và B1 đổi chỗ cho nhau.
+    expect(state.players[PlayerId.PLAYER_A].board[0]).toMatchObject({
+      id: 'A1',
+      occupant: { id: 'B:1' },
+    });
+    expect(state.players[PlayerId.PLAYER_B].board[0]).toMatchObject({
+      id: 'B1',
+      occupant: { id: 'A:1' },
+    });
+    const skippedSwap = state.events.find(
+      (event) =>
+        event.type === 'PURGE_RESOLVED' &&
+        event.rule === 'SWAP' &&
+        event.targetCardId === null
+    );
+    expect(skippedSwap).toMatchObject({ playerId: PlayerId.PLAYER_B });
   });
 
   it('reveals selected hidden cards in round eight and permits null only when none remain', () => {

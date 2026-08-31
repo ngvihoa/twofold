@@ -191,8 +191,8 @@ function legacyPurge(order) {
   if (order.rule === 'SWAP') {
     return {
       rule: 'swap',
-      target: order.ownTargetId,
-      swapTarget: order.opponentTargetId,
+      target: order.ownTargetId ?? null,
+      swapTarget: order.opponentTargetId ?? null,
     };
   }
   return { rule: order.rule.toLowerCase(), target: order.targetId };
@@ -357,6 +357,9 @@ function eventMessage(event, core) {
     case 'WOLF_GUARD_RESCUED':
       return `${event.sourceCardId} đã bảo kê ${event.targetCardId}.`;
     case 'PURGE_RESOLVED':
+      if (event.rule === 'SWAP' && event.targetCardId === null) {
+        return `${PLAYER_TO_SEAT[event.playerId]} bỏ qua Đảo chiến tuyến (không còn cặp hợp lệ).`;
+      }
       return `${PLAYER_TO_SEAT[event.playerId]} đã hoàn tất ${event.rule}.`;
     case 'FINAL_DUEL_RESOLVED':
       return 'Final Duel đã được phân định.';
@@ -508,8 +511,8 @@ function purgeOrder(round, action) {
   if (rule === 'SWAP') {
     return {
       rule,
-      ownTargetId: action.target,
-      opponentTargetId: action.swapTarget,
+      ownTargetId: action.target ?? null,
+      opponentTargetId: action.swapTarget ?? null,
     };
   }
   return { rule, targetId: action.target ?? null };

@@ -593,7 +593,7 @@ Purge dùng rule bắt buộc theo chu kỳ bốn vòng:
 | Round | Rule | Resolution |
 |---|---|---|
 | 6, 10, ... | `CUT` | Mỗi player chọn một card sống bên mình; hai target bị loại đồng thời và được reveal. |
-| 7, 11, ... | `SWAP` | Mỗi player chọn một card bên mình và một card đối thủ; bốn vị trí phải khác nhau. |
+| 7, 11, ... | `SWAP` | Mỗi player chọn một card bên mình và một card đối thủ; bốn vị trí phải khác nhau. Gửi `ownTargetId: null, opponentTargetId: null` khi không còn cặp hợp lệ (bỏ qua swap). |
 | 8, 12, ... | `REVEAL` | Mỗi player reveal một card sống còn ẩn; gửi `targetId: null` khi không còn target hợp lệ. |
 | 9, 13, ... | `LOCK` | Áp `PURGE_LOCK` lên một card sống bên mình tới hết Night resolution của vòng hiện tại. |
 
@@ -613,8 +613,11 @@ Notable cần review sau playtest:
 - Seer intel trỏ tới `targetInstanceId`; `observedAtSlotId` chỉ là lịch sử slot
   tại thời điểm soi. Vì vậy intel vẫn nhận diện đúng card sau `SWAP` và không bị
   hiểu nhầm là role mới đang chiếm slot cũ.
-- Nếu hai order `SWAP` chọn trùng bất kỳ vị trí nào, resolution bị từ chối và
-  không mutate board; player cần submit lại order gây conflict.
+- Nếu lệnh `SWAP` của một player trùng vị trí với lệnh đã khóa của đối thủ, hoặc
+  player không còn cặp hợp lệ (ví dụ: lá sống duy nhất của đối thủ đã bị chọn
+  trước), lệnh đó bị bỏ qua (`PURGE_RESOLVED` với `targetCardId: null`); lệnh
+  còn lại vẫn thực thi trên snapshot đầu vòng. Điều này tránh deadlock khi một
+  bên chỉ còn đúng một lá sống.
 - `PURGE_RESOLVED` là public event sau resolution, nhưng payload order vẫn được
   giữ kín trước khi cả hai bên khóa.
 - Việc giữ cả Purge và Blood Moon từ Vòng 6 vẫn chờ GD-08/playtest quyết định.

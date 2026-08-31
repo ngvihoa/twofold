@@ -164,9 +164,13 @@ function botAction() {
     const aChoice = state.players.A.purge;
     const own = living("B").filter((card) => rule !== "reveal" || !card.revealed).filter((card) => rule !== "swap" || card.id !== aChoice?.swapTarget);
     const enemies = living("A").filter((card) => rule !== "swap" || card.id !== aChoice?.target);
+    if (rule === "swap" && (!own.length || !enemies.length)) {
+      // Không còn cặp hợp lệ (lá duy nhất đã bị bên A chọn): bỏ qua swap.
+      return { type: "purge.submit", seat: "B", target: null, swapTarget: null };
+    }
     const target = own.length ? own[state.round % own.length] : null;
-    const swapTarget = enemies[(state.round + 1) % enemies.length];
-    return { type: "purge.submit", seat: "B", target: target?.id, swapTarget: rule === "swap" ? swapTarget.id : undefined };
+    const swapTarget = enemies.length ? enemies[(state.round + 1) % enemies.length] : null;
+    return { type: "purge.submit", seat: "B", target: target?.id ?? null, swapTarget: rule === "swap" ? swapTarget?.id ?? null : undefined };
   }
   if (state.phase === "day-B") {
     const revealedEnemies = living("A").filter((card) => card.revealed);

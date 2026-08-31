@@ -202,7 +202,7 @@ export type DefenseOrder = z.infer<typeof DefenseOrderSchema>;
 
 export const PurgeOrderSchema = z.discriminatedUnion('rule', [
   z.object({ rule: z.literal('CUT'), targetId: CardIdSchema }),
-  z.object({ rule: z.literal('SWAP'), ownTargetId: CardIdSchema, opponentTargetId: CardIdSchema }),
+  z.object({ rule: z.literal('SWAP'), ownTargetId: CardIdSchema.nullable(), opponentTargetId: CardIdSchema.nullable() }),
   z.object({ rule: z.literal('REVEAL'), targetId: CardIdSchema.nullable() }),
   z.object({ rule: z.literal('LOCK'), targetId: CardIdSchema }),
 ]);

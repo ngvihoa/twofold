@@ -851,6 +851,19 @@ function validatePurgeOrder(
   order: PurgeOrder
 ): void {
   if (order.rule === 'SWAP') {
+    if (order.ownTargetId === null && order.opponentTargetId === null) {
+      if (hasValidSwapOption(state, playerId)) {
+        throw new RuleValidationError(
+          'Purge SWAP vẫn còn cặp lá hợp lệ; không thể bỏ qua.'
+        );
+      }
+      return;
+    }
+    if (order.ownTargetId === null || order.opponentTargetId === null) {
+      throw new RuleValidationError(
+        'Purge SWAP cần cả lá bên mình và lá đối thủ.'
+      );
+    }
     getOwnedLivingCard(state, playerId, order.ownTargetId, 'Purge own target');
     getOpponentLivingCard(
       state,
@@ -884,36 +897,80 @@ function validatePurgeOrder(
   }
 }
 
+/**
+ * Kiểm tra còn tồn tại một cặp SWAP hợp lệ (không đụng vào cặp đối thủ đã
+ * khóa, nếu có). Dùng để cho phép bỏ qua SWAP khi mọi cặp đều bị chọn trước.
+ */
+function hasValidSwapOption(state: GameState, playerId: PlayerId): boolean {
+  const opponentId =
+    playerId === PlayerId.PLAYER_A ? PlayerId.PLAYER_B : PlayerId.PLAYER_A;
+  const submitted = state.players[opponentId].submissions.purge;
+  const takenIds =
+    submitted && submitted.rule === 'SWAP'
+      ? new Set<CardId>(
+          [submitted.ownTargetId, submitted.opponentTargetId].filter(
+            (id): id is CardId => id !== null
+          )
+        )
+      : null;
+  const ownIds = state.players[playerId].board
+    .filter(isCardAlive)
+    .map((card) => card.id);
+  const opponentIds = state.players[opponentId].board
+    .filter(isCardAlive)
+    .map((card) => card.id);
+  for (const ownId of ownIds) {
+    for (const opponentIdCandidate of opponentIds) {
+      if (
+        takenIds &&
+        (takenIds.has(ownId) || takenIds.has(opponentIdCandidate))
+      ) {
+        continue;
+      }
+      return true;
+    }
+  }
+  return false;
+}
+
 function resolvePurge(state: GameState): GameState {
   const orders = snapshotOrders(state, 'purge');
   const events: GameEventDraft[] = [];
   let next = state;
 
   if (orders[PlayerId.PLAYER_A].rule === 'SWAP') {
-    const swapOrders = PLAYER_ORDER.map((playerId) => orders[playerId]).filter(
-      (order): order is Extract<PurgeOrder, { rule: 'SWAP' }> => order.rule === 'SWAP'
-    );
-    const selectedIds = swapOrders.flatMap((order) => [
-      order.ownTargetId,
-      order.opponentTargetId,
-    ]);
-    if (swapOrders.length !== 2 || new Set(selectedIds).size !== selectedIds.length) {
-      throw new RuleValidationError(
-        'Purge SWAP bị trùng vị trí; mỗi card chỉ được tham gia một lần.'
-      );
-    }
-
     const snapshot = new Map<CardId, GameCard>();
     for (const playerId of PLAYER_ORDER) {
       for (const card of state.players[playerId].board) snapshot.set(card.id, card);
     }
     const replacements = new Map<CardId, GameCard>();
+    const usedCardIds = new Set<CardId>();
     for (const playerId of PLAYER_ORDER) {
       const order = orders[playerId];
       if (order.rule !== 'SWAP') throw new Error('Purge SWAP snapshot không đồng nhất.');
+      if (
+        order.ownTargetId === null ||
+        order.opponentTargetId === null ||
+        usedCardIds.has(order.ownTargetId) ||
+        usedCardIds.has(order.opponentTargetId)
+      ) {
+        // Không còn cặp hợp lệ (hoặc cặp đã bị đối thủ chọn trước): bỏ qua
+        // lệnh SWAP của bên này thay vì làm chết turn.
+        events.push({
+          type: 'PURGE_RESOLVED',
+          visibility: { type: 'PUBLIC' },
+          playerId,
+          rule: 'SWAP',
+          targetCardId: null,
+          swapTargetCardId: null,
+        });
+        continue;
+      }
       const ownSlot = snapshot.get(order.ownTargetId);
       const opponentSlot = snapshot.get(order.opponentTargetId);
       if (!ownSlot || !opponentSlot) throw new Error('Thiếu card trong Purge SWAP snapshot.');
+      usedCardIds.add(order.ownTargetId);
+      usedCardIds.add(order.opponentTargetId);
       replacements.set(ownSlot.id, moveCardRuntimeToSlot(opponentSlot, ownSlot));
       replacements.set(opponentSlot.id, moveCardRuntimeToSlot(ownSlot, opponentSlot));
       events.push({

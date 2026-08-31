@@ -202,20 +202,35 @@ function purgeRule(round) {
   return ["cut", "swap", "reveal", "lock"][(round - 6) % 4];
 }
 
+function hasValidSwapOption(state, seat) {
+  const other = otherSeat(seat);
+  const submitted = state.players[other].purge;
+  const taken = submitted && submitted.rule === "swap"
+    ? new Set([submitted.target, submitted.swapTarget].filter(Boolean))
+    : null;
+  const ownIds = livingCards(state, seat).map((card) => card.id);
+  const enemyIds = livingCards(state, other).map((card) => card.id);
+  for (const ownId of ownIds) {
+    for (const enemyId of enemyIds) {
+      if (taken && (taken.has(ownId) || taken.has(enemyId))) continue;
+      return true;
+    }
+  }
+  return false;
+}
+
 function resolvePurge(state) {
   const choices = [state.players.A.purge, state.players.B.purge];
   if (choices[0].rule === "swap") {
-    const selectedIds = choices.flatMap((choice) => [choice.target, choice.swapTarget]);
-    if (new Set(selectedIds).size !== selectedIds.length) {
-      state.players.A.purge = null;
-      state.players.B.purge = null;
-      throw new Error("Đảo chiến tuyến bị trùng vị trí; mỗi lá chỉ được tham gia một lần.");
-    }
     const snapshot = new Map(
       ["A", "B"].flatMap((seat) => state.players[seat].board).map((card) => [card.id, card]),
     );
     const replacements = new Map();
+    const used = new Set();
     for (const choice of choices) {
+      if (choice.target === null || choice.swapTarget === null || used.has(choice.target) || used.has(choice.swapTarget)) continue;
+      used.add(choice.target);
+      used.add(choice.swapTarget);
       replacements.set(choice.target, { ...snapshot.get(choice.swapTarget), id: choice.target });
       replacements.set(choice.swapTarget, { ...snapshot.get(choice.target), id: choice.swapTarget });
     }
@@ -247,7 +262,18 @@ function submitPurge(state, action) {
     if (state.players.A.purge && state.players.B.purge) resolvePurge(state);
     return;
   }
-  const target = cardById(state, action.target);
+  const target = action.target == null && rule === "swap" && action.swapTarget == null
+    ? null
+    : cardById(state, action.target);
+  if (target === null) {
+    if (hasValidSwapOption(state, action.seat)) {
+      throw new Error("Đảo chiến tuyến vẫn còn cặp hợp lệ; không thể bỏ qua.");
+    }
+    state.players[action.seat].purge = { rule, target: null, swapTarget: null };
+    addLog(state, `${action.seat} không còn cặp hợp lệ; bỏ qua Đảo chiến tuyến.`);
+    if (state.players.A.purge && state.players.B.purge) resolvePurge(state);
+    return;
+  }
   if (!target.alive || !target.id.startsWith(action.seat)) throw new Error("Mục tiêu Thanh trừng không hợp lệ.");
   if (rule === "reveal" && target.revealed) throw new Error("Ép lộ diện cần một lá đang ẩn.");
   if (rule === "swap") {
