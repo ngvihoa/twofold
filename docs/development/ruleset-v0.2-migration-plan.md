@@ -870,7 +870,9 @@ Không đưa vào XState phía frontend:
 ### Parity
 
 - Dùng cùng seed và action sequence cho prototype và core TypeScript.
-- So sánh public outcome, private intel và result trước khi xóa engine prototype.
+- So sánh public outcome, private intel và result với executable PO reference.
+- Giữ `engine.mjs` và `engine.test.mjs` làm nguồn rule tham khảo của PO; không
+  cho UI, CLI hoặc production runtime phụ thuộc vào reference engine này.
 - `packages/game-core/src/normalized-trace-parity.test.ts` đã chạy cùng một
   standard deck qua Setup, Seer/Guard, Council, Night, Blood Moon, đủ chu kỳ
   `CUT → SWAP → REVEAL → LOCK` và Final Duel. Comparator normalize slot/instance,
@@ -914,17 +916,20 @@ Không đưa vào XState phía frontend:
 ### PR 3 — Spec reviewer adapter
 
 - [x] Cho demo import `game-core` qua presentation adapter.
-- [ ] Bot chỉ sử dụng public view và private view của chính nó.
+- [x] Bot chỉ sử dụng public view và private view của chính nó.
 - [x] Giữ animation/presentation hiện tại, gồm deferred Dawn sequence.
 - [x] Chạy prototype parity và adapter integration tests.
-- [ ] Xóa engine `.mjs` trùng lặp sau khi parity pass.
+- [x] Giữ `engine.mjs` và `engine.test.mjs` làm executable PO reference, tách
+  khỏi runtime UI/CLI.
 
-> Tiến độ 30/08/2026: UI và CLI đã chuyển sang `core-adapter.mjs`; adapter map
+> Tiến độ 31/08/2026: UI và CLI đã chuyển sang `core-adapter.mjs`; adapter map
 > action cũ sang shared `PlayerGameAction`, derive presentation log từ public
 > structured events và giữ Night outcome trước/sau để phát animation. Reviewer
-> dùng Vite để bundle workspace packages. Prototype engine chỉ còn được import
-> bởi regression test. Bot information-boundary audit vẫn là bước kế tiếp trước
-> khi xóa prototype.
+> dùng Vite để bundle workspace packages. Bot policy chỉ nhận public view và
+> private view của B; test xác nhận thay đổi hidden role của A không đổi quyết
+> định bot và bot không đọc pending Purge payload của đối thủ. Prototype engine
+> chỉ còn được import bởi parity/regression test và được chủ động giữ lại như
+> executable source of truth của PO, không phải mục tiêu cleanup.
 
 ### PR 4 — Web integration
 

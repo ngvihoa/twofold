@@ -675,7 +675,9 @@ export function publicView(state) {
         return {
           id: card.id,
           alive: card.alive,
+          revealed: card.revealed,
           role: card.revealed ? ROLE_DEFS[card.role].name : '?',
+          roleKey: card.revealed ? card.role : null,
           faction: card.revealed ? ROLE_DEFS[card.role].faction : '?',
           shielded: card.shielded,
           staged: Boolean(
@@ -703,6 +705,22 @@ export function publicView(state) {
         readyRound: state.players.B.bloodMoonReadyRound,
       },
     },
+    submissionLocks: {
+      A: {
+        council: Boolean(state.players.A.council),
+        night: Boolean(state.players.A.night),
+        defense: state.players.A.defense !== null,
+        purge: Boolean(state.players.A.purge),
+        finalGuess: Boolean(state.players.A.finalGuess),
+      },
+      B: {
+        council: Boolean(state.players.B.council),
+        night: Boolean(state.players.B.night),
+        defense: state.players.B.defense !== null,
+        purge: Boolean(state.players.B.purge),
+        finalGuess: Boolean(state.players.B.finalGuess),
+      },
+    },
     board,
     result: state.result,
     log: [...state.log],
@@ -711,15 +729,35 @@ export function publicView(state) {
 
 export function privateView(state, seat) {
   assertSeat(seat);
+  const playerId = SEAT_TO_PLAYER[seat];
+  const intel = state.__core.players[playerId].privateIntel.map((entry) => {
+    const currentCard = Object.values(state.__core.players)
+      .flatMap((player) => player.board)
+      .find((card) => card.occupant.id === entry.targetInstanceId);
+    return {
+      cardId: currentCard?.id ?? entry.observedAtSlotId,
+      roleKey: ROLE_TO_KEY[entry.discoveredRole],
+      faction:
+        getRoleDefinition(entry.discoveredRole).faction === Faction.WEREWOLF
+          ? 'werewolf'
+          : 'village',
+    };
+  });
   return {
     seat,
     hand: state.players[seat].board.map((card) => ({
       id: card.id,
+      instanceId: card.instanceId,
       role: ROLE_DEFS[card.role].name,
+      roleKey: card.role,
       alive: card.alive,
       revealed: card.revealed,
+      voteCooldown: card.voteCooldown,
+      purgeLockedRound: card.purgeLockedRound,
       uses: { ...card.uses },
     })),
+    lastGuardTarget: state.players[seat].lastGuardTarget,
+    intel,
     notes: [...state.players[seat].notes],
   };
 }

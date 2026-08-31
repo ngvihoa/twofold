@@ -1,4 +1,5 @@
 import { availableRoleGuesses, beginRound, createGame, dispatch, privateView, publicView, ROLE_DEFS, SPECIAL_CARD } from "./core-adapter.mjs";
+import { botNeedsTurn as policyNeedsTurn, chooseBotAction } from "./bot-policy.mjs";
 
 const ROLE_ART = {
   villager: "../assets/game/wwo-reference/dan-lang.png",
@@ -115,7 +116,6 @@ const roleOptions = (keys = Object.keys(ROLE_DEFS)) => keys.map((key) => `<optio
 const cardOptions = (cards) => cards.filter((card) => card.alive).map((card) => `<option value="${card.id}">${card.id}${card.revealed ? ` · ${ROLE_DEFS[card.role].name}` : ""}</option>`).join("");
 const deadCardOptions = (cards) => cards.filter((card) => !card.alive).map((card) => `<option value="${card.id}">${card.id} · ${ROLE_DEFS[card.role].name}</option>`).join("");
 const sourceFor = (role) => ownPlayer().board.find((card) => card.alive && card.role === role)?.id;
-const botSourceFor = (role) => state.players.B.board.find((card) => card.alive && card.role === role);
 const living = (boardSeat) => state.players[boardSeat].board.filter((card) => card.alive);
 
 function formatMatchTime(milliseconds = 0) {
@@ -148,84 +148,11 @@ function scheduleMatchClock() {
 }
 
 function botNeedsTurn() {
-  if (state.phase === "setup-B" || state.phase === "day-B") return true;
-  if (state.phase === "purge") return Boolean(state.players.A.purge) && !state.players.B.purge;
-  if (state.phase === "council") return Boolean(state.players.A.council) && !state.players.B.council;
-  if (state.phase === "dusk-defense") return state.players.A.defense !== null && state.players.B.defense === null;
-  if (state.phase === "night-plan") return Boolean(state.players.A.night) && !state.players.B.night;
-  if (state.phase === "final-duel") return Boolean(state.players.A.finalGuess) && !state.players.B.finalGuess;
-  return false;
+  return policyNeedsTurn(publicView(state), privateView(state, "B"));
 }
 
 function botAction() {
-  if (state.phase === "setup-B") return { type: "setup.submit", seat: "B", order: state.players.B.board.map((card) => card.id) };
-  if (state.phase === "purge") {
-    const rule = ["cut", "swap", "reveal", "lock"][(state.round - 6) % 4];
-    const aChoice = state.players.A.purge;
-    const own = living("B").filter((card) => rule !== "reveal" || !card.revealed).filter((card) => rule !== "swap" || card.id !== aChoice?.swapTarget);
-    const enemies = living("A").filter((card) => rule !== "swap" || card.id !== aChoice?.target);
-    if (rule === "swap" && (!own.length || !enemies.length)) {
-      // Không còn cặp hợp lệ (lá duy nhất đã bị bên A chọn): bỏ qua swap.
-      return { type: "purge.submit", seat: "B", target: null, swapTarget: null };
-    }
-    const target = own.length ? own[state.round % own.length] : null;
-    const swapTarget = enemies.length ? enemies[(state.round + 1) % enemies.length] : null;
-    return { type: "purge.submit", seat: "B", target: target?.id ?? null, swapTarget: rule === "swap" ? swapTarget?.id ?? null : undefined };
-  }
-  if (state.phase === "day-B") {
-    const revealedEnemies = living("A").filter((card) => card.revealed);
-    const shooter = botSourceFor("shooter");
-    if (shooter?.uses.bullet > 0 && revealedEnemies.length >= 2 && !state.players.B.eliminationSpent) {
-      return { type: "day.submit", seat: "B", kind: "shoot", source: shooter.id, target: revealedEnemies[0].id };
-    }
-    const witch = botSourceFor("witch");
-    const deadAlly = state.players.B.board.find((card) => !card.alive);
-    if (witch?.uses.revive > 0 && deadAlly) return { type: "day.submit", seat: "B", kind: "revive", source: witch.id, target: deadAlly.id };
-    const knownWolf = [...state.players.B.notes].reverse().map((note) => note.match(/(A\d+) là Ma sói/)).find(Boolean)?.[1];
-    const priest = botSourceFor("priest");
-    if (priest?.uses.holyWater > 0 && knownWolf && state.players.A.board.find((card) => card.id === knownWolf)?.alive) {
-      return { type: "day.submit", seat: "B", kind: "purify", source: priest.id, target: knownWolf };
-    }
-    const avenger = botSourceFor("avenger");
-    if (avenger) {
-      const targets = living("A");
-      const target = targets[(state.round + targets.length - 1) % targets.length];
-      return { type: "day.submit", seat: "B", kind: "mark", source: avenger.id, target: target.id };
-    }
-    return { type: "day.submit", seat: "B", kind: "pass" };
-  }
-  if (state.phase === "council") {
-    const target = living("A").find((card) => card.revealed);
-    const voters = living("B").filter((item) => ROLE_DEFS[item.role].faction === "village" && item.voteCooldown === 0).slice(0, 3).map((card) => card.id);
-    if (target && voters.length === 3) return { type: "council.submit", seat: "B", kind: "accuse", target: target.id, guess: target.role, voters };
-    return { type: "council.submit", seat: "B", kind: "pass" };
-  }
-  if (state.phase === "dusk-defense") {
-    const guard = botSourceFor("guard");
-    if (!guard?.uses.guard) return { type: "defense.submit", seat: "B", pass: true };
-    const choices = living("B").filter((card) => card.instanceId !== state.players.B.lastGuardTarget && card.instanceId !== guard.instanceId);
-    if (!choices.length) return { type: "defense.submit", seat: "B", pass: true };
-    const target = choices.find((card) => card.revealed) || choices[state.round % choices.length];
-    return { type: "defense.submit", seat: "B", pass: false, source: guard.id, target: target.id };
-  }
-  if (state.phase === "night-plan") {
-    const targets = living("A");
-    const openTargets = targets.filter((card) => !card.shielded);
-    const pool = openTargets.length ? openTargets : targets;
-    const target = pool[state.round % pool.length];
-    const wolf = botSourceFor("wolf");
-    if (wolf && !state.players.B.eliminationSpent) return { type: "night.submit", seat: "B", kind: "attack", source: wolf.id, target: target.id };
-    const revealedTargets = targets.filter((card) => card.revealed);
-    if (state.round >= SPECIAL_CARD.unlockRound && state.players.B.bloodMoonReadyRound <= state.round && revealedTargets.length && !state.players.B.eliminationSpent) {
-      return { type: "night.submit", seat: "B", kind: "bloodmoon", target: revealedTargets[state.round % revealedTargets.length].id };
-    }
-    const seer = botSourceFor("seer");
-    const seerTargets = targets.filter((card) => card.seerInspected !== "light");
-    if (seer?.uses.seer > 0 && seerTargets.length) return { type: "night.submit", seat: "B", kind: "inspect", source: seer.id, target: seerTargets[state.round % seerTargets.length].id };
-    return { type: "night.submit", seat: "B", kind: "pass" };
-  }
-  const guesses = Object.keys(ROLE_DEFS);
-  return { type: "final.submit", seat: "B", guess: guesses[state.round % guesses.length] };
+  return chooseBotAction(publicView(state), privateView(state, "B"));
 }
 
 function runBotTurn() {
@@ -747,7 +674,7 @@ function directTargetIds() {
     const rule = ["cut", "swap", "reveal", "lock"][(state.round - 6) % 4];
     return new Set(living("A").filter((card) => rule !== "reveal" || !card.revealed).map((card) => card.id));
   }
-  if (interaction.kind === "purge-swap") return new Set(living("B").filter((card) => card.id !== state.players.A.purge?.swapTarget).map((card) => card.id));
+  if (interaction.kind === "purge-swap") return new Set(living("B").map((card) => card.id));
   if (["mark", "purify", "attack", "poison"].includes(interaction.kind)) return new Set(living("B").map((card) => card.id));
   if (interaction.kind === "inspect") return new Set(living("B").filter((card) => card.seerInspected !== "light").map((card) => card.id));
   if (interaction.kind === "bloodmoon") return new Set(living("B").filter((card) => card.revealed).map((card) => card.id));

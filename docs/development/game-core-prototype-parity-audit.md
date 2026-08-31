@@ -85,8 +85,10 @@ prototype/legacy adapter.
 | TEST-01 | Cần replay cùng một standard-deck action trace cho toàn trận. | Bằng chứng parity xuyên phase. | **Đã xử lý:** normalized trace so board slot/instance, lifecycle, visibility, resources, effects, Guard memory, Seer intel, cooldown, phase/round và result tại từng checkpoint. |
 | PHASE-01 | Core từng vào Final Duel từ Dawn trước khi tăng round, trong khi prototype tăng round trước. | Final Duel sau Night lệch round number. | **Đã xử lý:** elimination check vẫn ở round hiện tại; nếu còn 1–1 thì hoàn tất Dawn/tăng round trước `FINAL_DUEL_REQUIRED`. |
 
-## Điều kiện để tuyên bố parity và xóa prototype engine
+## Điều kiện để tuyên bố parity với PO reference engine
 
 - Player-view parity không rò hidden role, Night order, Council reaction hoặc
   private Seer intel.
-- Spec reviewer chuyển sang import `game-core`; sau đó mới xóa `engine.mjs`.
+- Spec reviewer runtime chỉ import `game-core`; `engine.mjs` và
+  `engine.test.mjs` được giữ làm executable PO reference và chỉ tham gia
+  parity/regression test.

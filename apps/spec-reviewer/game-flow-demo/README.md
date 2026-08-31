@@ -13,8 +13,10 @@ Rule state và resolution hiện chạy bằng `@twofold/game-core`. File
 giữ lại UI/animation trong giai đoạn migrate; state vẫn chỉ nằm trong bộ nhớ và
 biến mất khi thoát.
 
-`engine.mjs` không còn được UI hoặc CLI sử dụng. Nó tạm được giữ làm prototype
-tham chiếu cho parity test và sẽ bị xóa sau khi adapter hoàn tất audit consumer.
+`engine.mjs` không còn được UI hoặc CLI sử dụng. `engine.mjs` và
+`engine.test.mjs` được giữ làm executable reference cho rule core do PO cung
+cấp: chúng phục vụ tra cứu và parity/regression test, không phải runtime engine
+của reviewer và không nằm trong kế hoạch cleanup.
 
 ## Chạy
 
