@@ -934,7 +934,7 @@ Không đưa vào XState phía frontend:
 ### PR 4 — Web integration
 
 - [x] Cài và cấu hình `xstate` cùng `@xstate/react`.
-- [ ] Tạo `gameSessionMachine` và `gamePresentationMachine`.
+- [x] Tạo `gameSessionMachine` và `gamePresentationMachine`.
 - [ ] Reconcile machine từ authoritative `PlayerGameView` sau reconnect/state update.
 - [ ] Setup reorder thật.
 - [ ] Render player view mới.
@@ -982,18 +982,49 @@ Acceptance criteria PR 4.1:
 > này. Native WebSocket adapter sẽ được gắn khi endpoint server được triển khai;
 > machine hiện được xác minh qua transport port và deterministic fake transport.
 
+#### PR 4.2 — Presentation machine foundation
+
+Presentation machine nhận structured events đã được lọc trong
+`GamePlayerViewV2`; nó không nhận authoritative game state và không được phép
+thay đổi board, phase hoặc result. Trách nhiệm duy nhất là quyết định event nào
+đang được trình bày và event nào chờ tiếp theo.
+
+- `HYDRATE` dùng cho initial load/reconnect: đặt cursor tại event sequence cao
+  nhất trong snapshot và không replay lịch sử cũ.
+- `INGEST` dùng cho live snapshot tiếp theo: chỉ nhận event có `sequence` lớn
+  hơn cursor đã thấy, sort tăng dần và loại duplicate từ snapshot lặp lại.
+- `current` chứa đúng một event đang animate; `queue` chứa phần còn lại.
+- `PRESENTATION_COMPLETED` hoặc `SKIP_CURRENT` tiến tới event kế tiếp và chỉ lúc
+  đó cập nhật `lastPresentedSequence`.
+- `SKIP_ALL` fast-forward toàn bộ queue nhưng vẫn tiến cursor, tránh replay các
+  event đã bỏ qua.
+- `RESET` dành cho lúc actor được tái sử dụng với một game/session khác.
+- Presentation kind được derive từ phase (`DAY`, `COUNCIL`, `DEFENSE`, `NIGHT`,
+  `DAWN`, `PURGE`, `FINAL_DUEL`, `GENERIC`) thay vì lưu thêm một nguồn state.
+
+Acceptance criteria PR 4.2:
+
+- [x] Có `gamePresentationMachine` tách biệt `gameSessionMachine`.
+- [x] Hydrate/reconnect không replay event lịch sử.
+- [x] Live events được sort, dedupe và trình bày tuần tự theo `sequence`.
+- [x] Event đến trong lúc đang animate được nối vào queue, không cắt current.
+- [x] Complete, skip current, skip all và reset giữ cursor nhất quán.
+- [x] Có selector hẹp và actor context cho `@xstate/react`.
+- [x] Unit tests và web typecheck/build pass.
+
+> Hoàn thành PR 4.2 ngày 31/08/2026. Presentation actor hiện là orchestration
+> foundation độc lập, chưa được mount vào gameplay route. Nó nhận event đã lọc
+> từ player view, không import `game-core` và không sở hữu board/phase/result.
+
 #### Các lát tiếp theo của PR 4
 
-1. **PR 4.2 — Presentation machine:** consume event theo `sequence`, queue
-   Council/Defense/Night/Dawn/Purge animation và không replay event cũ sau
-   reconnect.
-2. **PR 4.3 — Setup:** reorder 10 card, submit setup order và chờ snapshot server
+1. **PR 4.3 — Setup:** reorder 10 card, submit setup order và chờ snapshot server
    xác nhận khóa đội hình.
-3. **PR 4.4 — Board/action panels:** render `GamePlayerViewV2` và tạo action form
+2. **PR 4.4 — Board/action panels:** render `GamePlayerViewV2` và tạo action form
    theo discriminated phase; component chỉ dispatch `PlayerGameAction`.
-4. **PR 4.5 — Structured history:** derive wording/presentation từ
+3. **PR 4.5 — Structured history:** derive wording/presentation từ
    `GameEventV2`, giữ private event đúng viewer boundary.
-5. **PR 4.6 — Mock removal:** xóa local phase/card/log, `Math.random()` và toàn
+4. **PR 4.6 — Mock removal:** xóa local phase/card/log, `Math.random()` và toàn
    bộ contract v0.1 khỏi route gameplay.
 
 ### PR 5 — Cleanup và documentation

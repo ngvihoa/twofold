@@ -21,19 +21,34 @@ type MessagePayload<TType extends ServerWsMessage['type']> = Extract<
   { type: TType }
 >['payload'];
 
+/** Dependency đầu vào cần thiết để tạo một game session actor. */
 export interface GameSessionInput {
+  /** Room mà client muốn join hoặc reconnect. */
   readonly roomId: string;
+  /** Tên hiển thị gửi trong `JOIN_ROOM`. */
   readonly playerName: string;
+  /** I/O port được inject; machine không phụ thuộc trực tiếp browser WebSocket. */
   readonly transport: GameTransport;
+  /** Session cũ cần khôi phục, nếu client đã có reconnect token. */
   readonly reconnectSessionId?: string;
 }
 
+/** Lỗi gần nhất mà UI session có thể trình bày cho người chơi. */
 export interface GameSessionError {
+  /** Nguồn lỗi: action bị từ chối, protocol sai hoặc connection lỗi. */
   readonly kind: 'ACTION' | 'PROTOCOL' | 'TRANSPORT';
+  /** Mã lỗi từ server nếu protocol có cung cấp. */
   readonly code?: string;
+  /** Nội dung an toàn để presentation layer hiển thị. */
   readonly message: string;
 }
 
+/**
+ * Context do session machine sở hữu.
+ *
+ * `view` luôn là snapshot server gần nhất; `pendingAction` chỉ biểu diễn trạng
+ * thái chờ acknowledgement và không được dùng để optimistic-update game state.
+ */
 export interface GameSessionContext extends GameSessionInput {
   readonly assignedPlayerId: PlayerId | null;
   readonly sessionId: string | null;
@@ -42,6 +57,13 @@ export interface GameSessionContext extends GameSessionInput {
   readonly error: GameSessionError | null;
 }
 
+/**
+ * Event union của parent session machine.
+ *
+ * Event không namespace như `CONNECT`/`SUBMIT_ACTION` đến từ UI; 
+ * `TRANSPORT.*` đến từ I/O actor; 
+ * `SERVER.*` là wire message đã parse và đổi namespace.
+ */
 type GameSessionEvent =
   | { readonly type: 'CONNECT' }
   | { readonly type: 'RECONNECT' }
@@ -58,15 +80,31 @@ type GameSessionEvent =
   | { readonly type: 'SERVER.ERROR'; readonly payload: MessagePayload<'ERROR'> }
   | { readonly type: 'SERVER.PONG'; readonly payload: MessagePayload<'PONG'> };
 
+/** Command parent machine gửi riêng cho child actor có ID `transport`. */
 type TransportCommand =
   | { readonly type: 'CONNECT' }
   | { readonly type: 'DISCONNECT' }
   | { readonly type: 'SEND'; readonly message: ClientWsMessage };
 
+/**
+ * Chuẩn hóa một thrown value chưa biết thành message cho session error.
+ *
+ * @param error - Giá trị được transport hoặc runtime throw.
+ * @returns Message gốc nếu là `Error`, ngược lại là biểu diễn chuỗi.
+ */
 function describeUnknownError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/**
+ * Chuyển server WebSocket message đã parse thành event nội bộ của machine.
+ *
+ * Việc đổi namespace sang `SERVER.*` giúp phân biệt wire message với event do
+ * React hoặc transport gửi vào session actor.
+ *
+ * @param message - Message v0.2 đã vượt qua `ServerWsMessageSchema`.
+ * @returns Event nội bộ giữ nguyên typed payload của server message.
+ */
 function toMachineEvent(message: ServerWsMessage): GameSessionEvent {
   switch (message.type) {
     case 'ROOM_JOINED':
@@ -82,6 +120,13 @@ function toMachineEvent(message: ServerWsMessage): GameSessionEvent {
   }
 }
 
+/**
+ * Callback actor làm cầu nối hai chiều giữa XState và `GameTransport`.
+ *
+ * Actor subscribe raw transport notifications, validate mọi inbound message
+ * trước khi gửi về parent machine, đồng thời nhận command connect/disconnect/
+ * send từ parent. Cleanup luôn unsubscribe và đóng transport.
+ */
 const transportActor = fromCallback<TransportCommand, { transport: GameTransport }>(
   ({ input, receive, sendBack }) => {
     const unsubscribe = input.transport.subscribe((event) => {
@@ -132,6 +177,18 @@ const transportActor = fromCallback<TransportCommand, { transport: GameTransport
   }
 );
 
+/**
+ * Authoritative client-session state machine cho một game room.
+ *
+ * Machine quản lý connection lifecycle, join/reconnect token, snapshot v0.2,
+ * pending submission và lỗi. Nó không resolve game rule và không tự chuyển
+ * gameplay phase; mỗi `GAME_STATE_UPDATE` thay toàn bộ `view` bằng snapshot
+ * server mới nhất.
+ *
+ * State lifecycle:
+ * `idle -> connecting -> connected -> reconnecting`, hoặc `closed` khi client
+ * chủ động disconnect.
+ */
 export const gameSessionMachine = setup({
   types: {
     context: {} as GameSessionContext,
@@ -294,14 +351,30 @@ export const gameSessionMachine = setup({
 
 export type GameSessionSnapshot = SnapshotFrom<typeof gameSessionMachine>;
 
+/** @returns Connection state hiện tại của session actor. */
 export const selectConnection = (snapshot: GameSessionSnapshot) => snapshot.value;
+
+/** @returns Authoritative player view gần nhất, hoặc `null` trước snapshot đầu. */
 export const selectView = (snapshot: GameSessionSnapshot) => snapshot.context.view;
+
+/** @returns Phase từ authoritative view, hoặc `null` khi chưa có view. */
 export const selectPhase = (snapshot: GameSessionSnapshot) =>
   snapshot.context.view?.phase ?? null;
+
+/** @returns Action đang chờ server acknowledge, hoặc `null`. */
 export const selectPendingAction = (snapshot: GameSessionSnapshot) =>
   snapshot.context.pendingAction;
+
+/** @returns Lỗi session gần nhất có thể hiển thị, hoặc `null`. */
 export const selectSessionError = (snapshot: GameSessionSnapshot) =>
   snapshot.context.error;
+
+/**
+ * Xác định UI có thể gửi action mới hay không.
+ *
+ * @returns `true` chỉ khi đã connected, có authoritative view và không có
+ * action nào đang chờ acknowledgement.
+ */
 export const selectCanSubmit = (snapshot: GameSessionSnapshot) =>
   snapshot.matches('connected') &&
   snapshot.context.view !== null &&
