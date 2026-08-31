@@ -14,6 +14,7 @@ export const Route = createFileRoute('/room/$id')({
 
 function RoomLobbyComponent() {
   const { id: roomId } = Route.useParams();
+  const { name } = Route.useSearch();
   const navigate = useNavigate();
   const [copied, setCopied] = React.useState(false);
   const [myDeck] = React.useState<CardRole[]>(() => [...STANDARD_DECK]);
@@ -41,7 +42,11 @@ function RoomLobbyComponent() {
   React.useEffect(() => {
     if (countdown === null) return;
     if (countdown === 0) {
-      navigate({ to: '/play/$id', params: { id: roomId } });
+      navigate({
+        to: '/play/$id',
+        params: { id: roomId },
+        search: { name, reconnectSessionId: undefined },
+      });
       return;
     }
 
@@ -50,7 +55,7 @@ function RoomLobbyComponent() {
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [countdown, navigate, roomId]);
+  }, [countdown, name, navigate, roomId]);
 
   return (
     <div className="flex-1 max-w-6xl mx-auto w-full p-4 sm:p-8 flex flex-col gap-6">

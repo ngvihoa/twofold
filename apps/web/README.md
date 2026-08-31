@@ -11,6 +11,9 @@
 
 ```bash
 # Development server
+VITE_GAME_WS_URL=ws://127.0.0.1:3000/game pnpm --filter @twofold/web dev
+
+# Hoặc chỉ chạy UI; route gameplay sẽ báo endpoint chưa được cấu hình
 pnpm --filter @twofold/web dev
 
 # Generate app/routeTree.gen.ts
@@ -20,7 +23,10 @@ pnpm tf routes
 pnpm tf check web
 ```
 
-RPC, WebSocket, persistence và game-core integration chưa nằm trong scaffold này; sẽ được chọn khi contract game được chốt.
+Gameplay client dùng `VITE_GAME_WS_URL` làm endpoint cho WebSocket contract v0.2.
+Frontend không chạy `game-core` để thay authoritative server; nếu biến môi trường
+không tồn tại, `/play/$id` hiển thị trạng thái cấu hình thay vì dùng kết quả
+ngẫu nhiên cho Setup.
 
 ## Mục tiêu phát hành
 

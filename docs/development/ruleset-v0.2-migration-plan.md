@@ -935,8 +935,8 @@ Không đưa vào XState phía frontend:
 
 - [x] Cài và cấu hình `xstate` cùng `@xstate/react`.
 - [x] Tạo `gameSessionMachine` và `gamePresentationMachine`.
-- [ ] Reconcile machine từ authoritative `PlayerGameView` sau reconnect/state update.
-- [ ] Setup reorder thật.
+- [x] Reconcile machine từ authoritative `PlayerGameView` sau reconnect/state update.
+- [x] Setup reorder thật.
 - [ ] Render player view mới.
 - [ ] Action panel theo phase.
 - [ ] Event-driven Council, Dusk và Dawn presentation.
@@ -1016,15 +1016,50 @@ Acceptance criteria PR 4.2:
 > foundation độc lập, chưa được mount vào gameplay route. Nó nhận event đã lọc
 > từ player view, không import `game-core` và không sở hữu board/phase/result.
 
+#### PR 4.3 — Authoritative Setup UI
+
+PR 4.3 mount session/presentation actor boundary vào `/play/$id` và thay riêng
+Setup mock bằng player view v0.2. Các gameplay phase chưa migrate tiếp tục dùng
+legacy board trong giai đoạn chuyển tiếp.
+
+- Browser transport nhận endpoint từ `VITE_GAME_WS_URL`; client không hard-code
+  đường dẫn WebSocket khi backend endpoint chưa được chốt.
+- Setup UI đọc duy nhất `view.self.board` và `view.self.setup`; không import hay
+  gọi `game-core` để resolve rule.
+- Draft order chứa `CardInstanceId[]`, vì occupant identity phải đi theo card
+  khi reorder. Board slot ID không được dùng làm identity của draft.
+- Reorder chỉ thay local draft. `SETUP_REORDER` gửi tuple đủ 10 instance ID và
+  không optimistic-update authoritative board.
+- Draft chỉ reset khi sequence instance ID trong snapshot thực sự đổi; snapshot
+  mới chỉ thay events hoặc connection metadata không được làm mất chỉnh sửa cục
+  bộ chưa lưu.
+- Chỉ được gửi `SETUP_LOCK` khi draft khớp snapshot authoritative và không có
+  action đang pending. Phase chỉ đổi sau `GAME_STATE_UPDATE` của server.
+- `ACTION_REJECTED` giữ nguyên snapshot/draft và hiển thị lỗi từ session actor.
+
+Acceptance criteria PR 4.3:
+
+- [x] Có native browser WebSocket transport implement `GameTransport`.
+- [x] Session và presentation actor context được mount tại gameplay route.
+- [x] Setup render đủ 10 private cards từ `GamePlayerViewV2`.
+- [x] Reorder accessible bằng drag/drop và nút điều hướng.
+- [x] Gửi đúng `SETUP_REORDER` và `SETUP_LOCK` v0.2.
+- [x] Pending/locked state vô hiệu hóa thao tác phù hợp.
+- [x] Snapshot reconciliation không ghi đè unsaved draft khi order không đổi.
+- [x] Unit tests và web typecheck/build pass.
+
+> Hoàn thành PR 4.3 ngày 31/08/2026. `/play/$id` chỉ khởi tạo runtime khi có
+> `VITE_GAME_WS_URL`; Setup dùng player view/action v0.2, còn các phase sau Setup
+> tạm render legacy board cho tới PR 4.4–4.6. Browser transport chỉ làm I/O và
+> JSON serialization; inbound schema validation vẫn thuộc session machine.
+
 #### Các lát tiếp theo của PR 4
 
-1. **PR 4.3 — Setup:** reorder 10 card, submit setup order và chờ snapshot server
-   xác nhận khóa đội hình.
-2. **PR 4.4 — Board/action panels:** render `GamePlayerViewV2` và tạo action form
+1. **PR 4.4 — Board/action panels:** render `GamePlayerViewV2` và tạo action form
    theo discriminated phase; component chỉ dispatch `PlayerGameAction`.
-3. **PR 4.5 — Structured history:** derive wording/presentation từ
+2. **PR 4.5 — Structured history:** derive wording/presentation từ
    `GameEventV2`, giữ private event đúng viewer boundary.
-4. **PR 4.6 — Mock removal:** xóa local phase/card/log, `Math.random()` và toàn
+3. **PR 4.6 — Mock removal:** xóa local phase/card/log, `Math.random()` và toàn
    bộ contract v0.1 khỏi route gameplay.
 
 ### PR 5 — Cleanup và documentation
