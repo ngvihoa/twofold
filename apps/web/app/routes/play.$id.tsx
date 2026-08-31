@@ -40,7 +40,7 @@ function GameBoardComponent() {
   // 10 lá của đối thủ (ẩn vai trò)
   const [opponentCards, setOpponentCards] = React.useState<PublicCard[]>(
     Array.from({ length: 10 }).map((_, idx) => ({
-      id: `B_${idx}`,
+      id: `B${idx + 1}` as PublicCard['id'],
       index: idx,
       owner: PlayerId.PLAYER_B,
       status: CardStatus.HIDDEN,
@@ -51,7 +51,7 @@ function GameBoardComponent() {
   // 10 lá của người chơi A (thấy rõ vai trò)
   const [myCards] = React.useState<Card[]>(() =>
     STANDARD_DECK.map((role, index) => ({
-      id: `A_${index}`,
+      id: `A${index + 1}` as Card['id'],
       index,
       owner: PlayerId.PLAYER_A,
       role,

@@ -933,7 +933,7 @@ Không đưa vào XState phía frontend:
 
 ### PR 4 — Web integration
 
-- [ ] Cài và cấu hình `xstate` cùng `@xstate/react`.
+- [x] Cài và cấu hình `xstate` cùng `@xstate/react`.
 - [ ] Tạo `gameSessionMachine` và `gamePresentationMachine`.
 - [ ] Reconcile machine từ authoritative `PlayerGameView` sau reconnect/state update.
 - [ ] Setup reorder thật.
@@ -941,6 +941,60 @@ Không đưa vào XState phía frontend:
 - [ ] Action panel theo phase.
 - [ ] Event-driven Council, Dusk và Dawn presentation.
 - [ ] Loại bỏ toàn bộ mock rule và random outcome.
+
+#### PR 4.1 — Session machine foundation
+
+Mục tiêu của lát đầu tiên là tạo ranh giới client/server có thể kiểm thử trước
+khi thay UI mock. PR 4.1 chưa render gameplay v0.2 và chưa chạy `game-core` trong
+browser.
+
+- `GameTransport` là port duy nhất giữa session machine và WebSocket. Machine
+  chỉ gửi/nhận `ClientWsMessage`/`ServerWsMessage` đã định nghĩa trong
+  `shared-types`; test có thể inject fake transport.
+- `gameSessionMachine` sở hữu connection lifecycle và snapshot
+  `GamePlayerViewV2` mới nhất. Snapshot server luôn authoritative; machine không
+  tự resolve rule hoặc tự suy ra phase tiếp theo.
+- Connection lifecycle gồm `idle → connecting → connected → reconnecting`, với
+  nhánh terminal `closed`. Lỗi protocol/transport được giữ trong context để UI
+  hiển thị và có thể reconnect.
+- Việc submit action chỉ gửi `PlayerGameAction`; UI có thể biết action đang chờ
+  acknowledgement nhưng không optimistic-update board/phase.
+- Mỗi `GAME_STATE_UPDATE` thay thế snapshot hiện tại. Snapshot sau reconnect
+  cũng đi cùng một đường reconcile, không merge từng field với local state.
+- `ACTION_REJECTED` xóa trạng thái submission đang chờ và lưu lỗi có cấu trúc;
+  snapshot authoritative gần nhất được giữ nguyên.
+- Selector chỉ expose lát dữ liệu React cần (`connection`, `view`, `phase`,
+  `canSubmit`, `pendingAction`, `error`) để tránh component subscribe toàn bộ
+  context.
+
+Acceptance criteria PR 4.1:
+
+- [x] Cài `xstate`, `@xstate/react` và test runner cho package web.
+- [x] Có transport interface độc lập browser và fake transport trong test.
+- [x] Machine join được room, nhận snapshot và gửi action v0.2.
+- [x] Reconnect dùng `sessionId` hiện tại và snapshot mới thay thế snapshot cũ.
+- [x] `ACTION_REJECTED` không mutate authoritative snapshot.
+- [x] Snapshot/message sai schema trở thành protocol error, không đi vào UI.
+- [x] Unit tests và web typecheck/build pass.
+
+> Hoàn thành PR 4.1 ngày 31/08/2026. `GameSessionActorContext` là React actor
+> boundary dùng `@xstate/react`; route gameplay chưa mount provider trong lát
+> này. Native WebSocket adapter sẽ được gắn khi endpoint server được triển khai;
+> machine hiện được xác minh qua transport port và deterministic fake transport.
+
+#### Các lát tiếp theo của PR 4
+
+1. **PR 4.2 — Presentation machine:** consume event theo `sequence`, queue
+   Council/Defense/Night/Dawn/Purge animation và không replay event cũ sau
+   reconnect.
+2. **PR 4.3 — Setup:** reorder 10 card, submit setup order và chờ snapshot server
+   xác nhận khóa đội hình.
+3. **PR 4.4 — Board/action panels:** render `GamePlayerViewV2` và tạo action form
+   theo discriminated phase; component chỉ dispatch `PlayerGameAction`.
+4. **PR 4.5 — Structured history:** derive wording/presentation từ
+   `GameEventV2`, giữ private event đúng viewer boundary.
+5. **PR 4.6 — Mock removal:** xóa local phase/card/log, `Math.random()` và toàn
+   bộ contract v0.1 khỏi route gameplay.
 
 ### PR 5 — Cleanup và documentation
 
