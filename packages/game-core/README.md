@@ -2,6 +2,11 @@
 
 Gói thư viện chứa authoritative ruleset v0.2, state machine trận đấu 1v1 và logic phân giải toàn bộ phase từ Setup đến Final Duel.
 
+> Đây là authoritative snapshot cho runtime hiện tại, không bảo đảm khớp
+> `apps/spec-reviewer`—nguồn thử nghiệm rule mới hơn. Không port rule hoặc tạo
+> parity dependency trực tiếp nếu chưa có task theo
+> [Spec → Runtime Migration Policy](../../docs/development/spec-runtime-migration-policy.md).
+
 ## Kiến trúc ruleset v0.2
 
 - Mỗi người bắt đầu với **10 lá trên sân**.

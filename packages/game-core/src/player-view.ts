@@ -1,12 +1,12 @@
 import { CardRole, PlayerId } from '@twofold/shared-types';
-import type {
-  CardEffectExpiry,
+import {
   CardEffectKind,
-  CardId,
-  CardInstanceId,
-  CardPosition,
-  CardRuntimeState,
-  GameCard,
+  type CardEffectExpiry,
+  type CardId,
+  type CardInstanceId,
+  type CardPosition,
+  type CardRuntimeState,
+  type GameCard,
 } from './cards';
 import type { GameResult, GameState } from './game-state';
 import {
@@ -202,7 +202,9 @@ function serializePublicCard(card: GameCard): PublicCardView {
       card.occupant.state.visibility === 'REVEALED'
         ? card.occupant.role.id
         : null,
-    effects: card.occupant.effects.map(serializeVisibleEffect),
+    effects: card.occupant.effects
+      .filter((effect) => effect.kind !== CardEffectKind.PROTECTION)
+      .map(serializeVisibleEffect),
   };
 }
 
@@ -248,6 +250,7 @@ function cloneSubmissions(submissions: PlayerSubmissionState): PlayerSubmissionS
       reaction: submissions.council.reaction
         ? { ...submissions.council.reaction }
         : null,
+      pendingTargetId: submissions.council.pendingTargetId,
     },
     night: submissions.night ? { ...submissions.night } : null,
     defense: submissions.defense ? { ...submissions.defense } : null,

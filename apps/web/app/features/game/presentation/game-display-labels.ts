@@ -13,6 +13,7 @@ export const GAME_PHASE_LABELS = {
   DAY_B: 'Ban ngày · Người chơi B hành động',
   COUNCIL_PLAN: 'Hội đồng · Lập cáo buộc',
   COUNCIL_RESOLUTION: 'Hội đồng · Công bố phán quyết',
+  COUNCIL_REACTION: 'Hội đồng · Quyết định chết thay',
   NIGHT_PLAN: 'Ban đêm · Chọn hành động',
   DUSK_DEFENSE: 'Phòng thủ ban đêm · Đặt khiên',
   NIGHT_RESOLUTION: 'Ban đêm · Phân giải hành động',
@@ -38,6 +39,7 @@ export const GAME_ROLE_LABELS = {
   [CardRole.SHOOTER]: 'Xạ thủ',
   [CardRole.AVENGER]: 'Kẻ báo thù',
   [CardRole.PRIEST]: 'Mục sư',
+  [CardRole.SUBSTITUTE]: 'Kẻ Thế Mạng',
   [CardRole.WOLF_GUARD]: 'Sói Hộ Vệ',
 } as const satisfies Record<CardRole, string>;
 
@@ -88,10 +90,15 @@ const GAME_ROLE_TOOLTIPS = {
     description:
       'Thanh tẩy một lá đối thủ vào Ban ngày. Chọn đúng phe Sói sẽ loại mục tiêu; chọn nhầm phe Dân khiến Mục sư bị loại. Dùng 1 lần.',
   },
+  [CardRole.SUBSTITUTE]: {
+    faction: 'Phe Ma sói',
+    description:
+      'Sau một phán quyết Hội đồng thành công, có thể tự nguyện chết thay một lá khác bên mình. Dùng 1 lần và không thể tự cứu chính mình.',
+  },
   [CardRole.WOLF_GUARD]: {
     faction: 'Phe Ma sói',
     description:
-      'Phản ứng trong Hội đồng để cứu một lá bên mình khỏi phán quyết loại bỏ thành công. Dùng 1 lần trong trận.',
+      'Vai trò vẫn nằm trong catalog nhưng chưa được dùng trong bộ bài tiêu chuẩn hiện tại.',
   },
 } as const satisfies Record<
   CardRole,

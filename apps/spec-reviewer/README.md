@@ -2,6 +2,10 @@
 
 Ứng dụng nội bộ phục vụ tra cứu, đặc tả (specification) và thẩm định (review) bộ vai trò (role) cho dự án Twofold do Product Owner xây dựng.
 
+`spec-reviewer` là workspace độc lập: không phụ thuộc runtime hoặc type contract của
+`@twofold/game-core` và `@twofold/shared-types`. Rule được thử và chốt tại đây trước;
+web/game core chỉ đồng bộ theo một đợt migration riêng sau khi spec đủ ổn định.
+
 ## Mục đích sử dụng
 
 - **Khám phá & phân loại role (`index.html`)**: Xem toàn bộ 92 vai trò theo phe (Phe Dân Làng, Phe Ma Sói, Solo...), mức độ ưu tiên (`core`, `prototype`, `consider`, `adapt`, `later`, `event`) và giai đoạn xuất hiện (`main`, `round6`, `hold`).
@@ -56,6 +60,13 @@ npm run --prefix apps/spec-reviewer check
 ```
 
 Sau khi dev server chạy, mở `http://127.0.0.1:4173/game-flow-demo/ui.html` để playtest spec game flow.
+
+### Ranh giới đồng bộ với web
+
+- `game-flow-demo/engine.mjs` là implementation phục vụ playtest spec, không phải adapter của production core.
+- Không import source giữa `apps/spec-reviewer` và `packages/game-core` theo bất kỳ chiều nào.
+- Khi cần đưa một rule đã chốt sang web, tạo task migration riêng, ghi rõ phiên bản ADR/spec nguồn và thêm test trong `game-core` dựa trên contract đã chuyển giao.
+- Sói Hộ Vệ vẫn nằm trong catalog role nhưng có trạng thái `Chưa dùng`; bộ 10 lá hiện tại dùng Kẻ Thế Mạng.
 
 ## Cấu hình Review Notes
 

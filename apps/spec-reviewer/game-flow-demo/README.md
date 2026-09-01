@@ -1,27 +1,35 @@
-# Twofold game-flow reviewer
+# PROTOTYPE - Twofold chat playtest
 
-Prototype này trả lời một câu hỏi: nhịp `Bình minh -> Thanh trừng (V6+) -> Ban ngày -> Vote (V2+) -> khóa lệnh đêm -> Phòng thủ -> xử lý đêm` có tạo ra đủ thông tin để phản ứng mà không biến phòng thủ thành đáp án hoàn hảo hay không?
+Prototype này trả lời một câu hỏi: nhịp `Ban ngày -> Hội đồng -> khóa lệnh đêm kín -> Phòng thủ mù -> xử lý đêm -> Bình minh` có tạo ra đủ thông tin để phản ứng mà vẫn giữ được suy luận role ẩn hay không?
 
-Vòng 1 bắt đầu thẳng ở Ban ngày và chưa có Vote. Từ Vòng 2, Vote diễn ra sau khi hai bên hoàn tất hành động Ban ngày và trước Ban đêm; nó không tiêu Main Order.
+Vòng 1 bắt đầu thẳng ở Ban ngày, chưa có Hội đồng/treo cổ. Từ Vòng 2, Hội đồng diễn ra sau khi cả A và B hoàn tất lượt Ban ngày, trước khi hai bên khóa lệnh đêm.
 
-Trước Vòng 1, mỗi bên bí mật sắp xếp thứ tự 10 lá rồi khóa đội hình. Vị trí đã khóa trở thành mã A1–A10 hoặc B1–B10 trong suốt ván.
+Trước Vòng 1, mỗi bên bí mật sắp xếp thứ tự 10 lá rồi khóa đội hình. Vị trí ban đầu trở thành mã A1–A10 hoặc B1–B10; từ Vòng 7, Đảo chiến tuyến có thể đổi mã vị trí nhưng không đổi chủ sở hữu, identity hay role của lá.
 
 Bản web hiện là chế độ một người: người chơi điều khiển bên A, còn B là bot local. Bot tự xếp đội hình và chỉ ra quyết định từ thông tin công khai cùng kết quả Tiên tri riêng của chính nó.
 
-Rule state và resolution hiện chạy bằng `@twofold/game-core`. File
-`core-adapter.mjs` chỉ chiếu authoritative state về shape presentation cũ để
-giữ lại UI/animation trong giai đoạn migrate; state vẫn chỉ nằm trong bộ nhớ và
-biến mất khi thoát.
-
-`engine.mjs` không còn được UI hoặc CLI sử dụng. `engine.mjs` và
-`engine.test.mjs` được giữ làm executable reference cho rule core do PO cung
-cấp: chúng phục vụ tra cứu và parity/regression test, không phải runtime engine
-của reviewer và không nằm trong kế hoạch cleanup.
+Đây là code throwaway. State chỉ nằm trong bộ nhớ và biến mất khi thoát.
 
 ## Chạy
 
 ```bash
 npm run prototype:chat -- --seat=A --seed=twofold-01
+```
+
+## Seed fuzzing P0.6
+
+Chạy full-match simulation deterministic để kiểm tra transition, BOT action và invariant state:
+
+```bash
+npm run fuzz:game --workspace=@twofold/spec-reviewer -- --count=500 --prefix=local
+```
+
+Mỗi seed phải kết thúc trong `250` transition. Khi fail, lỗi in seed, round, phase, action và trace gần nhất để tái hiện. Có thể đổi giới hạn bằng `--max-steps=<n>`.
+
+P0.7 có thể fuzz thêm action sai và replay action đã khóa. Mọi rejection phải giữ state đầu vào nguyên vẹn:
+
+```bash
+npm run fuzz:game --workspace=@twofold/spec-reviewer -- --count=500 --invalid-count=200 --prefix=local
 ```
 
 ### Bản web trực quan
@@ -38,7 +46,11 @@ Sau đó mở:
 http://127.0.0.1:4173/game-flow-demo/ui.html
 ```
 
-Bố cục A — Bàn đối đầu là phương án duy nhất đã được giữ lại. Trên desktop, toàn bộ bàn được khóa trong một màn hình: khu trái chỉ gồm đội B, card đã lộ ở giữa và đội A; diễn biến nằm góc phải trên, còn hướng dẫn/thao tác được neo ở góc phải dưới. UI gửi action qua adapter; không tự resolve game rule.
+Để QA trực tiếp một luật Thanh trừng mà không phải chơi lại từ Vòng 1, local browser có thể thêm `?purgeRound=6`, `7`, `8` hoặc `9`. Fixture này chỉ hoạt động trên `127.0.0.1`/`localhost`, khóa setup hai bên và mở thẳng phase Thanh trừng tương ứng; không phải save game hay đường dẫn dùng trong production.
+
+Hai fixture local khác phục vụ hardening: `?qa=night-privacy` mở phase khóa lệnh đêm V2 để kiểm tra public/private payload; `?qa=final-duel` mở trạng thái 1–1 để kiểm tra dự đoán, kết quả và Chơi lại.
+
+Bố cục A — Bàn đối đầu là phương án duy nhất đã được giữ lại. Trên desktop, toàn bộ bàn được khóa trong một màn hình: khu trái chỉ gồm đội B, card đã lộ ở giữa và đội A; diễn biến nằm góc phải trên, còn hướng dẫn/thao tác được neo ở góc phải dưới. Toàn bộ state vẫn chỉ nằm trong bộ nhớ của tab.
 
 Ánh sáng sân đổi theo nhịp Ngày, Chạng vạng và Đêm. Sau khi xử lý lệnh đêm, UI khóa tương tác trong 3 giây Bình minh để quét sáng và công khai kết quả trước khi bước sang lượt mới.
 
@@ -54,14 +66,11 @@ Bố cục A — Bàn đối đầu là phương án duy nhất đã được gi
 - 1 Xạ thủ
 - 1 Kẻ báo thù
 - 1 Mục sư
-- 1 Sói Hộ Vệ
+- 1 Kẻ Thế Mạng
 
 ## Lệnh chính
 
 ```text
-begin
-purge A A3
-purge A A3 B4
 council A pass
 council A B3 A1 A2 A3
 council A B3 guard A1 A2 A3
@@ -83,18 +92,22 @@ public
 quit
 ```
 
-Hội đồng mở từ Vòng 2 sau Ban ngày và cần đúng ba role phe Dân còn sống. Dân làng đóng góp 2 phiếu nhưng vẫn chỉ tính là một trong ba nhân vật. Có thể chọn các lá còn úp; ba người tham gia sẽ bước lên và lộ diện khi Hội đồng xử lý. Treo cổ không tiêu Main Order. Đoán sai khóa ba người đó khỏi Hội đồng kế tiếp. Sói Hộ Vệ có thể bí mật bảo kê trước một lá và lộ diện nếu chặn đúng án treo cổ.
+Hội đồng mở từ Vòng 2 và cần tổng trọng số ít nhất 3 phiếu từ tối đa ba role phe Dân còn sống. Dân làng đóng góp 2 phiếu, role Dân khác đóng góp 1 phiếu, nên Dân làng + 1 role Dân khác đã đủ. Có thể chọn các lá còn úp ở hàng dưới; các voter được chọn sẽ bước lên và lộ diện khi Hội đồng xử lý. Đoán sai khóa các voter đó khỏi Hội đồng kế tiếp. Khi một án Treo cổ hợp lệ đã làm lộ target, Kẻ Thế Mạng còn sống được hỏi kín Có/Không để chết thay một lần; target được cứu vẫn nằm ngửa.
 
 Nếu mục tiêu Hội đồng đã nằm ngửa trên sân, án treo được xử lý ngay và không cần đoán role. Nếu mục tiêu còn úp, người chơi chỉ được chọn trong các role chưa lộ đủ số lượng của bộ bài; ví dụ Ma sói vẫn còn trong danh sách sau khi mới lộ một trong hai lá.
 
 Kẻ báo thù công khai đánh dấu một mục tiêu Ban ngày; nếu chết trước bình minh kế tiếp, mục tiêu chết theo. Mục sư có một lần thanh tẩy: giết đúng phe Sói, nhưng tự chết nếu chọn nhầm phe Dân.
 
-Bảo vệ chỉ công khai vị trí có khiên. Role của mục tiêu và Bảo vệ vẫn giữ kín; không được tự bảo vệ hoặc bảo vệ cùng một lá trong hai đêm liên tiếp. Khiên chặn cắn, độc và Huyết Nguyệt, nhưng không chặn Tiên tri.
+Bảo vệ không giới hạn số lần dùng, không được tự bảo vệ và không được bảo vệ cùng vị trí hai vòng liên tiếp. Khiên chặn các hiệu ứng loại bỏ trực tiếp và death reaction, nhưng không chặn lần soi đầu của Tiên tri. Role của mục tiêu và vị trí Bảo vệ vẫn giữ kín.
 
-Sau Vote, hai bên bí mật khóa lệnh đêm rồi chọn khiên. Nguồn và mục tiêu của lệnh đêm đều giữ kín tới Bình minh; chỉ vị trí có khiên được công khai trước. Bình minh khóa thao tác và lần lượt trình bày từng nguồn, mục tiêu và kết quả.
+Sau Ban ngày và Hội đồng, hai bên bí mật khóa lệnh đêm. Source, loại action và target đều không lộ trước khi hai bên chọn khiên. Lần soi đầu của Tiên tri ghi nhận phe sáng/tối riêng; phe sáng không thể bị soi lại, còn phe tối có thể bị chọn lại để kết liễu. Khiên không chặn lần soi đầu nhưng chặn đòn kết liễu. Soi thường không làm lộ Tiên tri; ra lệnh kết liễu làm Tiên tri lộ tại Bình minh kể cả khi bị chặn. Ma sói và Phù thủy không lộ source chỉ vì dùng skill đêm.
 
-Từ Vòng 6 có pha bắt buộc **Thanh trừng** trước Ban ngày: V6 Cắt bỏ, V7 Đảo chiến tuyến, V8 Ép lộ diện và V9 Khóa mạch. Khóa mạch vô hiệu kỹ năng và quyền Vote của lá được chọn trong vòng hiện tại.
+Target khiên chỉ hiện cho chủ sở hữu. Nếu block thành công, Bình minh công bố vị trí được cứu nhưng không công bố loại lệnh hay source. Soi thường không tạo replay công khai; kết quả chỉ nằm trong ghi chú riêng.
 
-Từ Vòng 6, mỗi bên mở khóa card chiến thuật **Huyết Nguyệt**. Card này dùng Main Order để tấn công một role đối thủ đã lộ, vẫn bị khiên chặn và hồi lại sau hai vòng. Nó tạo áp lực cuối game khi các role attack ban đầu đã chết hoặc hết charge, nhưng vẫn giữ giới hạn một nguồn loại bỏ trong pha đêm. Quyền loại bỏ của Ban ngày và Ban đêm được tính riêng theo giới hạn một hành động chính trong mỗi pha.
+Từ Vòng 6, mỗi bên mở khóa card chiến thuật **Huyết Nguyệt**. Card này dùng Main Order để tấn công một role đối thủ đã lộ, vẫn bị khiên chặn và hồi lại sau hai vòng. Nó tạo áp lực cuối game khi các role attack ban đầu đã chết hoặc hết charge, nhưng vẫn giữ giới hạn một nguồn loại bỏ trong vòng.
+
+Sau Bình minh từ Vòng 6, trước Ban ngày có **Thanh trừng** bắt buộc: V6 Cắt bỏ, V7 Đảo chiến tuyến, V8 Ép lộ diện, V9 Khóa mạch. Hai bên khóa lựa chọn kín rồi resolve đồng thời; không có Bỏ qua. Prototype tạm lặp chu kỳ này từ V10. Nếu lựa chọn Swap đụng cùng vị trí, cả batch fizzle để không làm lộ thông tin qua reselect. Khi lựa chọn đầu tiên không chừa lại bất kỳ cặp target không xung đột nào cho đối phương, engine auto-fizzle ngay và tiếp tục trận.
 
 Lệnh `chat` tạo snapshot công khai ngắn để gửi nguyên văn vào cuộc trò chuyện. Mỗi người chỉ cần giữ bí mật tay riêng của mình và gửi action; một người chạy CLI làm trọng tài/state keeper.
+
+Khi mỗi bên còn đúng một lá sau resolution, trận vào Final Duel. Hai bên khóa một dự đoán role cuối; cùng đúng hoặc cùng sai thì hòa, chỉ một bên đúng thì bên đó thắng. Kết thúc trận lộ toàn bộ role; **Chơi lại** tạo setup mới.

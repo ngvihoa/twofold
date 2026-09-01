@@ -32,6 +32,7 @@ const ABILITY_LABELS = {
   [AbilityId.SHOOTER_SHOOT]: 'Xạ thủ khai hỏa',
   [AbilityId.AVENGER_MARK]: 'Kẻ báo thù đánh dấu',
   [AbilityId.PRIEST_PURIFY]: 'Mục sư thanh tẩy',
+  [AbilityId.SUBSTITUTE_SACRIFICE]: 'Kẻ Thế Mạng chết thay',
   [AbilityId.WOLF_GUARD_RESCUE]: 'Sói Hộ Vệ giải cứu',
   BLOOD_MOON: 'Huyết Nguyệt',
 } as const satisfies Record<HistoryAbilityId, string>;
@@ -41,6 +42,7 @@ const EFFECT_LABELS = {
   REVENGE_MARK: 'Dấu ấn báo thù',
   COUNCIL_LOCK: 'Khóa Hội đồng',
   PURGE_LOCK: 'Khóa Thanh Trừng',
+  ROUND_EXHAUSTED: 'Đã dùng kỹ năng trong vòng',
 } as const satisfies Record<HistoryEffectKind, string>;
 
 const PURGE_LABELS = {
@@ -126,10 +128,10 @@ export function formatGameHistoryMessage(
         detail: 'Không lá bài nào được Bảo vệ che chở trong hoàng hôn này.',
       };
 
-    case 'WOLF_GUARD_RESCUED':
+    case 'SUBSTITUTE_SACRIFICED':
       return {
-        title: `Sói Hộ Vệ cứu ${formatCardInline(event.targetCardId)}`,
-        detail: `${formatCard(event.sourceCardId)} đã can thiệp và vô hiệu hóa phán quyết Hội đồng.`,
+        title: `Kẻ Thế Mạng cứu ${formatCardInline(event.targetCardId)}`,
+        detail: `${formatCard(event.sourceCardId)} đã tự nguyện chết thay sau phán quyết Hội đồng.`,
       };
 
     case 'PURGE_RESOLVED':
@@ -181,6 +183,11 @@ function formatEliminationMessage(
       return {
         title: `${target} bị kéo theo bởi báo thù`,
         detail: `Dấu ấn từ ${formatCardInline(event.cause.sourceCardId)} đã được kích hoạt.`,
+      };
+    case 'HIDDEN_NIGHT':
+      return {
+        title: `${target} không sống sót qua đêm`,
+        detail: 'Nguồn và loại hành động ban đêm được giữ kín.',
       };
     default:
       return assertNever(event.cause);

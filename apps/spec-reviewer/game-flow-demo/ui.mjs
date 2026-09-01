@@ -1,5 +1,5 @@
-import { availableRoleGuesses, beginRound, createGame, dispatch, privateView, publicView, ROLE_DEFS, SPECIAL_CARD } from "./core-adapter.mjs";
-import { botNeedsTurn as policyNeedsTurn, chooseBotAction } from "./bot-policy.mjs";
+import { availableRoleGuesses, createGame, dispatch, privateView, publicView, purgeRule, ROLE_DEFS, SPECIAL_CARD } from "./engine.mjs?rev=p05-v3";
+import { chooseBotCouncilAction } from "./bot-policy.mjs?rev=p05-v3";
 
 const ROLE_ART = {
   villager: "../assets/game/wwo-reference/dan-lang.png",
@@ -10,7 +10,7 @@ const ROLE_ART = {
   shooter: "../assets/game/wwo-reference/xa-thu.webp",
   avenger: "../assets/game/wwo-reference/ke-bao-thu.png",
   priest: "../assets/game/wwo-reference/muc-su.png",
-  wolfguard: "../assets/game/wwo-reference/soi-ho-ve.webp",
+  substitute: "../assets/game/wwo-reference/soi-ho-ve.webp",
 };
 
 const ROLE_PHASE = {
@@ -22,27 +22,27 @@ const ROLE_PHASE = {
   shooter: "day",
   avenger: "both",
   priest: "day",
-  wolfguard: "day",
+  substitute: "reaction",
 };
 
 const ROLE_SKILLS = {
   villager: "Hội đồng · Có thể là một trong 3 người tham gia treo cổ; sẽ lộ diện khi Hội đồng xử lý.",
   wolf: "Ban đêm · Tấn công một lá đối thủ không được khiên che.",
-  seer: "Ban đêm · Xem role thật của một lá đối thủ.",
-  guard: "Ban đêm · Bảo vệ một lá khác. Không thể bảo vệ cùng một lá hai đêm liên tiếp.",
+  seer: "Ban đêm · Soi role; soi lại phe tối để kết liễu, không soi lại phe sáng.",
+  guard: "Chạng vạng · Đặt khiên lên một đồng minh khác, không giới hạn số lần.",
   witch: "Ngày hồi sinh một đồng minh · Đêm đầu độc một đối thủ.",
   shooter: "Ban ngày · Khi đối thủ đã lộ 2 role, bắn một lá đã lộ.",
   avenger: "Ban ngày · Đánh dấu mục tiêu; nếu chết trước bình minh, mục tiêu chết theo.",
   priest: "Ban ngày · Thanh tẩy một lần; giết Sói nhưng tự chết nếu chọn nhầm Dân.",
-  wolfguard: "Hội đồng · Bí mật bảo kê một lá; lộ diện nếu chặn đúng án treo.",
+  substitute: "Hội đồng · Một lần tự nguyện chết thay cho lá khác bên mình sắp bị Treo cổ.",
 };
 
 const PHASE_LABEL = {
   "setup-A": "Xếp đội hình · bên A",
   "setup-B": "Xếp đội hình · bên B",
-  "match-intro": "Bình minh đầu tiên",
-  purge: "Thanh trừng",
   council: "Hội đồng sáng",
+  "council-reaction": "Hội đồng · reaction kín",
+  purge: "Thanh trừng bắt buộc",
   "day-A": "Ban ngày · lượt A",
   "day-B": "Ban ngày · lượt B",
   "night-plan": "Khóa lệnh đêm",
@@ -58,7 +58,7 @@ const MOVE_META = {
   shoot: ["✹", "Nổ súng"],
   revive: ["✚", "Hồi sinh"],
   defend: ["◈", "Đặt khiên"],
-  protect: ["◈", "Bảo kê"],
+  substitute: ["♜", "Chết thay"],
   attack: ["◢", "Tấn công"],
   inspect: ["◉", "Soi role"],
   poison: ["◆", "Dùng độc"],
@@ -66,9 +66,10 @@ const MOVE_META = {
   pass: ["—", "Bỏ lượt"],
   final: ["?", "Đoán role cuối"],
   bloodmoon: ["◐", "Huyết Nguyệt"],
+  "night-effect": ["◆", "Hiệu ứng đêm bị chặn"],
 };
 
-const COMBAT_KINDS = new Set(["attack", "poison", "purify", "shoot", "bloodmoon"]);
+const COMBAT_KINDS = new Set(["attack", "poison", "purify", "shoot", "bloodmoon", "night-effect"]);
 const ACTION_EFFECT_KINDS = new Set([...COMBAT_KINDS, "inspect", "defend", "accuse"]);
 const COMBAT_RESULTS = {
   kill: "HẠ GỤC",
@@ -78,8 +79,43 @@ const COMBAT_RESULTS = {
 };
 
 const app = document.querySelector("#app");
-const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-let state = createGame("codex-web-01");
+
+function createPageGame(seed) {
+  const game = createGame(seed);
+  const query = new URLSearchParams(location.search);
+  const fixtureRound = Number(query.get("purgeRound"));
+  const qaFixture = query.get("qa");
+  const localHost = ["127.0.0.1", "localhost"].includes(location.hostname);
+  const localFixtureAllowed = ["127.0.0.1", "localhost"].includes(location.hostname) && [6, 7, 8, 9].includes(fixtureRound);
+  if (localFixtureAllowed) {
+    game.round = fixtureRound;
+    game.phase = "purge";
+    game.players.A.setupLocked = true;
+    game.players.B.setupLocked = true;
+    game.log.push(`QA fixture local: mở trực tiếp Thanh trừng Vòng ${fixtureRound}.`);
+  } else if (localHost && qaFixture === "night-privacy") {
+    game.round = 2;
+    game.phase = "night-plan";
+    game.players.A.setupLocked = true;
+    game.players.B.setupLocked = true;
+    game.log.push("QA fixture local: kiểm tra ranh giới thông tin Ban đêm.");
+  } else if (localHost && qaFixture === "final-duel") {
+    game.round = 9;
+    game.phase = "final-duel";
+    game.players.A.setupLocked = true;
+    game.players.B.setupLocked = true;
+    for (const boardSeat of ["A", "B"]) {
+      for (const card of game.players[boardSeat].board.slice(1)) {
+        card.alive = false;
+        card.revealed = true;
+      }
+    }
+    game.log.push("QA fixture local: mở trực tiếp Final Duel 1–1.");
+  }
+  return game;
+}
+
+let state = createPageGame("codex-web-01");
 let seat = "A";
 let handVisible = true;
 let feedback = "Chọn hành động của A để bắt đầu.";
@@ -89,6 +125,7 @@ let setupOrder = {
 };
 let draggedSetupId = null;
 let botTimer = null;
+let botError = null;
 let interaction = null;
 let lastMove = null;
 let moveTimer = null;
@@ -102,12 +139,14 @@ let travelingCardId = null;
 let deferredCombatMoveId = null;
 let moveSequence = 0;
 let playedMoveId = null;
-let matchStartedAt = null;
-let matchEndedAt = null;
-let clockTimer = null;
-let dealAnimationActive = !prefersReducedMotion;
-let dealAnimationTimer = null;
 const deathReasons = new Map();
+
+const PURGE_LABELS = {
+  cut: ["Cắt bỏ", "Chọn một lá sống bên mình; hai lựa chọn bị loại đồng thời."],
+  swap: ["Đảo chiến tuyến", "Chọn một lá bên mình và một lá đối thủ; bốn vị trí đổi đồng thời."],
+  reveal: ["Ép lộ diện", "Chọn một lá ẩn bên mình để công khai role."],
+  lock: ["Khóa mạch", "Chọn một lá bên mình; lá đó mất skill và quyền Vote trong vòng này."],
+};
 
 const otherSeat = (value) => value === "A" ? "B" : "A";
 const ownPlayer = () => state.players[seat];
@@ -115,44 +154,95 @@ const privateCard = (id) => ownPlayer().board.find((card) => card.id === id);
 const roleOptions = (keys = Object.keys(ROLE_DEFS)) => keys.map((key) => `<option value="${key}">${ROLE_DEFS[key].name}</option>`).join("");
 const cardOptions = (cards) => cards.filter((card) => card.alive).map((card) => `<option value="${card.id}">${card.id}${card.revealed ? ` · ${ROLE_DEFS[card.role].name}` : ""}</option>`).join("");
 const deadCardOptions = (cards) => cards.filter((card) => !card.alive).map((card) => `<option value="${card.id}">${card.id} · ${ROLE_DEFS[card.role].name}</option>`).join("");
-const sourceFor = (role) => ownPlayer().board.find((card) => card.alive && card.role === role)?.id;
+const sourceFor = (role) => ownPlayer().board.find((card) => card.alive && card.role === role && card.purgeLockedRound !== state.round)?.id;
+const botSourceFor = (role) => state.players.B.board.find((card) => card.alive && card.role === role && card.purgeLockedRound !== state.round);
+const reactionSubstituteFor = (boardSeat) => state.players[boardSeat].board.find((card) => card.alive && card.role === "substitute" && card.uses.sacrifice > 0);
 const living = (boardSeat) => state.players[boardSeat].board.filter((card) => card.alive);
 
-function formatMatchTime(milliseconds = 0) {
-  const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-}
-
-function currentMatchTime() {
-  if (matchStartedAt === null) return 0;
-  return (matchEndedAt ?? Date.now()) - matchStartedAt;
-}
-
-function updateMatchClock() {
-  if (state.result && matchStartedAt !== null && matchEndedAt === null) matchEndedAt = Date.now();
-  const clock = document.querySelector("[data-match-clock]");
-  if (clock) clock.textContent = `THỜI GIAN · ${formatMatchTime(currentMatchTime())}`;
-  if (matchEndedAt !== null && clockTimer !== null) {
-    clearInterval(clockTimer);
-    clockTimer = null;
-  }
-}
-
-function scheduleMatchClock() {
-  if (clockTimer !== null) clearInterval(clockTimer);
-  clockTimer = null;
-  updateMatchClock();
-  if (matchStartedAt !== null && matchEndedAt === null) clockTimer = setInterval(updateMatchClock, 1000);
-}
-
 function botNeedsTurn() {
-  return policyNeedsTurn(publicView(state), privateView(state, "B"));
+  if (state.phase === "setup-B" || state.phase === "day-B") return true;
+  if (state.phase === "purge") return Boolean(state.players.A.purge) && !state.players.B.purge;
+  if (state.phase === "council") return Boolean(state.players.A.council) && !state.players.B.council;
+  if (state.phase === "council-reaction") return state.councilBatch?.outcomes.some((outcome) => outcome.defenderSeat === "B" && outcome.reaction === null);
+  if (state.phase === "dusk-defense") return state.players.A.defense !== null && state.players.B.defense === null;
+  if (state.phase === "night-plan") return Boolean(state.players.A.night) && !state.players.B.night;
+  if (state.phase === "final-duel") return Boolean(state.players.A.finalGuess) && !state.players.B.finalGuess;
+  return false;
 }
 
 function botAction() {
-  return chooseBotAction(publicView(state), privateView(state, "B"));
+  if (state.phase === "setup-B") return { type: "setup.submit", seat: "B", order: state.players.B.board.map((card) => card.id) };
+  if (state.phase === "purge") {
+    const rule = purgeRule(state.round);
+    const own = living("B");
+    const targetPool = rule === "reveal" ? own.filter((card) => !card.revealed) : own;
+    const target = targetPool[state.round % Math.max(1, targetPool.length)] || null;
+    if (rule === "swap") {
+      const enemy = living("A");
+      return { type: "purge.submit", seat: "B", target: target.id, swapTarget: enemy[(state.round + 1) % enemy.length].id };
+    }
+    return { type: "purge.submit", seat: "B", target: target?.id || null };
+  }
+  if (state.phase === "day-B") {
+    const revealedEnemies = living("A").filter((card) => card.revealed);
+    const shooter = botSourceFor("shooter");
+    if (shooter?.uses.bullet > 0 && revealedEnemies.length >= 2 && !state.players.B.eliminationSpent) {
+      return { type: "day.submit", seat: "B", kind: "shoot", source: shooter.id, target: revealedEnemies[0].id };
+    }
+    const witch = botSourceFor("witch");
+    const deadAlly = state.players.B.board.find((card) => !card.alive);
+    if (witch?.uses.revive > 0 && deadAlly) return { type: "day.submit", seat: "B", kind: "revive", source: witch.id, target: deadAlly.id };
+    const knownWolf = [...state.players.B.notes].reverse().map((note) => note.match(/(A\d+) là Ma sói/)).find(Boolean)?.[1];
+    const priest = botSourceFor("priest");
+    if (priest?.uses.holyWater > 0 && knownWolf && state.players.A.board.find((card) => card.id === knownWolf)?.alive) {
+      return { type: "day.submit", seat: "B", kind: "purify", source: priest.id, target: knownWolf };
+    }
+    const avenger = botSourceFor("avenger");
+    if (avenger) {
+      const targets = living("A");
+      const target = targets[(state.round + targets.length - 1) % targets.length];
+      return { type: "day.submit", seat: "B", kind: "mark", source: avenger.id, target: target.id };
+    }
+    return { type: "day.submit", seat: "B", kind: "pass" };
+  }
+  if (state.phase === "council") {
+    return chooseBotCouncilAction(state, ROLE_DEFS);
+  }
+  if (state.phase === "council-reaction") {
+    const outcome = state.councilBatch.outcomes.find((item) => item.defenderSeat === "B" && item.reaction === null);
+    const substitute = reactionSubstituteFor("B");
+    const canSacrifice = Boolean(substitute && substitute.id !== outcome?.target);
+    return { type: "council.react", seat: "B", use: canSacrifice };
+  }
+  if (state.phase === "dusk-defense") {
+    const guard = botSourceFor("guard");
+    if (!guard?.uses.guard) return { type: "defense.submit", seat: "B", pass: true };
+    const choices = living("B").filter((card) => card.id !== guard.id && card.instanceId !== state.players.B.lastGuardTarget);
+    if (!choices.length) return { type: "defense.submit", seat: "B", pass: true };
+    const target = choices.find((card) => card.revealed) || choices[state.round % choices.length];
+    return { type: "defense.submit", seat: "B", pass: false, source: guard.id, target: target.id };
+  }
+  if (state.phase === "night-plan") {
+    const targets = living("A");
+    const openTargets = targets.filter((card) => !card.shielded);
+    const pool = openTargets.length ? openTargets : targets;
+    const target = pool[state.round % pool.length];
+    const wolf = botSourceFor("wolf");
+    if (wolf && !state.players.B.eliminationSpent) return { type: "night.submit", seat: "B", kind: "attack", source: wolf.id, target: target.id };
+    const revealedTargets = targets.filter((card) => card.revealed);
+    if (state.round >= SPECIAL_CARD.unlockRound && state.players.B.bloodMoonReadyRound <= state.round && revealedTargets.length && !state.players.B.eliminationSpent) {
+      return { type: "night.submit", seat: "B", kind: "bloodmoon", target: revealedTargets[state.round % revealedTargets.length].id };
+    }
+    const seer = botSourceFor("seer");
+    const seerTargets = targets.filter((card) => card.seerInspected !== "light");
+    if (seer?.uses.seer > 0 && seerTargets.length) {
+      const seerTarget = seerTargets[state.round % seerTargets.length];
+      return { type: "night.submit", seat: "B", kind: "inspect", source: seer.id, target: seerTarget.id };
+    }
+    return { type: "night.submit", seat: "B", kind: "pass" };
+  }
+  const guesses = Object.keys(ROLE_DEFS);
+  return { type: "final.submit", seat: "B", guess: guesses[state.round % guesses.length] };
 }
 
 function runBotTurn() {
@@ -164,9 +254,6 @@ function runBotTurn() {
     const nextState = dispatch(state, action);
     if (action.type === "setup.submit") {
       state = nextState;
-    } else if (action.type === "purge.submit" && beforeState.phase === "purge" && nextState.phase !== "purge") {
-      state = nextState;
-      showMove(action, "B");
     } else if (action.type === "council.submit" && beforeState.phase === "council" && nextState.phase !== "council") {
       const councilSteps = [
         { actor: "A", action: beforeState.players.A.council ? { type: "council.submit", seat: "A", ...beforeState.players.A.council } : null },
@@ -178,25 +265,29 @@ function runBotTurn() {
       }
       state = nextState;
     } else if (action.type === "night.submit" && beforeState.phase === "night-plan" && nextState.phase === "dusk-defense") {
-      state = nextState;
-      feedback = "Hai lệnh đêm đã khóa kín. Chọn vị trí đặt khiên; nguồn và mục tiêu chỉ lộ ở Bình minh.";
+      startNightStaging(beforeState, nextState);
+      return;
     } else if (action.type === "day.submit") {
       startActionPresentation(action, "B", beforeState, nextState);
       return;
+    } else if (action.type === "purge.submit") {
+      state = nextState;
     } else {
       state = nextState;
       showMove(action, "B");
     }
+    botError = null;
     feedback = "BOT B đã khóa hành động.";
   } catch (error) {
-    feedback = `BOT lỗi: ${error.message}`;
+    botError = `BOT lỗi: ${error.message}`;
+    feedback = botError;
   }
   render();
 }
 
 function scheduleBot() {
-  if (dawnActive || actionPresentation || lastMove || !botNeedsTurn() || botTimer) return;
-  botTimer = setTimeout(runBotTurn, 900);
+  if (dawnActive || actionPresentation || lastMove || botError || !botNeedsTurn() || botTimer) return;
+  botTimer = setTimeout(runBotTurn, 2400);
 }
 
 function copyPresentationSource(action, resolvedState) {
@@ -217,9 +308,7 @@ function renderWithCardTravel(cardId) {
   const origin = cardId ? document.querySelector(`[data-card-id="${cardId}"]`) : null;
   const originRect = origin?.getBoundingClientRect();
   const ghost = origin?.cloneNode(true);
-  const deferredMoveId = lastMove && [lastMove.source, lastMove.target].includes(cardId) && ACTION_EFFECT_KINDS.has(lastMove.kind)
-    ? lastMove.id
-    : null;
+  const deferredMoveId = lastMove?.target === cardId && ACTION_EFFECT_KINDS.has(lastMove.kind) ? lastMove.id : null;
 
   travelingCardId = originRect ? cardId : null;
   if (originRect && deferredMoveId) deferredCombatMoveId = deferredMoveId;
@@ -341,11 +430,11 @@ function startNightStaging(beforeState, resolvedState) {
   state.players.B.night = structuredClone(resolvedState.players.B.night);
   actionPresentation = {
     type: "night-staging",
-    stage: "source",
+    stage: "lock",
     index: -1,
     steps: [
-      { actor: "A", action: structuredClone(resolvedState.players.A.night) },
-      { actor: "B", action: structuredClone(resolvedState.players.B.night) },
+      { actor: "A" },
+      { actor: "B" },
     ],
     beforeState: structuredClone(beforeState),
     resolvedState,
@@ -361,13 +450,9 @@ function advanceNightStaging() {
   if (nextIndex < actionPresentation.steps.length) {
     actionPresentation.index = nextIndex;
     const step = actionPresentation.steps[nextIndex];
-    const beforeStep = structuredClone(state);
-    copyPresentationSource(step.action, actionPresentation.resolvedState);
-    showPresentationMove(step.action, step.actor);
-    feedback = `Lệnh đêm của bên ${step.actor} đang bước lên sân (${nextIndex + 1}/2).`;
-    if (newlyRevealed(step.action.source, beforeStep, actionPresentation.resolvedState)) renderWithCardTravel(step.action.source);
-    else render();
-    actionTimer = setTimeout(advanceNightStaging, 4800);
+    feedback = `Bên ${step.actor} đã khóa lệnh đêm; source, action và target vẫn bí mật (${nextIndex + 1}/2).`;
+    render();
+    actionTimer = setTimeout(advanceNightStaging, 1500);
     return;
   }
   finishActionPresentation();
@@ -455,7 +540,15 @@ function runNightResolution() {
     const moves = [
       { action: ownAction, actor: "A" },
       { action: opponentAction, actor: "B" },
-    ].filter(({ action }) => action && moveKind(action) !== "pass");
+    ].flatMap(({ action, actor }) => {
+      if (!action || moveKind(action) === "pass") return [];
+      if (actor === seat) return [{ action, actor }];
+      if (action.kind === "inspect" && cardState(action.target, beforeState)?.seerInspected !== "dark") return [];
+      if (["attack", "poison"].includes(action.kind) && cardState(action.target, resolvedState)?.alive) {
+        return [{ action: { type: "night.public", kind: "night-effect", target: action.target }, actor }];
+      }
+      return [{ action, actor }];
+    });
     dawnPresentation = {
       stage: "opening",
       index: -1,
@@ -561,7 +654,7 @@ function publicCardLabel(id) {
 }
 
 function cardState(id, stateRef = state) {
-  return id ? stateRef.players[id[0]]?.board.find((card) => card.id === id) : null;
+  return id ? ["A", "B"].flatMap((owner) => stateRef.players[owner].board).find((card) => card.id === id) : null;
 }
 
 function deathReasonFor(kind, outcome, action) {
@@ -579,26 +672,34 @@ function deathReasonFor(kind, outcome, action) {
 
 function moveExplanationFor(kind, outcome, action) {
   if (kind === "attack") return outcome === "blocked"
-    ? `${action.target} sống sót vì đã có khiên; Ma sói vẫn lộ diện do đã ra đòn.`
-    : `Ma sói lộ diện vì đã tấn công ${action.target}.`;
+    ? `${action.target} sống sót vì đã có khiên; source tấn công vẫn được giữ kín.`
+    : `${action.target} bị tấn công trong đêm; source vẫn được giữ kín.`;
   if (kind === "poison") return outcome === "blocked"
-    ? `${action.target} sống sót vì đã có khiên; Phù thủy vẫn lộ diện do đã dùng độc.`
-    : `Phù thủy lộ diện vì đã dùng độc lên ${action.target}.`;
+    ? `${action.target} sống sót vì đã có khiên; source dùng độc vẫn được giữ kín.`
+    : `${action.target} trúng độc; source vẫn được giữ kín.`;
   if (kind === "inspect") return `Tiên tri soi kín ${action.target}; kết quả chỉ được ghi vào ghi chú riêng của người ra lệnh.`;
-  if (kind === "defend") return `Bảo vệ dựng khiên công khai tại ${action.target}; role của mục tiêu và Bảo vệ vẫn được giữ kín.`;
-  if (kind === "accuse") return `${action.voters?.join(", ") || "Ba nhân vật"} cùng bỏ phiếu treo ${action.target}.`;
+  if (kind === "defend") return `Bạn đặt khiên kín tại ${action.target}; đối thủ chỉ biết bên bạn đã khóa Phòng thủ.`;
+  if (kind === "accuse") return `${action.voters?.join(", ") || "Hội đồng"} đạt đủ phiếu để treo ${action.target}.`;
   if (kind === "bloodmoon" && outcome === "blocked") return `${action.target} sống sót vì đã có khiên bảo vệ.`;
+  if (kind === "night-effect") return `${action.target} sống sót nhờ khiên; loại lệnh và source của đối thủ vẫn được giữ kín.`;
   return null;
 }
 
 function showMove(action, actor, { revealTarget = false, outcomeState = state } = {}) {
   const kind = moveKind(action);
   const hiddenNightTarget = action.type === "night.submit" && !revealTarget && action.target;
-  const sourceVisible = action.source && (actor === seat || publicView(state).board[actor]?.find((card) => card.id === action.source)?.role !== "?");
-  const resolvedCombat = COMBAT_KINDS.has(kind) && action.target && !hiddenNightTarget;
+  const hiddenDefenseTarget = kind === "defend" && actor !== seat && action.target;
+  const hiddenTarget = hiddenNightTarget || hiddenDefenseTarget;
+  const opponentNightSource = action.type === "night.submit" && actor !== seat;
+  const revealedSeerExecution = opponentNightSource && kind === "inspect" && revealTarget && cardState(action.source, outcomeState)?.revealed;
+  const sourceVisible = action.source && (actor === seat || revealedSeerExecution || (!opponentNightSource && publicView(state).board[actor]?.find((card) => card.id === action.source)?.role !== "?"));
+  const resolvedCombat = COMBAT_KINDS.has(kind) && action.target && !hiddenTarget;
   const targetDied = resolvedCombat && !cardState(action.target, outcomeState)?.alive;
   const sourceDied = resolvedCombat && action.source && !cardState(action.source, outcomeState)?.alive;
-  const councilSucceeded = kind === "accuse" && action.target && !cardState(action.target, outcomeState)?.alive;
+  const councilSucceeded = kind === "accuse" && action.target && Boolean(
+    !cardState(action.target, outcomeState)?.alive
+    || outcomeState.councilBatch?.outcomes.some((item) => item.target === action.target),
+  );
   const outcome = !resolvedCombat
     ? null
     : targetDied
@@ -609,7 +710,7 @@ function showMove(action, actor, { revealTarget = false, outcomeState = state } 
   const killerKnown = Boolean(actor !== seat && targetDied && sourceVisible);
   const mysteryKiller = Boolean(actor !== seat && targetDied && !sourceVisible);
   const deathReason = resolvedCombat && (targetDied || sourceDied) ? deathReasonFor(kind, outcome, action) : null;
-  const explanation = hiddenNightTarget ? null : moveExplanationFor(kind, outcome, action);
+  const explanation = hiddenTarget ? null : moveExplanationFor(kind, outcome, action);
   if (targetDied && deathReason) deathReasons.set(action.target, deathReason);
   if (sourceDied && deathReason) deathReasons.set(action.source, deathReason);
   if (kind === "revive" && action.target) deathReasons.delete(action.target);
@@ -623,10 +724,11 @@ function showMove(action, actor, { revealTarget = false, outcomeState = state } 
       : sourceVisible
       ? actor === seat && privateCard(action.source) ? `${action.source} · ${ROLE_DEFS[privateCard(action.source).role].name}` : publicCardLabel(action.source)
       : action.source ? "Lá ẩn" : actor === "B" && kind !== "pass" ? "Lá ẩn" : "Hệ thống",
-    target: hiddenNightTarget ? null : action.target || null,
-    hiddenTarget: Boolean(hiddenNightTarget),
-    targetLabel: hiddenNightTarget ? "Mục tiêu bí mật" : publicCardLabel(action.target),
+    target: hiddenTarget ? null : action.target || null,
+    hiddenTarget: Boolean(hiddenTarget),
+    targetLabel: hiddenTarget ? "Mục tiêu bí mật" : publicCardLabel(action.target),
     voters: action.voters ? [...action.voters] : [],
+    votePower: action.voters ? votePower(action.voters, actor) : 0,
     targetDied,
     sourceDied,
     councilSucceeded,
@@ -659,33 +761,26 @@ function actionForOwnCard(card) {
     if (card.role === "seer" && card.uses.seer > 0) return { kind: "inspect", label: "Soi role" };
     if (card.role === "witch" && card.uses.poison > 0 && !state.players.A.eliminationSpent) return { kind: "poison", label: "Dùng độc" };
   }
-  if (state.phase === "council" && interaction?.kind === "accuse" && ROLE_DEFS[card.role].faction === "village" && card.voteCooldown === 0) return { kind: "vote", label: "Tham gia treo cổ" };
+  if (state.phase === "council" && interaction?.kind === "accuse" && ROLE_DEFS[card.role].faction === "village" && !card.dayExhausted && card.voteCooldown === 0) return { kind: "vote", label: "Tham gia treo cổ" };
   return null;
 }
 
-const votePower = (voterIds = []) => voterIds.reduce((total, id) => {
-  const card = privateCard(id);
-  return total + (card?.alive && card.voteCooldown === 0 && card.purgeLockedRound !== state.round && ROLE_DEFS[card.role]?.faction === "village" ? (card.role === "villager" ? 2 : 1) : 0);
-}, 0);
+function votePower(voterIds = [], boardSeat = "A") {
+  return voterIds.reduce((total, id) => {
+    const card = state.players[boardSeat].board.find((item) => item.id === id);
+    return total + (card?.alive && !card.dayExhausted && card.voteCooldown === 0 && card.purgeLockedRound !== state.round && ROLE_DEFS[card.role]?.faction === "village" ? card.role === "villager" ? 2 : 1 : 0);
+  }, 0);
+}
 
 function directTargetIds() {
   if (!interaction) return new Set();
-  if (interaction.kind === "purge") {
-    const rule = ["cut", "swap", "reveal", "lock"][(state.round - 6) % 4];
-    return new Set(living("A").filter((card) => rule !== "reveal" || !card.revealed).map((card) => card.id));
-  }
-  if (interaction.kind === "purge-swap") return new Set(living("B").map((card) => card.id));
   if (["mark", "purify", "attack", "poison"].includes(interaction.kind)) return new Set(living("B").map((card) => card.id));
   if (interaction.kind === "inspect") return new Set(living("B").filter((card) => card.seerInspected !== "light").map((card) => card.id));
   if (interaction.kind === "bloodmoon") return new Set(living("B").filter((card) => card.revealed).map((card) => card.id));
   if (interaction.kind === "shoot") return new Set(living("B").filter((card) => card.revealed).map((card) => card.id));
   if (interaction.kind === "revive") return new Set(state.players.A.board.filter((card) => !card.alive).map((card) => card.id));
-  if (interaction.kind === "defend") {
-    const guard = privateCard(interaction.source);
-    return new Set(living("A").filter((card) => card.instanceId !== guard?.instanceId && card.instanceId !== state.players.A.lastGuardTarget).map((card) => card.id));
-  }
-  if (interaction.kind === "protect") return new Set(living("A").map((card) => card.id));
-  if (interaction.kind === "accuse" && interaction.voters.length === 3) return new Set(living("B").map((card) => card.id));
+  if (interaction.kind === "defend") return new Set(living("A").filter((card) => card.id !== interaction.source && card.instanceId !== state.players.A.lastGuardTarget).map((card) => card.id));
+  if (interaction.kind === "accuse" && votePower(interaction.voters) >= 3) return new Set(living("B").map((card) => card.id));
   return new Set();
 }
 
@@ -709,10 +804,9 @@ function presentationClassFor(cardId) {
   return `presentation-enter presentation-${isSource ? "source" : "outcome"} from-${cardId[0].toLowerCase()}`;
 }
 
-function cardMarkup(card, isOwn, setupIndex = -1, dealIndex = -1) {
+function cardMarkup(card, isOwn, setupIndex = -1) {
   const isSetup = setupIndex >= 0;
   const secret = isOwn ? privateCard(card.id) : null;
-  const fullCard = state.players[card.id[0]]?.board.find((item) => item.id === card.id);
   const isRevealed = card.role !== "?";
   const roleKey = secret?.role || (card.role !== "?" ? Object.entries(ROLE_DEFS).find(([, value]) => value.name === card.role)?.[0] : null);
   const roleName = secret ? ROLE_DEFS[secret.role].name : card.role;
@@ -722,11 +816,7 @@ function cardMarkup(card, isOwn, setupIndex = -1, dealIndex = -1) {
   const phaseMark = phase === "day" ? "☀" : phase === "night" ? "☾" : phase === "both" ? "☀☾" : "◇";
   const shownName = known ? roleName : "Bí danh";
   const directAction = isOwn ? actionForOwnCard(secret) : null;
-  const lockedByPurge = Boolean(isOwn && fullCard?.purgeLockedRound === state.round);
-  const seerCannotRepeat = Boolean(!isOwn && interaction?.kind === "inspect" && fullCard?.seerInspected === "light");
-  const guardCannotRepeat = Boolean(isOwn && interaction?.kind === "defend" && (fullCard?.instanceId === state.players.A.lastGuardTarget || fullCard?.role === "guard"));
-  const disabledReason = lockedByPurge || seerCannotRepeat || guardCannotRepeat;
-  const targetable = !disabledReason && directTargetIds().has(card.id);
+  const targetable = directTargetIds().has(card.id);
   const selectedSource = interaction?.source === card.id;
   const selected = selectedSource || interaction?.target === card.id || interaction?.voters?.includes(card.id);
   const selectionPhase = selectedSource && state.phase === "night-plan"
@@ -737,20 +827,15 @@ function cardMarkup(card, isOwn, setupIndex = -1, dealIndex = -1) {
   const deathReason = deathReasons.get(card.id);
   const status = !card.alive
     ? deathReason?.short || "Đã chết"
-    : lockedByPurge
-      ? "Khóa mạch · Vô hiệu vòng này"
-      : seerCannotRepeat
-        ? "Đã soi phe sáng · Không thể soi lại"
-        : guardCannotRepeat
-          ? fullCard?.role === "guard" ? "Bảo vệ không thể tự bảo vệ" : "Đã bảo vệ đêm trước"
-          : isRevealed
+    : card.purgeLocked
+      ? "Bị Khóa mạch"
+    : isRevealed
       ? `Đã lộ${card.votePower ? " · Có thể vote" : ""}`
       : isOwn ? "Đang ẩn" : "Đang sống";
   const moveSource = lastMove?.source === card.id;
   const moveTarget = lastMove?.target === card.id;
   const presentationClass = presentationClassFor(card.id);
-  const isRevengeTarget = Object.values(state.players).some((player) => player.revengeTarget === card.id);
-  return `<article class="role-card faction-${faction} phase-${phase} ${dealIndex >= 0 ? "deal-card" : ""} ${isSetup ? "setup-card" : ""} ${disabledReason ? "disabled-target" : ""} ${directAction ? "actionable" : ""} ${targetable ? "targetable" : ""} ${selected ? "selected-card" : ""} ${moveSource ? "move-source" : ""} ${moveTarget ? "move-target" : ""} ${presentationClass} ${card.staged ? "staged" : ""} ${card.alive ? "" : "dead"} ${isRevengeTarget ? "revenge-marked" : ""} ${isRevealed ? "revealed" : "hidden-role"} ${card.shielded ? "shielded" : ""}" data-card-id="${card.id}" ${dealIndex >= 0 ? `style="--deal-index:${dealIndex}"` : ""} ${isSetup ? `draggable="true" data-setup-card="${card.id}"` : ""} ${directAction ? `data-direct-source="${card.id}" data-direct-kind="${directAction.kind}"` : ""} ${targetable ? `data-direct-target="${card.id}"` : ""}>
+  return `<article class="role-card faction-${faction} phase-${phase} ${isSetup ? "setup-card" : ""} ${directAction ? "actionable" : ""} ${targetable ? "targetable" : ""} ${selected ? "selected-card" : ""} ${moveSource ? "move-source" : ""} ${moveTarget ? "move-target" : ""} ${presentationClass} ${card.staged ? "staged" : ""} ${card.purgeLocked ? "purge-locked" : ""} ${card.alive ? "" : "dead"} ${isRevealed ? "revealed" : "hidden-role"} ${card.shielded ? "shielded" : ""}" data-card-id="${card.id}" ${isSetup ? `draggable="true" data-setup-card="${card.id}"` : ""} ${directAction ? `data-direct-source="${card.id}" data-direct-kind="${directAction.kind}"` : ""} ${targetable ? `data-direct-target="${card.id}"` : ""}>
     <div class="card-shell">
       <header class="card-head"><strong class="role-name" title="${shownName}">${shownName}</strong><span class="phase-rune" title="Pha kỹ năng">${phaseMark}</span></header>
       <div class="art-window">
@@ -758,6 +843,7 @@ function cardMarkup(card, isOwn, setupIndex = -1, dealIndex = -1) {
         ${isRevealed ? `<span class="reveal-badge" title="Role này đã công khai với đối thủ">◉ ĐÃ LỘ</span>` : ""}
         ${card.staged ? `<span class="staged-badge" title="Nguồn lệnh đêm đã khóa">LỆNH ĐÊM</span>` : ""}
         ${card.shielded ? `<span class="shield" title="Đang được bảo vệ">◈</span>` : ""}
+        ${card.purgeLocked ? `<span class="staged-badge" title="Không thể dùng skill hoặc Vote trong vòng này">KHÓA MẠCH</span>` : ""}
         ${!card.alive && deathReason ? `<span class="death-cause-badge" title="${deathReason.detail}">† ${deathReason.short}</span>` : ""}
       </div>
       <footer class="card-foot"><span class="card-id">${card.id}</span><span class="card-status">${status}</span></footer>
@@ -772,15 +858,15 @@ function cardMarkup(card, isOwn, setupIndex = -1, dealIndex = -1) {
 
 function boardMarkup(boardSeat, label) {
   const view = publicView(state);
-  const own = boardSeat === seat && handVisible;
-  const cards = view.board[boardSeat];
+  const privateCards = new Map(privateView(state, seat).hand.map((card) => [card.instanceId, card]));
+  const cards = view.board[boardSeat].map((card) => card.owner === seat ? { ...card, shielded: privateCards.get(card.instanceId)?.shielded || false } : card);
   const setupActive = state.phase === `setup-${seat}` && boardSeat === seat;
   const visibleCards = setupActive ? setupOrder[seat].map((id) => cards.find((card) => card.id === id)) : cards;
   const boardPosition = boardSeat === seat ? "own" : "opponent";
   const hint = setupActive ? "Kéo thả hoặc dùng ‹ › để xếp" : "Role lộ diện được đưa vào giữa bàn";
   const slotMarkup = (card, index) => !setupActive && card.role !== "?"
     ? `<div class="lifted-slot ${card.alive ? "" : "dead"}"><span>${card.id}</span><strong>${card.role}</strong><small>TRÊN BÀN ĐẤU</small></div>`
-    : cardMarkup(card, own, setupActive ? index : -1, dealAnimationActive ? (boardSeat === seat ? index : visibleCards.length - 1 - index) : -1);
+    : cardMarkup(card, card.owner === seat && handVisible, setupActive ? index : -1);
   return `<section class="board board-${boardSeat.toLowerCase()} board-${boardPosition} ${setupActive ? "board-setup" : ""}">
     <div class="board-title"><h2>${label} · Bên ${boardSeat}</h2><span>${hint}</span></div>
     ${boardSeat === seat && !handVisible
@@ -790,9 +876,12 @@ function boardMarkup(boardSeat, label) {
 }
 
 function revealedLaneMarkup(boardSeat) {
-  const cards = state.phase.startsWith("setup-") ? [] : publicView(state).board[boardSeat].filter((card) => card.role !== "?");
+  const privateCards = new Map(privateView(state, seat).hand.map((card) => [card.instanceId, card]));
+  const cards = state.phase.startsWith("setup-") ? [] : publicView(state).board[boardSeat]
+    .filter((card) => card.role !== "?")
+    .map((card) => card.owner === seat ? { ...card, shielded: privateCards.get(card.instanceId)?.shielded || false } : card);
   return `<section class="revealed-lane lane-${boardSeat.toLowerCase()}" aria-label="Role ${boardSeat} đã lộ">
-    <div class="revealed-cards">${cards.map((card) => `<div class="revealed-slot" style="grid-column:${Number(card.id.slice(1))}">${cardMarkup(card, boardSeat === seat)}</div>`).join("")}</div>
+    <div class="revealed-cards">${cards.map((card) => `<div class="revealed-slot" style="grid-column:${Number(card.id.slice(1))}">${cardMarkup(card, card.owner === seat && handVisible)}</div>`).join("")}</div>
   </section>`;
 }
 
@@ -864,7 +953,7 @@ function playCombatEffect() {
   if (lastMove.kind === "accuse") {
     target.classList.add("fx-condemned");
     lastMove.voters.forEach((id) => document.querySelector(`[data-card-id="${id}"]`)?.classList.add("fx-voter"));
-    layer.innerHTML = `<div class="vote-council"><span>3 PHIẾU ĐÃ KHÓA</span><strong>${lastMove.voters.join(" · ")}</strong></div>${lastMove.councilSucceeded ? `<div class="gallows-rope"><i></i><span>⚖</span><strong>PHÁN QUYẾT TREO CỔ</strong><small>${lastMove.targetLabel}</small></div>` : `<div class="council-failed"><span>⚖</span><strong>BUỘC TỘI KHÔNG THÀNH</strong><small>${lastMove.targetLabel} sống sót</small></div>`}`;
+    layer.innerHTML = `<div class="vote-council"><span>${lastMove.votePower} PHIẾU ĐÃ KHÓA</span><strong>${lastMove.voters.join(" · ")}</strong></div>${lastMove.councilSucceeded ? `<div class="gallows-rope"><i></i><span>⚖</span><strong>PHÁN QUYẾT TREO CỔ</strong><small>${lastMove.targetLabel}</small></div>` : `<div class="council-failed"><span>⚖</span><strong>BUỘC TỘI KHÔNG THÀNH</strong><small>${lastMove.targetLabel} sống sót</small></div>`}`;
     return;
   }
 
@@ -896,15 +985,19 @@ function playCombatEffect() {
 function activeForSeat() {
   if (dawnActive || actionPresentation) return false;
   if (state.phase.startsWith("setup-")) return state.phase === `setup-${seat}`;
-  if (state.phase === "match-intro") return true;
-  if (state.phase === "council" || state.phase === "purge" || state.phase === "dusk-defense" || state.phase === "night-plan" || state.phase === "final-duel") return true;
+  if (state.phase === "council-reaction") return state.councilBatch?.outcomes.some((outcome) => outcome.defenderSeat === seat && outcome.reaction === null);
+  if (state.phase === "purge" || state.phase === "council" || state.phase === "dusk-defense" || state.phase === "night-plan" || state.phase === "final-duel") return true;
   return state.phase === `day-${seat}`;
 }
 
 function alreadyLocked() {
   if (state.phase.startsWith("setup-")) return ownPlayer().setupLocked;
-  if (state.phase === "purge") return state.players[seat].purge !== null;
+  if (state.phase === "purge") return Boolean(ownPlayer().purge);
   if (state.phase === "council") return Boolean(ownPlayer().council);
+  if (state.phase === "council-reaction") {
+    const outcome = state.councilBatch?.outcomes.find((item) => item.defenderSeat === seat);
+    return !outcome || outcome.reaction !== null;
+  }
   if (state.phase === "dusk-defense") return ownPlayer().defense !== null;
   if (state.phase === "night-plan") return Boolean(ownPlayer().night);
   if (state.phase === "final-duel") return Boolean(ownPlayer().finalGuess);
@@ -912,11 +1005,9 @@ function alreadyLocked() {
 }
 
 function actionKinds() {
-  if (state.phase === "purge") return [["purge", "Thanh trừng"]];
+  if (state.phase === "purge") return [["purge", PURGE_LABELS[purgeRule(state.round)][0]]];
   if (state.phase === "council") {
-    const kinds = [["pass", "Bỏ qua"], ["accuse", "Chọn 3 role để treo cổ"]];
-    if (sourceFor("wolfguard") && privateCard(sourceFor("wolfguard")).uses.rescue > 0) kinds.push(["protect", "Sói Hộ Vệ bảo kê"]);
-    return kinds;
+    return [["pass", "Bỏ qua"], ["accuse", "Chọn voter để đạt 3 phiếu"]];
   }
   if (state.phase.startsWith("day-")) {
     const kinds = [["pass", "Bỏ lượt"]];
@@ -943,27 +1034,36 @@ function actionFields() {
   const enemy = state.players[otherSeat(seat)].board;
   const own = ownPlayer().board;
   if (state.phase === "purge") {
-    const rule = ["cut", "swap", "reveal", "lock"][(state.round - 6) % 4];
-    const ownTargets = rule === "reveal" ? own.filter((card) => !card.revealed) : own;
-    return `<label class="field"><span>Lá của phe mình</span><select name="purgeTarget">${cardOptions(ownTargets)}</select></label>${rule === "swap" ? `<label class="field"><span>Lá đối thủ để đổi vị trí</span><select name="purgeSwapTarget">${cardOptions(enemy)}</select></label>` : ""}`;
+    const rule = purgeRule(state.round);
+    const targets = rule === "reveal" ? own.filter((card) => card.alive && !card.revealed) : own.filter((card) => card.alive);
+    const ownField = targets.length
+      ? `<label class="field"><span>Lá bên mình</span><select name="purgeTarget">${cardOptions(targets)}</select></label>`
+      : `<p>Không còn lá ẩn hợp lệ; hệ thống sẽ khóa lựa chọn rỗng.</p>`;
+    const enemyField = rule === "swap" ? `<label class="field"><span>Lá đối thủ</span><select name="purgeSwapTarget">${cardOptions(enemy)}</select></label>` : "";
+    return `${ownField}${enemyField}`;
   }
   if (state.phase === "council") return `
     <label class="field conditional" data-for="accuse"><span>Mục tiêu</span><select name="target">${cardOptions(enemy)}</select></label>
     <label class="field conditional" data-for="accuse"><span>Đoán role còn lại</span><select name="guess">${roleOptions(availableRoleGuesses(state, otherSeat(seat)))}</select></label>
-    <fieldset class="voter-field conditional" data-for="accuse"><legend>Chọn đúng 3 role Dân đang sống · lá úp sẽ lộ khi Hội đồng xử lý</legend><div class="voters">${own.filter((card) => card.alive && ROLE_DEFS[card.role].faction === "village").map((card) => `<label><input type="checkbox" name="voter" value="${card.id}" /> ${card.id}</label>`).join("")}</div></fieldset>
-    <label class="field conditional" data-for="protect"><span>Lá muốn bảo kê</span><select name="protectTarget">${cardOptions(own)}</select></label>`;
+    <fieldset class="voter-field conditional" data-for="accuse"><legend>Chọn đủ 3 phiếu · Dân làng = 2, role Dân khác = 1</legend><div class="voters">${own.filter((card) => card.alive && !card.dayExhausted && card.purgeLockedRound !== state.round && ROLE_DEFS[card.role].faction === "village").map((card) => `<label><input type="checkbox" name="voter" value="${card.id}" /> ${card.id}</label>`).join("")}</div></fieldset>`;
   if (state.phase.startsWith("day-")) return `
     <label class="field conditional" data-for="shoot"><span>Mục tiêu đã lộ</span><select name="shootTarget">${cardOptions(enemy.filter((card) => card.revealed))}</select></label>
     <label class="field conditional" data-for="revive"><span>Lá muốn hồi sinh</span><select name="reviveTarget">${deadCardOptions(own)}</select></label>
     <label class="field conditional" data-for="mark purify"><span>Mục tiêu bên ${otherSeat(seat)}</span><select name="dayTarget">${cardOptions(enemy)}</select></label>`;
-  if (state.phase === "dusk-defense") return `<label class="field conditional" data-for="defend"><span>Vị trí đặt khiên</span><select name="defendTarget">${cardOptions(own)}</select></label>`;
-  if (state.phase === "night-plan") return `<label class="field conditional" data-for="attack inspect poison"><span>Mục tiêu bí mật bên ${otherSeat(seat)}</span><select name="nightTarget">${cardOptions(enemy)}</select></label>`;
+  if (state.phase === "dusk-defense") return `<label class="field conditional" data-for="defend"><span>Vị trí đặt khiên</span><select name="defendTarget">${cardOptions(own.filter((card) => card.role !== "guard" && card.instanceId !== ownPlayer().lastGuardTarget))}</select></label>`;
+  if (state.phase === "night-plan") return `<label class="field conditional" data-for="attack poison"><span>Mục tiêu bí mật bên ${otherSeat(seat)}</span><select name="nightTarget">${cardOptions(enemy)}</select></label><label class="field conditional" data-for="inspect"><span>Mục tiêu chưa khóa soi bên ${otherSeat(seat)}</span><select name="inspectTarget">${cardOptions(enemy.filter((card) => card.seerInspected !== "light"))}</select></label>`;
   if (state.phase === "final-duel") return `<label class="field conditional" data-for="final"><span>Role dự đoán</span><select name="finalGuess">${roleOptions()}</select></label>`;
   return "";
 }
 
 function controlMarkup() {
-  if (state.phase === "ended") return `<section class="control-panel"><h2>${state.result?.winner ? `Bên ${state.result.winner} thắng` : "Ván hòa"}</h2><p>${state.result?.reason}</p><p class="final-match-time">Thời gian trận · <strong>${formatMatchTime(currentMatchTime())}</strong></p><button class="primary" type="button" data-reset>Chơi lại</button></section>`;
+  if (state.phase === "ended") return `<section class="control-panel"><h2>${state.result?.winner ? `Bên ${state.result.winner} thắng` : "Ván hòa"}</h2><p>${state.result?.reason}</p><button class="primary" type="button" data-rematch>Chơi lại</button></section>`;
+  if (state.phase === "council-reaction" && activeForSeat()) {
+    const outcome = state.councilBatch.outcomes.find((item) => item.defenderSeat === seat && item.reaction === null);
+    const substituteId = reactionSubstituteFor(seat)?.id;
+    const canSacrifice = Boolean(substituteId && substituteId !== outcome.target);
+    return `<section class="control-panel"><p class="step-label">Reaction kín · Hội đồng</p><h2>${canSacrifice ? "Dùng Kẻ Thế Mạng?" : "Xác nhận phán quyết"}</h2><p>${outcome.target} đã bị đoán đúng và lộ role. ${canSacrifice ? `${substituteId} có thể chết thay; target sống nhưng vẫn nằm ngửa.` : "Không có Kẻ Thế Mạng hợp lệ để chết thay."}</p><div class="battle-buttons">${canSacrifice ? `<button class="primary" type="button" data-council-reaction="yes">Chết thay</button>` : ""}<button type="button" data-council-reaction="no">${canSacrifice ? "Không dùng" : "Tiếp tục"}</button></div></section>`;
+  }
   if (!activeForSeat()) return `<section class="control-panel bot-wait"><span class="bot-orbit" aria-hidden="true"></span><h2>BOT B đang suy nghĩ</h2><p>Đối thủ tự chọn hành động dựa trên thông tin hợp lệ của nó.</p></section>`;
   if (alreadyLocked()) return `<section class="control-panel bot-wait"><span class="bot-orbit" aria-hidden="true"></span><h2>Đã khóa lựa chọn</h2><p>BOT B đang tính lượt đáp lại.</p></section>`;
   if (state.phase.startsWith("setup-")) return `<section class="control-panel setup-panel"><p class="step-label">Bước 1 · Sắp xếp bộ bài</p><h2>Xếp vị trí các lá bài theo thứ tự bạn muốn</h2><p>Thứ tự từ trái sang phải sẽ trở thành ${seat}1–${seat}10 và được giữ cố định trong suốt trận. Kéo thả hoặc dùng ‹ › để đổi vị trí.</p><button class="primary" type="button" data-lock-setup>Khóa thứ tự 10 lá</button><p class="feedback">${feedback}</p></section>`;
@@ -985,34 +1085,8 @@ function historyMarkup() {
   return `<aside class="history-panel"><h2>Diễn biến công khai</h2><ol class="history-list">${state.log.slice(-6).reverse().map((item) => `<li>${item}</li>`).join("")}</ol>${own.notes.length && handVisible ? `<div class="notes"><strong>Ghi chú riêng:</strong><br>${own.notes.join("<br>")}</div>` : ""}</aside>`;
 }
 
-function renderRevengeThreads() {
-  const layer = document.querySelector(".revenge-thread-layer");
-  if (!layer) return;
-  layer.innerHTML = "";
-  for (const ownerSeat of ["A", "B"]) {
-    const targetId = state.players[ownerSeat].revengeTarget;
-    if (!targetId) continue;
-    const sourceCard = state.players[ownerSeat].board.find((card) => card.alive && card.role === "avenger");
-    const source = sourceCard ? document.querySelector(`[data-card-id="${sourceCard.id}"]`) : null;
-    const target = document.querySelector(`[data-card-id="${targetId}"]`);
-    if (!source || !target) continue;
-    source.classList.add("revenge-source");
-    target.classList.add("revenge-marked");
-    const sourceRect = source.getBoundingClientRect();
-    const targetRect = target.getBoundingClientRect();
-    const startX = sourceRect.left + sourceRect.width / 2;
-    const startY = sourceRect.top + sourceRect.height / 2;
-    const endX = targetRect.left + targetRect.width / 2;
-    const endY = targetRect.top + targetRect.height / 2;
-    const distance = Math.hypot(endX - startX, endY - startY);
-    const angle = Math.atan2(endY - startY, endX - startX) * 180 / Math.PI;
-    layer.insertAdjacentHTML("beforeend", `<span class="revenge-thread" style="--thread-x:${startX}px;--thread-y:${startY}px;--thread-length:${distance}px;--thread-angle:${angle}deg"><i></i></span>`);
-  }
-}
-
 function battlefieldActionMarkup() {
   if (state.phase.startsWith("setup-") || state.phase === "ended") return controlMarkup();
-  if (state.phase === "match-intro") return `<div class="battle-action dawn-reveal dawn-opening"><span class="dawn-sun">◒</span><p class="battle-step">Vòng 1 · Bình minh đầu tiên</p><strong>Hai đội hình đã sẵn sàng</strong><p>Bên A đi trước. Vòng 1 chưa mở Vote; hãy bắt đầu bằng một hành động Ban ngày.</p><button class="primary" type="button" data-begin-round>Bắt đầu Vòng 1</button></div>`;
   if (dawnActive) {
     const presentation = dawnPresentation;
     if (presentation?.stage === "complete") return `<div class="battle-action dawn-reveal dawn-complete"><span class="dawn-sun">☀</span><p class="battle-step">Bình minh hoàn tất</p><strong>Trời đã sáng</strong><p>Bàn đấu đã cập nhật xong. Lượt tiếp theo sẽ mở ngay sau tín hiệu này.</p></div>`;
@@ -1022,36 +1096,42 @@ function battlefieldActionMarkup() {
   if (actionPresentation) {
     if (actionPresentation.type === "council-resolution") {
       const sequenceStep = actionPresentation.sequence[actionPresentation.index];
-      if (actionPresentation.stage === "voter") return `<div class="battle-action turn-presentation presentation-${actionPresentation.actor.toLowerCase()}"><span class="dawn-lock">THAO TÁC ĐANG KHÓA</span><p class="battle-step">Hội đồng bên ${actionPresentation.actor}</p><strong>${sequenceStep?.voterIndex + 1}/${sequenceStep?.voterTotal} người bỏ phiếu đang lộ diện</strong><p>${actionPresentation.voterId} đang từ từ bước lên sân. Phán quyết chỉ diễn ra sau khi đủ ba người.</p></div>`;
-      return `<div class="battle-action turn-presentation presentation-${actionPresentation.actor.toLowerCase()}"><span class="dawn-lock">THAO TÁC ĐANG KHÓA</span><p class="battle-step">Đủ 3 phiếu · Hội đồng bên ${actionPresentation.actor}</p><strong>Đang công bố phán quyết treo cổ</strong><p>Ba người bỏ phiếu đã hiện diện; mục tiêu và kết quả được xử lý ở nhịp cuối.</p></div>`;
+      if (actionPresentation.stage === "voter") return `<div class="battle-action turn-presentation presentation-${actionPresentation.actor.toLowerCase()}"><span class="dawn-lock">THAO TÁC ĐANG KHÓA</span><p class="battle-step">Hội đồng bên ${actionPresentation.actor}</p><strong>${sequenceStep?.voterIndex + 1}/${sequenceStep?.voterTotal} người bỏ phiếu đang lộ diện</strong><p>${actionPresentation.voterId} đang từ từ bước lên sân. Phán quyết diễn ra khi tổng trọng số đạt 3 phiếu.</p></div>`;
+      return `<div class="battle-action turn-presentation presentation-${actionPresentation.actor.toLowerCase()}"><span class="dawn-lock">THAO TÁC ĐANG KHÓA</span><p class="battle-step">Đủ 3 phiếu · Hội đồng bên ${actionPresentation.actor}</p><strong>Đang công bố phán quyết treo cổ</strong><p>Hội đồng đã đủ trọng số; mục tiêu và kết quả được xử lý ở nhịp cuối.</p></div>`;
     }
     if (actionPresentation.type === "night-staging") {
       const step = actionPresentation.steps[actionPresentation.index];
-      return `<div class="battle-action turn-presentation presentation-night"><span class="dawn-lock">THAO TÁC ĐANG KHÓA</span><p class="battle-step">Lệnh đêm ${actionPresentation.index + 1}/2 · A → B</p><strong>Bên ${step?.actor || "A"} đang bước lên sân</strong><p>Từng nguồn lệnh được di chuyển và lộ riêng. Bên B chỉ xuất hiện sau khi hoạt cảnh của A kết thúc.</p></div>`;
+      return `<div class="battle-action turn-presentation presentation-night"><span class="dawn-lock">THAO TÁC ĐANG KHÓA</span><p class="battle-step">Lệnh đêm ${actionPresentation.index + 1}/2 · A → B</p><strong>Bên ${step?.actor || "A"} đã khóa lệnh</strong><p>Source, loại action và target vẫn bí mật. Khiên được chọn chỉ từ thông tin công khai.</p></div>`;
     }
     const stage = actionPresentation.stage === "source" ? "Đang đưa nhân vật lên sân" : "Đang công bố kết quả";
     return `<div class="battle-action turn-presentation presentation-${actionPresentation.actor.toLowerCase()}"><span class="dawn-lock">THAO TÁC ĐANG KHÓA</span><p class="battle-step">Bên ${actionPresentation.actor} đang hành động</p><strong>${stage}</strong><p>Nguồn lệnh di chuyển trước; mục tiêu, lộ bài và thương vong chỉ xuất hiện ở nhịp kế tiếp.</p></div>`;
   }
-  if (state.phase === "night-resolution") return `<div class="battle-action night-verdict"><span class="verdict-moon">☾</span><strong>Lệnh đã khóa kín</strong><p>Chỉ vị trí có khiên được công khai. Nguồn, mục tiêu và kết quả sẽ lần lượt lộ ở Bình minh.</p></div>`;
-  if (botNeedsTurn() || !activeForSeat() || alreadyLocked()) return `<div class="battle-action bot-battle"><span class="bot-orbit" aria-hidden="true"></span><strong>BOT B đang cân nhắc</strong><p>BOT sẽ phản hồi sau một nhịp ngắn.</p></div>`;
-  if (interaction?.kind === "purge" || interaction?.kind === "purge-swap") return `<div class="battle-action purge-panel"><p class="battle-step">Thanh trừng · Vòng ${state.round}</p><strong>${["Cắt bỏ", "Đảo chiến tuyến", "Ép lộ diện", "Khóa mạch"][(state.round - 6) % 4]}</strong><p>${interaction.kind === "purge-swap" ? "Chọn một lá đối thủ để đổi vị trí." : "Chọn một lá phe mình đang phát sáng."}</p><button class="battle-cancel" type="button" data-direct-cancel>Hủy chọn</button></div>`;
+  if (state.phase === "night-resolution") return `<div class="battle-action night-verdict"><span class="verdict-moon">☾</span><strong>Lệnh đã khóa kín</strong><p>Chỉ vị trí có khiên được hiển thị. Source, action và target đêm chờ Bình minh resolve sau 3,2 giây.</p></div>`;
+  if (botError) return `<div class="battle-action"><p class="battle-step">BOT đã dừng để tránh retry vô hạn</p><strong>Không thể tạo hành động hợp lệ</strong><p>${botError}</p><button type="button" data-reset>Reset ván</button></div>`;
   if (state.phase === "purge") {
-    const revealWithoutTarget = (state.round - 6) % 4 === 2 && !living("A").some((card) => !card.revealed);
-    return `<div class="battle-action purge-panel"><p class="battle-step">Thanh trừng · Vòng ${state.round}</p><strong>${["Cắt bỏ", "Đảo chiến tuyến", "Ép lộ diện", "Khóa mạch"][(state.round - 6) % 4]}</strong><p>${revealWithoutTarget ? "Bạn không còn lá ẩn; xác nhận để tiếp tục." : "Hai bên bắt buộc chọn. Nhấp một lá hợp lệ đang phát sáng để khóa quyết định."}</p><button class="primary" type="button" ${revealWithoutTarget ? "data-purge-empty" : "data-purge-start"}>${revealWithoutTarget ? "Xác nhận không có mục tiêu" : "Bắt đầu chọn"}</button></div>`;
+    if (botNeedsTurn() || alreadyLocked()) return `<div class="battle-action bot-battle"><span class="bot-orbit" aria-hidden="true"></span><strong>Đã khóa Thanh trừng</strong><p>BOT B đang chọn kín; hai lựa chọn sẽ resolve đồng thời.</p></div>`;
+    const [label, detail] = PURGE_LABELS[purgeRule(state.round)];
+    return `<div class="battle-action"><p class="battle-step">Thanh trừng bắt buộc · Vòng ${state.round}</p><strong>${label}</strong><p>${detail}</p><form class="action-form" id="action-form"><input type="hidden" name="kind" value="purge" />${actionFields()}<button class="primary" type="submit">Khóa Thanh trừng</button><p class="feedback">${feedback}</p></form></div>`;
   }
+  if (state.phase === "council-reaction") {
+    const outcome = state.councilBatch?.outcomes.find((item) => item.defenderSeat === seat && item.reaction === null);
+    if (!outcome) return `<div class="battle-action bot-battle"><span class="bot-orbit" aria-hidden="true"></span><strong>Reaction window đang khóa</strong><p>Đang chờ phía còn lại xác nhận kín. Timing công khai không cho biết họ có Kẻ Thế Mạng hay không.</p></div>`;
+    const substituteId = reactionSubstituteFor(seat)?.id;
+    const canSacrifice = Boolean(substituteId && substituteId !== outcome.target);
+    return `<div class="battle-action"><p class="battle-step">Reaction kín · ${outcome.target} sắp bị Treo cổ</p><strong>${canSacrifice ? "Kẻ Thế Mạng có thể can thiệp" : "Không có reaction hợp lệ"}</strong><p>${outcome.target} đã lộ role. ${canSacrifice ? "Chết thay chỉ cứu mạng, không che lại target." : "Xác nhận để Hội đồng tiếp tục resolve."}</p><div class="battle-buttons">${canSacrifice ? `<button type="button" data-council-reaction="yes">Dùng Kẻ Thế Mạng</button>` : ""}<button type="button" data-council-reaction="no">${canSacrifice ? "Không dùng" : "Tiếp tục"}</button></div></div>`;
+  }
+  if (botNeedsTurn() || !activeForSeat() || alreadyLocked()) return `<div class="battle-action bot-battle"><span class="bot-orbit" aria-hidden="true"></span><strong>BOT B đang cân nhắc</strong><p>Bạn có khoảng 1,7 giây để nhìn trạng thái bàn trước khi bot đi.</p></div>`;
   if (state.phase === "council") {
     const power = votePower(interaction?.voters);
+    const voterCount = interaction?.voters?.length || 0;
     if (interaction?.kind === "accuse" && interaction.target) {
       const guesses = availableRoleGuesses(state, otherSeat(seat));
       return `<div class="battle-action"><p class="battle-step">Bước 3 · Đoán role còn lại của ${interaction.target}</p><div class="role-guess-grid">${guesses.map((key) => `<button type="button" data-direct-guess="${key}">${ROLE_DEFS[key].name}</button>`).join("")}</div><p>Những role đã lộ đủ số lượng trên sân được tự động loại trừ.</p><button class="battle-cancel" type="button" data-direct-cancel>Chọn lại</button></div>`;
     }
     if (interaction?.kind === "accuse") {
-      const complete = interaction.voters.length === 3;
-      return `<div class="battle-action"><p class="battle-step">${complete ? "Bước 2 · Chọn một lá đối thủ" : "Bước 1 · Chọn đúng 3 role Dân còn sống"}</p><strong>${interaction.voters.length}/3 nhân vật · ${power} phiếu</strong><p>${complete ? "Card đã lộ sẽ xử lý ngay; card úp mới cần đoán role." : "Dân làng có 2 phiếu nhưng vẫn chỉ tính là 1 trong 3 nhân vật."}</p><button class="battle-cancel" type="button" data-direct-cancel>Hủy buộc tội</button></div>`;
+      return `<div class="battle-action"><p class="battle-step">${power >= 3 ? "Bước 2 · Chọn một lá đối thủ" : "Bước 1 · Chọn voter để đạt 3 phiếu"}</p><strong>${voterCount} nhân vật · ${power}/3 phiếu</strong><p>${power >= 3 ? "Đã đủ phiếu. Card đã lộ sẽ xử lý ngay; card úp mới cần đoán role." : "Dân làng có trọng số 2; các role Dân khác có trọng số 1."}</p><button class="battle-cancel" type="button" data-direct-cancel>Hủy buộc tội</button></div>`;
     }
-    if (interaction?.kind === "protect") return `<div class="battle-action"><p class="battle-step">Chọn lá bên mình cần bảo kê</p><strong>Sói Hộ Vệ đang chờ lệnh</strong><button class="battle-cancel" type="button" data-direct-cancel>Hủy</button></div>`;
-    const wolfguard = sourceFor("wolfguard") && privateCard(sourceFor("wolfguard")).uses.rescue > 0;
-    return `<div class="battle-action"><p class="battle-step">Hành động phụ · vẫn giữ lượt Ban ngày</p><strong>Lập Hội đồng treo cổ</strong><p>Cần đúng 3 role Dân còn sống; card đang úp vẫn chọn được và sẽ lộ khi xử lý.</p><div class="battle-buttons"><button type="button" data-council-mode="accuse">Chọn 3 người</button>${wolfguard ? `<button type="button" data-council-mode="protect">Bảo kê</button>` : ""}<button type="button" data-direct-pass>Bỏ qua</button></div></div>`;
+    return `<div class="battle-action"><p class="battle-step">Hành động phụ · vẫn giữ lượt Ban ngày</p><strong>Lập Hội đồng treo cổ</strong><p>Cần đủ 3 phiếu: Dân làng = 2, role Dân khác = 1. Card úp sẽ lộ khi xử lý.</p><div class="battle-buttons"><button type="button" data-council-mode="accuse">Chọn voter</button><button type="button" data-direct-pass>Bỏ qua</button></div></div>`;
   }
   if (state.phase === "final-duel") return `<div class="battle-action"><p class="battle-step">Final Duel</p><strong>Đoán role cuối của BOT</strong><div class="role-guess-grid">${Object.entries(ROLE_DEFS).map(([key, role]) => `<button type="button" data-final-guess="${key}">${role.name}</button>`).join("")}</div></div>`;
   if (interaction) {
@@ -1065,7 +1145,7 @@ function battlefieldActionMarkup() {
   const phasePrompt = state.phase.startsWith("day-")
     ? { className: "prompt-day", step: "Bước 2 · Trời đang sáng", title: "Chọn nhân vật đang phát sáng để dùng kỹ năng", detail: "Nhấp nhân vật nguồn, sau đó chọn lá mục tiêu đang sáng trên bàn." }
     : state.phase === "night-plan"
-      ? { className: "prompt-night", step: "Trời đã tối · Khóa lệnh đêm", title: "Chọn nhân vật phát sáng để dùng kỹ năng ban đêm", detail: "Nguồn và mục tiêu đều giữ kín cho tới lúc Bình minh công bố." }
+      ? { className: "prompt-night", step: "Trời đã tối · Khóa lệnh đêm", title: "Chọn nhân vật phát sáng để dùng kỹ năng ban đêm", detail: "Source, loại action và target đều được giữ bí mật khi hai bên đặt khiên." }
       : { className: "prompt-dusk", step: "Chạng vạng · Đặt khiên", title: "Chọn Bảo vệ đang phát sáng hoặc bỏ lượt", detail: "Khiên công khai vị trí được bảo vệ nhưng không làm lộ role của lá đó." };
   return `<div class="battle-action turn-prompt ${phasePrompt.className}"><p class="battle-step">${phasePrompt.step}</p><strong>${phasePrompt.title}</strong><p>${phasePrompt.detail}</p>${special}<button class="battle-pass" type="button" data-direct-pass>Bỏ lượt</button></div>`;
 }
@@ -1076,9 +1156,9 @@ function roundTitle() {
   if (dawnActive) return `VÒNG ${state.round} · BÌNH MINH ĐANG HÉ LỘ`;
   if (actionPresentation?.type === "night-staging") return `VÒNG ${state.round} · LỆNH ĐÊM ${actionPresentation.index + 1}/2 · A → B`;
   if (actionPresentation) return `VÒNG ${state.round} · BÊN ${actionPresentation.actor} ĐANG HÀNH ĐỘNG`;
-  if (state.phase === "match-intro") return "VÒNG 1 · BÌNH MINH ĐẦU TIÊN";
-  if (state.phase === "purge") return `VÒNG ${state.round} · THANH TRỪNG`;
   if (state.phase === "council") return `VÒNG ${state.round} · HỘI ĐỒNG TREO CỔ`;
+  if (state.phase === "council-reaction") return `VÒNG ${state.round} · REACTION HỘI ĐỒNG`;
+  if (state.phase === "purge") return `VÒNG ${state.round} · THANH TRỪNG — ${PURGE_LABELS[purgeRule(state.round)][0].toUpperCase()}`;
   if (state.phase === "day-A") return `VÒNG ${state.round} · BAN NGÀY — LƯỢT CỦA BẠN`;
   if (state.phase === "day-B") return `VÒNG ${state.round} · BAN NGÀY — BOT HÀNH ĐỘNG`;
   if (state.phase === "dusk-defense") return `VÒNG ${state.round} · CHẠNG VẠNG — ĐẶT KHIÊN`;
@@ -1090,8 +1170,6 @@ function roundTitle() {
 
 function visualScene() {
   if (dawnActive) return "dawn";
-  if (state.phase === "match-intro") return "dawn";
-  if (state.phase === "purge") return "purge";
   if (state.phase === "dusk-defense") return "dusk";
   if (state.phase === "night-plan" || state.phase === "night-resolution") return "night";
   return "day";
@@ -1103,39 +1181,29 @@ function arenaMarkup() {
   const isSetup = state.phase.startsWith("setup-");
   return `<section class="arena">
     ${boardMarkup(otherSeat(seat), "Đối thủ")}
-    <div class="center-table ${hasRevealedCards ? "" : "center-empty"} ${isSetup ? "setup-center" : ""}">${revealedLaneMarkup(otherSeat(seat))}${revealedLaneMarkup(seat)}${isSetup ? `<div class="setup-center-command">${controlMarkup()}</div>` : commandDockMarkup()}</div>
+    <div class="center-table ${hasRevealedCards ? "" : "center-empty"} ${isSetup ? "setup-center" : ""}">${revealedLaneMarkup(otherSeat(seat))}${revealedLaneMarkup(seat)}${isSetup ? `<div class="setup-center-command">${controlMarkup()}</div>` : ""}</div>
     ${boardMarkup(seat, "Tay của bạn")}
   </section>`;
 }
 
 function commandDockMarkup() {
   if (state.phase.startsWith("setup-")) return "";
-  return `<section class="command-dock" aria-label="Hướng dẫn và thao tác hiện tại"><div class="table-action-stack">${battlefieldActionMarkup()}${moveReplayMarkup()}</div></section>`;
+  return `<section class="command-dock" aria-label="Hướng dẫn và thao tác">
+    <div class="table-action-stack">${battlefieldActionMarkup()}${moveReplayMarkup()}</div>
+  </section>`;
 }
 
 function render() {
-  const targeting = interaction && (state.phase.startsWith("day-") || state.phase === "night-plan" || state.phase === "purge" || state.phase === "council" || state.phase === "dusk-defense") ? " targeting-active" : "";
-  const councilSelecting = state.phase === "council" && interaction?.kind === "accuse" ? " council-selecting" : "";
+  const targeting = interaction && (state.phase.startsWith("day-") || state.phase === "night-plan") ? " targeting-active" : "";
   const dawnStage = dawnPresentation ? ` dawn-stage-${dawnPresentation.stage}` : "";
-  document.body.className = `duel-only scene-${visualScene()}${dawnStage}${targeting}${councilSelecting}${dealAnimationActive ? " dealing-cards" : ""}`;
-  const topbar = `<header class="topbar"><div class="brand"><span class="brand-mark">TF</span>TWOFOLD</div><span class="round">Local playtest · Vòng ${state.round}</span><span class="match-clock" data-match-clock>THỜI GIAN · ${formatMatchTime(currentMatchTime())}</span><span class="phase-chip">${roundTitle()}</span><div class="seat-toggle"><span class="human-seat">A · BẠN</span><span class="bot-seat ${botNeedsTurn() ? "thinking" : ""}"><i></i>B · BOT</span></div><button class="reset" type="button" data-reset>Reset</button></header>`;
+  document.body.className = `duel-only scene-${visualScene()}${dawnStage}${targeting}`;
+  const topbar = `<header class="topbar"><div class="brand"><span class="brand-mark">TF</span>TWOFOLD</div><span class="round">Local playtest · Vòng ${state.round}</span><span class="phase-chip">${roundTitle()}</span><div class="seat-toggle"><span class="human-seat">A · BẠN</span><span class="bot-seat ${botNeedsTurn() ? "thinking" : ""}"><i></i>B · BOT</span></div><button class="reset" type="button" data-reset>Reset</button></header>`;
   const arena = arenaMarkup();
-  const body = `<div class="play-grid">${arena}<aside class="side-rail" aria-label="Thông tin trận đấu">${historyMarkup()}</aside></div>`;
-  app.innerHTML = `<div class="shell">${topbar}${body}<div class="revenge-thread-layer" aria-hidden="true"></div><div class="combat-fx-layer" aria-hidden="true"></div></div>`;
+  const history = historyMarkup();
+  const body = `<div class="play-grid">${arena}<div class="side-rail">${history}${commandDockMarkup()}</div></div>`;
+  app.innerHTML = `<div class="shell">${topbar}${body}<div class="combat-fx-layer" aria-hidden="true"></div></div>`;
   syncConditionalFields();
-  requestAnimationFrame(() => {
-    renderRevengeThreads();
-    playCombatEffect();
-  });
-  scheduleMatchClock();
-  if (dealAnimationActive) {
-    clearTimeout(dealAnimationTimer);
-    dealAnimationTimer = setTimeout(() => {
-      dealAnimationActive = false;
-      dealAnimationTimer = null;
-      document.body.classList.remove("dealing-cards");
-    }, 1950);
-  }
+  requestAnimationFrame(playCombatEffect);
   if (!dawnActive) scheduleBot();
   scheduleNightResolution();
 }
@@ -1153,12 +1221,10 @@ function submitAction(form) {
   const data = new FormData(form);
   const kind = data.get("kind");
   let action;
-  if (state.phase === "purge") action = { type: "purge.submit", seat, target: data.get("purgeTarget"), swapTarget: data.get("purgeSwapTarget") };
+  if (state.phase === "purge") action = { type: "purge.submit", seat, target: data.get("purgeTarget") || null, swapTarget: data.get("purgeSwapTarget") || undefined };
   else if (state.phase === "council") action = kind === "pass"
     ? { type: "council.submit", seat, kind }
-    : kind === "protect"
-      ? { type: "council.submit", seat, kind, source: sourceFor("wolfguard"), target: data.get("protectTarget") }
-      : { type: "council.submit", seat, kind, target: data.get("target"), guess: data.get("guess"), voters: data.getAll("voter") };
+    : { type: "council.submit", seat, kind, target: data.get("target"), guess: data.get("guess"), voters: data.getAll("voter") };
   else if (state.phase.startsWith("day-")) action = kind === "pass"
     ? { type: "day.submit", seat, kind }
     : kind === "shoot"
@@ -1171,12 +1237,13 @@ function submitAction(form) {
     : { type: "defense.submit", seat, pass: false, source: sourceFor("guard"), target: data.get("defendTarget") };
   else if (state.phase === "night-plan") action = kind === "pass"
     ? { type: "night.submit", seat, kind }
-    : { type: "night.submit", seat, kind, source: sourceFor(kind === "attack" ? "wolf" : kind === "inspect" ? "seer" : "witch"), target: data.get("nightTarget") };
+    : { type: "night.submit", seat, kind, source: sourceFor(kind === "attack" ? "wolf" : kind === "inspect" ? "seer" : "witch"), target: data.get(kind === "inspect" ? "inspectTarget" : "nightTarget") };
   else action = { type: "final.submit", seat, guess: data.get("finalGuess") };
 
   try {
     const beforeState = structuredClone(state);
     const nextState = dispatch(state, action);
+    botError = null;
     if (action.type === "day.submit") {
       interaction = null;
       handVisible = true;
@@ -1184,7 +1251,7 @@ function submitAction(form) {
       return;
     }
     state = nextState;
-    if (action.type !== "night.submit" && action.type !== "council.submit") showMove(action, seat);
+    if (action.type !== "night.submit" && action.type !== "council.submit" && action.type !== "purge.submit") showMove(action, seat);
     feedback = "Lựa chọn hợp lệ và đã khóa.";
     handVisible = true;
   } catch (error) {
@@ -1197,6 +1264,7 @@ function commitDirectAction(action) {
   try {
     const beforeState = structuredClone(state);
     const nextState = dispatch(state, action);
+    botError = null;
     if (action.type === "day.submit") {
       interaction = null;
       handVisible = true;
@@ -1204,10 +1272,10 @@ function commitDirectAction(action) {
       return;
     }
     state = nextState;
-    if (action.type !== "night.submit" && action.type !== "council.submit") showMove(action, "A");
+    if (action.type !== "night.submit" && action.type !== "council.submit" && action.type !== "purge.submit") showMove(action, "A");
     interaction = null;
     feedback = action.type === "night.submit"
-      ? "Lệnh đêm của A đã khóa bí mật. Chờ B khóa lệnh; nguồn và mục tiêu chỉ công bố ở Bình minh."
+      ? "Lệnh đêm của A đã khóa bí mật. Chờ B chọn xong để trình diễn A → B."
       : "Hành động đã khóa. BOT B đang suy nghĩ.";
   } catch (error) {
     feedback = error.message;
@@ -1225,15 +1293,6 @@ function chooseDirectTarget(target) {
     interaction.target = target;
     return render();
   }
-  if (interaction.kind === "purge") {
-    interaction.target = target;
-    const rule = ["cut", "swap", "reveal", "lock"][(state.round - 6) % 4];
-    if (rule !== "swap") return commitDirectAction({ type: "purge.submit", seat: "A", target });
-    interaction.kind = "purge-swap";
-    return render();
-  }
-  if (interaction.kind === "purge-swap") return commitDirectAction({ type: "purge.submit", seat: "A", target: interaction.target, swapTarget: target });
-  if (interaction.kind === "protect") return commitDirectAction({ type: "council.submit", seat: "A", kind: "protect", source: interaction.source, target });
   if (interaction.kind === "defend") return commitDirectAction({ type: "defense.submit", seat: "A", pass: false, source: interaction.source || sourceFor("guard"), target });
   if (state.phase.startsWith("day-")) return commitDirectAction({ type: "day.submit", seat: "A", kind: interaction.kind, source: interaction.source, target });
   return commitDirectAction({ type: "night.submit", seat: "A", kind: interaction.kind, source: interaction.source, target });
@@ -1242,12 +1301,15 @@ function chooseDirectTarget(target) {
 function directPass() {
   interaction = null;
   if (state.phase === "council") return commitDirectAction({ type: "council.submit", seat: "A", kind: "pass" });
+  if (state.phase === "council-reaction") return commitDirectAction({ type: "council.react", seat: "A", use: false });
   if (state.phase.startsWith("day-")) return commitDirectAction({ type: "day.submit", seat: "A", kind: "pass" });
   if (state.phase === "dusk-defense") return commitDirectAction({ type: "defense.submit", seat: "A", pass: true });
   if (state.phase === "night-plan") return commitDirectAction({ type: "night.submit", seat: "A", kind: "pass" });
 }
 
 document.addEventListener("click", (event) => {
+  const councilReaction = event.target.closest("[data-council-reaction]")?.dataset.councilReaction;
+  if (councilReaction) return commitDirectAction({ type: "council.react", seat: "A", use: councilReaction === "yes" });
   const directTarget = event.target.closest("[data-direct-target]");
   if (directTarget) return chooseDirectTarget(directTarget.dataset.directTarget);
   const directSource = event.target.closest("[data-direct-source]");
@@ -1258,7 +1320,7 @@ document.addEventListener("click", (event) => {
       interaction.voters ||= [];
       interaction.voters = interaction.voters.includes(source)
         ? interaction.voters.filter((id) => id !== source)
-        : interaction.voters.length < 3 ? [...interaction.voters, source] : interaction.voters;
+        : votePower(interaction.voters) < 3 && interaction.voters.length < 3 ? [...interaction.voters, source] : interaction.voters;
     } else interaction = { source, kind };
     return render();
   }
@@ -1270,27 +1332,10 @@ document.addEventListener("click", (event) => {
     interaction = { kind: "bloodmoon", source: null };
     return render();
   }
-  if (event.target.closest("[data-begin-round]")) {
-    if (matchStartedAt === null) matchStartedAt = Date.now();
-    matchEndedAt = null;
-    state = beginRound(state);
-    feedback = "Bình minh đã mở. Chọn hành động Ban ngày.";
-    return render();
-  }
-  if (event.target.closest("[data-purge-start]")) {
-    const rule = ["cut", "swap", "reveal", "lock"][(state.round - 6) % 4];
-    interaction = { kind: "purge", rule, target: null, swapTarget: null };
-    return render();
-  }
-  if (event.target.closest("[data-purge-empty]")) return commitDirectAction({ type: "purge.submit", seat: "A" });
   if (event.target.closest("[data-direct-pass]")) return directPass();
   const councilMode = event.target.closest("[data-council-mode]")?.dataset.councilMode;
   if (councilMode === "accuse") {
     interaction = { kind: "accuse", voters: [], target: null };
-    return render();
-  }
-  if (councilMode === "protect") {
-    interaction = { kind: "protect", source: sourceFor("wolfguard") };
     return render();
   }
   const directGuess = event.target.closest("[data-direct-guess]")?.dataset.directGuess;
@@ -1301,8 +1346,11 @@ document.addEventListener("click", (event) => {
     handVisible = true;
     return render();
   }
-  if (event.target.closest("[data-reset]")) {
-    state = createGame(`codex-web-${Date.now()}`);
+  const rematchButton = event.target.closest("[data-rematch]");
+  if (rematchButton || event.target.closest("[data-reset]")) {
+    state = rematchButton
+      ? dispatch(state, { type: "match.rematch", seed: `codex-web-${Date.now()}` })
+      : createPageGame(`codex-web-${Date.now()}`);
     setupOrder = { A: state.players.A.board.map((card) => card.id), B: state.players.B.board.map((card) => card.id) };
     seat = "A";
     handVisible = true;
@@ -1326,15 +1374,9 @@ document.addEventListener("click", (event) => {
     delete document.body.dataset.lastEffect;
     moveSequence = 0;
     deathReasons.clear();
-    matchStartedAt = null;
-    matchEndedAt = null;
-    clearInterval(clockTimer);
-    clockTimer = null;
     clearTimeout(botTimer);
     botTimer = null;
-    clearTimeout(dealAnimationTimer);
-    dealAnimationTimer = null;
-    dealAnimationActive = !prefersReducedMotion;
+    botError = null;
     feedback = "Ván mới đã sẵn sàng.";
     return render();
   }

@@ -18,6 +18,12 @@ Ba trụ cột thiết kế:
 - **Đánh lừa:** khiến đối thủ diễn giải sai ý đồ hoặc vai trò.
 - **Cam kết:** mỗi lựa chọn có hậu quả; không hoàn tác sau khi xác nhận.
 
+> **Lưu ý:** `apps/spec-reviewer` là nguồn thử nghiệm rule
+> mới hơn; `packages/game-core` và `apps/web` là snapshot runtime có thể chậm hơn.
+> Không tự động ép parity hoặc import source giữa hai phía. Mọi lần đồng bộ phải
+> đi qua một task migration có kế hoạch theo
+> [Spec → Runtime Migration Policy](docs/development/spec-runtime-migration-policy.md).
+
 ---
 
 ## Cấu trúc Monorepo
@@ -164,6 +170,7 @@ Cả ba cùng review luật và playtest theo vòng lặp: **Thiết kế → Pr
 3. Task chỉ được coi là xong khi thỏa “Điều kiện hoàn thành”.
 4. Từ feature freeze, ưu tiên sửa lỗi, đơn giản hóa, cân bằng và UX; không thêm mechanic mới nếu chưa có quyết định scope.
 5. Commit nhỏ, mô tả rõ; ví dụ: `docs: chốt luật treo cổ v0.1`.
+6. Thay đổi trong `spec-reviewer` không mặc định phải được port ngay sang web/core; chỉ đồng bộ qua task migration đáp ứng policy Spec → Runtime.
 
 ## Chỉ số Alpha cần theo dõi
 
@@ -179,3 +186,23 @@ Cả ba cùng review luật và playtest theo vòng lặp: **Thiết kế → Pr
 - UI/UX Game: chuyển `game-flow-v0.1.md` thành screen/state inventory và prototype.
 - Developer: dùng flow làm đầu vào cho state machine, room/realtime POC và reconnect.
 - Cả team: theo `docs/project-management/roadmap.md` và cập nhật `task-tracker.md` trong mỗi buổi sync.
+
+## Role Atlas
+
+Project có một công cụ local để khám phá và shortlist toàn bộ 92 role tham khảo từ Wiki WWO Vietnamese.
+
+```bash
+npm run dev
+```
+
+Mở [http://localhost:4173](http://localhost:4173). Công cụ hỗ trợ:
+
+- lọc theo giai đoạn sử dụng, phe, mechanic và mức độ phù hợp với game 1v1;
+- tìm role bằng tên hoặc mã ổn định như `DL-006`;
+- xem mốc lộ vai, kỹ năng ban ngày, kỹ năng ban đêm, mô tả và link nguồn;
+- chọn không giới hạn, xem nhanh trên khay sticky và mở trang `shortlist.html` để loại dần, sao chép cả mã cho buổi họp;
+- bộ đề xuất 6 role cốt lõi, giữ Tiên Tri thay Thầy Bói và Bảo Vệ thay Bác Sĩ;
+- section Gợi ý role nên test trước luôn phản chiếu shortlist hiện tại và có thể reset về preset 10 role đầu tiên;
+- 19 role Solo giết người hoặc Đặc biệt được tách sang nhóm từ Vòng 6, còn 3 role Solo bỏ phiếu nằm trong nhóm Chưa dùng.
+
+Sau khi làm mới dữ liệu nguồn, chạy `npm run annotate:roles` để gắn lại mã và metadata gameplay. Kiểm tra dữ liệu bằng `npm run check`.

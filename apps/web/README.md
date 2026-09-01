@@ -2,6 +2,11 @@
 
 Ứng dụng web client chính thức của trò chơi Twofold phục vụ giai đoạn Web Alpha 2026.
 
+> Web chạy snapshot rule từ `game-core` và có thể chậm hơn thử nghiệm tại
+> `apps/spec-reviewer`. Không tự động đồng bộ logic; mọi thay đổi rule từ spec
+> phải đi qua task theo
+> [Spec → Runtime Migration Policy](../../docs/development/spec-runtime-migration-policy.md).
+
 ## Infrastructure
 
 - TanStack Start + TanStack Router file-based routing.

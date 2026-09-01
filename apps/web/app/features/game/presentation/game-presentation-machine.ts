@@ -238,6 +238,7 @@ export function getPresentationKind(
       return 'DAY';
     case 'COUNCIL_PLAN':
     case 'COUNCIL_RESOLUTION':
+    case 'COUNCIL_REACTION':
       return 'COUNCIL';
     case 'DUSK_DEFENSE':
       return 'DEFENSE';

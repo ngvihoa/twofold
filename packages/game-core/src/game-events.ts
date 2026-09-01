@@ -23,7 +23,8 @@ export type CardEliminationCause =
     }
   | { readonly type: 'COUNCIL'; readonly playerId: PlayerId }
   | { readonly type: 'PURGE'; readonly rule: PurgeOrder['rule'] }
-  | { readonly type: 'REVENGE'; readonly sourceCardId: CardId };
+  | { readonly type: 'REVENGE'; readonly sourceCardId: CardId }
+  | { readonly type: 'HIDDEN_NIGHT' };
 
 /**
  * Payload domain của các event phục vụ presentation và private feedback.
@@ -69,13 +70,13 @@ export type GameEventPayload =
       readonly type: 'COUNCIL_ACCUSATION_RESOLVED';
       readonly playerId: PlayerId;
       readonly targetCardId: CardId;
-      readonly voterIds: readonly [CardId, CardId, CardId];
+      readonly voterIds: readonly CardId[];
       readonly succeeded: boolean;
     }
   | { readonly type: 'COUNCIL_PASSED'; readonly playerId: PlayerId }
   | { readonly type: 'DEFENSE_SKIPPED'; readonly playerId: PlayerId }
   | {
-      readonly type: 'WOLF_GUARD_RESCUED';
+      readonly type: 'SUBSTITUTE_SACRIFICED';
       readonly sourceCardId: CardId;
       readonly targetCardId: CardId;
     }

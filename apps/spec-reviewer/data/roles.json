@@ -1679,8 +1679,8 @@
     "fitLabel": "Test sớm",
     "sourceImage": "https://static.wikia.nocookie.net/wwo-vietnamese/images/2/2e/Guardian_Wolf.webp/revision/latest?cb=20230924162920&path-prefix=vi",
     "code": "MS-019",
-    "stage": "main",
-    "stageLabel": "Bộ chính",
+    "stage": "hold",
+    "stageLabel": "Chưa dùng",
     "daySkill": "Bạn có thể ngăn dân làng treo cổ một người chơi một lần duy nhất.",
     "nightSkill": "Không có.",
     "revealAfter": 3

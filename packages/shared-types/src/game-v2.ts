@@ -37,13 +37,13 @@ export const CardEffectSourceSchema = z.discriminatedUnion('type', [
     instanceId: CardInstanceIdSchema,
     playerId: z.nativeEnum(PlayerId),
   }),
-  z.object({ type: z.literal('RULE'), rule: z.enum(['FAILED_COUNCIL', 'PURGE_LOCK']) }),
+  z.object({ type: z.literal('RULE'), rule: z.enum(['FAILED_COUNCIL', 'PURGE_LOCK', 'DAY_ABILITY_USED']) }),
 ]);
 
 /** Effect authoritative; nhiều effect có thể đồng thời tồn tại trên một card. */
 export const CardEffectStateSchema = z.object({
   id: z.string().min(1),
-  kind: z.enum(['PROTECTION', 'REVENGE_MARK', 'COUNCIL_LOCK', 'PURGE_LOCK']),
+  kind: z.enum(['PROTECTION', 'REVENGE_MARK', 'COUNCIL_LOCK', 'PURGE_LOCK', 'ROUND_EXHAUSTED']),
   source: CardEffectSourceSchema,
   appliedRound: z.number().int().positive(),
   expires: CardEffectExpirySchema,
@@ -64,6 +64,7 @@ const FiniteAbilityStateSchema = z.object({
     z.literal(AbilityId.WITCH_POISON),
     z.literal(AbilityId.SHOOTER_SHOOT),
     z.literal(AbilityId.PRIEST_PURIFY),
+    z.literal(AbilityId.SUBSTITUTE_SACRIFICE),
     z.literal(AbilityId.WOLF_GUARD_RESCUE),
   ]),
   remainingUses: z.number().int().nonnegative(),
@@ -114,6 +115,7 @@ export const PlayerSubmissionStateSchema = z.object({
   council: z.object({
     accusation: CouncilOrderSchema.nullable(),
     reaction: CouncilReactionOrderSchema.nullable(),
+    pendingTargetId: CardIdSchema.nullable(),
   }),
   night: NightOrderSchema.nullable(),
   defense: DefenseOrderSchema.nullable(),
@@ -251,6 +253,7 @@ export const CardEliminationCauseSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('COUNCIL'), playerId: z.nativeEnum(PlayerId) }),
   z.object({ type: z.literal('PURGE'), rule: z.enum(['CUT', 'SWAP', 'REVEAL', 'LOCK']) }),
   z.object({ type: z.literal('REVENGE'), sourceCardId: CardIdSchema }),
+  z.object({ type: z.literal('HIDDEN_NIGHT') }),
 ]);
 export type CardEliminationCauseV2 = z.infer<
   typeof CardEliminationCauseSchema
@@ -273,12 +276,12 @@ export const GameEventPayloadSchema = z.discriminatedUnion('type', [
     type: z.literal('COUNCIL_ACCUSATION_RESOLVED'),
     playerId: z.nativeEnum(PlayerId),
     targetCardId: CardIdSchema,
-    voterIds: z.tuple([CardIdSchema, CardIdSchema, CardIdSchema]),
+    voterIds: z.array(CardIdSchema).min(1).max(3),
     succeeded: z.boolean(),
   }),
   z.object({ type: z.literal('COUNCIL_PASSED'), playerId: z.nativeEnum(PlayerId) }),
   z.object({ type: z.literal('DEFENSE_SKIPPED'), playerId: z.nativeEnum(PlayerId) }),
-  z.object({ type: z.literal('WOLF_GUARD_RESCUED'), sourceCardId: CardIdSchema, targetCardId: CardIdSchema }),
+  z.object({ type: z.literal('SUBSTITUTE_SACRIFICED'), sourceCardId: CardIdSchema, targetCardId: CardIdSchema }),
   z.object({
     type: z.literal('PURGE_RESOLVED'),
     playerId: z.nativeEnum(PlayerId),
@@ -309,6 +312,7 @@ export const GameEventEnvelopeSchema = z.object({
     'DAY_B',
     'COUNCIL_PLAN',
     'COUNCIL_RESOLUTION',
+    'COUNCIL_REACTION',
     'NIGHT_PLAN',
     'DUSK_DEFENSE',
     'NIGHT_RESOLUTION',

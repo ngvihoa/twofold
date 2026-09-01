@@ -22,7 +22,11 @@ describe('ruleset v0.2 roles and deck', () => {
     expect(STANDARD_DECK).toHaveLength(10);
     expect(STANDARD_DECK.filter((role) => role === CardRole.VILLAGER)).toHaveLength(1);
     expect(STANDARD_DECK.filter((role) => role === CardRole.WEREWOLF)).toHaveLength(2);
-    expect(new Set(STANDARD_DECK)).toEqual(new Set(Object.values(CardRole)));
+    expect(new Set(STANDARD_DECK)).toEqual(
+      new Set(Object.values(CardRole).filter((role) => role !== CardRole.WOLF_GUARD))
+    );
+    expect(STANDARD_DECK).toContain(CardRole.SUBSTITUTE);
+    expect(STANDARD_DECK).not.toContain(CardRole.WOLF_GUARD);
   });
 
   it('initializes both boards from the standard deck without sharing the deck array', () => {

@@ -11,6 +11,7 @@ export enum CardRole {
   SHOOTER = 'SHOOTER',           // Xạ thủ
   AVENGER = 'AVENGER',           // Kẻ báo thù
   PRIEST = 'PRIEST',             // Mục sư
+  SUBSTITUTE = 'SUBSTITUTE',     // Kẻ Thế Mạng
   WOLF_GUARD = 'WOLF_GUARD',     // Sói Hộ Vệ
 }
 
@@ -29,6 +30,7 @@ export enum AbilityId {
   SHOOTER_SHOOT = 'SHOOTER_SHOOT',
   AVENGER_MARK = 'AVENGER_MARK',
   PRIEST_PURIFY = 'PRIEST_PURIFY',
+  SUBSTITUTE_SACRIFICE = 'SUBSTITUTE_SACRIFICE',
   WOLF_GUARD_RESCUE = 'WOLF_GUARD_RESCUE',
 }
 

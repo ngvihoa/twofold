@@ -35,6 +35,7 @@ export type { CouncilReactionOrder } from '@twofold/shared-types';
 export interface CouncilSubmissionState {
   readonly accusation: CouncilOrder | null;
   readonly reaction: CouncilReactionOrder | null;
+  readonly pendingTargetId: GameCard['id'] | null;
 }
 
 /**
@@ -132,7 +133,7 @@ export function createInitialPlayerState(
     board: [...board],
     setup: { status: 'ARRANGING' },
     submissions: {
-      council: { accusation: null, reaction: null },
+      council: { accusation: null, reaction: null, pendingTargetId: null },
       night: null,
       defense: null,
       purge: null,

@@ -56,7 +56,6 @@ type InteractionState =
   | { readonly kind: 'COUNCIL_TARGET'; readonly voterIds: readonly CardId[] }
   | { readonly kind: 'COUNCIL_GUESS'; readonly voterIds: readonly CardId[]; readonly targetId: CardId }
   | { readonly kind: 'REACTION_SOURCE' }
-  | { readonly kind: 'REACTION_TARGET'; readonly sourceId: CardId }
   | { readonly kind: 'PURGE_OWN' }
   | { readonly kind: 'PURGE_OPPONENT'; readonly ownTargetId: CardId };
 
@@ -136,10 +135,7 @@ export function PrototypeGameInteractionProvider({
         return;
       }
       case 'REACTION_SOURCE':
-        setInteraction({ kind: 'REACTION_TARGET', sourceId: cardId });
-        return;
-      case 'REACTION_TARGET':
-        submit(createCouncilReactionAction(view.self.id, interaction.sourceId, cardId));
+        submit(createCouncilReactionAction(view.self.id, cardId));
         return;
       case 'PURGE_OWN': {
         const rule = getPurgeRuleForRound(view.round);
@@ -238,10 +234,11 @@ function PhaseControls({ context }: { readonly context: GameInteractionContextVa
       );
     }
     if (interaction.kind === 'COUNCIL_VOTERS') {
+      const votePower = getCouncilVotePower(view, interaction.voterIds);
       return (
         <div className="flex flex-wrap items-center justify-center gap-2">
-          <Prompt text={`Chọn đúng 3 voter trên hàng của bạn · ${interaction.voterIds.length}/3`} />
-          <ActionButton label="Chọn mục tiêu" disabled={disabled || interaction.voterIds.length !== 3} onClick={() => setInteraction({ kind: 'COUNCIL_TARGET', voterIds: interaction.voterIds })} />
+          <Prompt text={`Chọn tối đa 3 voter · tổng trọng số ${votePower}/3`} />
+          <ActionButton label="Chọn mục tiêu" disabled={disabled || votePower < 3} onClick={() => setInteraction({ kind: 'COUNCIL_TARGET', voterIds: interaction.voterIds })} />
           <CancelButton onClick={cancel} />
         </div>
       );
@@ -303,13 +300,20 @@ function PhaseControls({ context }: { readonly context: GameInteractionContextVa
       );
     case 'COUNCIL_PLAN':
       if (!view.self.submissions.council.accusation) {
-        return <div className="flex flex-wrap items-center justify-center gap-2"><Prompt text="Lập Hội đồng bằng ba lá phe mình" /><ActionButton label="Chọn 3 người" disabled={disabled} onClick={() => setInteraction({ kind: 'COUNCIL_VOTERS', voterIds: [] })} /><ActionButton label="Bỏ qua Hội đồng" tone="quiet" disabled={disabled} onClick={() => submit(createCouncilPassAction(view.self.id))} /></div>;
-      }
-      if (!view.self.submissions.council.reaction) {
-        const canRescue = getAbilitySources(view, AbilityId.WOLF_GUARD_RESCUE).length > 0;
-        return <div className="flex flex-wrap items-center justify-center gap-2"><Prompt text="Phản ứng Sói Hộ Vệ độc lập với cáo buộc" /><ActionButton label="Bảo kê" disabled={disabled || !canRescue} onClick={() => setInteraction({ kind: 'REACTION_SOURCE' })} /><ActionButton label="Không bảo kê" tone="quiet" disabled={disabled} onClick={() => submit(createCouncilReactionPassAction(view.self.id))} /></div>;
+        return <div className="flex flex-wrap items-center justify-center gap-2"><Prompt text="Lập Hội đồng với tổng trọng số ít nhất 3" /><ActionButton label="Chọn voter" disabled={disabled} onClick={() => setInteraction({ kind: 'COUNCIL_VOTERS', voterIds: [] })} /><ActionButton label="Bỏ qua Hội đồng" tone="quiet" disabled={disabled} onClick={() => submit(createCouncilPassAction(view.self.id))} /></div>;
       }
       return <Prompt text="Hội đồng đã khóa · đang chờ đối thủ" />;
+    case 'COUNCIL_REACTION': {
+      if (view.self.submissions.council.pendingTargetId === null) {
+        return <Prompt text="Đang chờ đối thủ quyết định phản ứng" />;
+      }
+      if (view.self.submissions.council.reaction) {
+        return <Prompt text="Phản ứng đã khóa · đang chờ phân giải" />;
+      }
+      const canSacrifice = getAbilitySources(view, AbilityId.SUBSTITUTE_SACRIFICE)
+        .some((card) => card.id !== view.self.submissions.council.pendingTargetId);
+      return <div className="flex flex-wrap items-center justify-center gap-2"><Prompt text="Kẻ Thế Mạng có chết thay cho lá vừa bị kết tội?" /><ActionButton label="Chết thay" disabled={disabled || !canSacrifice} onClick={() => setInteraction({ kind: 'REACTION_SOURCE' })} /><ActionButton label="Từ chối" tone="quiet" disabled={disabled} onClick={() => submit(createCouncilReactionPassAction(view.self.id))} /></div>;
+    }
     case 'PURGE_PLAN': {
       if (view.self.submissions.purge) return <Prompt text="Thanh trừng đã khóa · đang chờ đối thủ" />;
       const rule = getPurgeRuleForRound(view.round);
@@ -356,10 +360,9 @@ function getSelectableCardIds(view: GamePlayerViewV2, interaction: InteractionSt
         && card.instanceId !== lastTarget
       ));
     }
-    case 'COUNCIL_VOTERS': return cardIdSet(view.self.board.filter((card) => isLivingCard(card) && !card.effects.some((effect) => effect.kind === 'COUNCIL_LOCK' || effect.kind === 'PURGE_LOCK')));
+    case 'COUNCIL_VOTERS': return cardIdSet(view.self.board.filter((card) => isLivingCard(card) && !card.effects.some((effect) => effect.kind === 'COUNCIL_LOCK' || effect.kind === 'PURGE_LOCK' || effect.kind === 'ROUND_EXHAUSTED')));
     case 'COUNCIL_TARGET': return cardIdSet(view.opponent.board.filter(isLivingCard));
-    case 'REACTION_SOURCE': return cardIdSet(getAbilitySources(view, AbilityId.WOLF_GUARD_RESCUE));
-    case 'REACTION_TARGET': return cardIdSet(view.self.board.filter(isLivingCard));
+    case 'REACTION_SOURCE': return cardIdSet(getAbilitySources(view, AbilityId.SUBSTITUTE_SACRIFICE).filter((card) => card.id !== view.self.submissions.council.pendingTargetId));
     case 'PURGE_OWN': return cardIdSet(getPurgeOwnTargets(view, getPurgeRuleForRound(view.round)));
     case 'PURGE_OPPONENT': return cardIdSet(view.opponent.board.filter(isLivingCard));
     case 'IDLE':
@@ -371,14 +374,27 @@ function getSelectedCardIds(interaction: InteractionState): ReadonlySet<CardId> 
   switch (interaction.kind) {
     case 'DAY_TARGET':
     case 'NIGHT_TARGET':
-    case 'DEFENSE_TARGET':
-    case 'REACTION_TARGET': return new Set([interaction.sourceId]);
+    case 'DEFENSE_TARGET': return new Set([interaction.sourceId]);
     case 'COUNCIL_VOTERS':
     case 'COUNCIL_TARGET': return new Set(interaction.voterIds);
     case 'COUNCIL_GUESS': return new Set([...interaction.voterIds, interaction.targetId]);
     case 'PURGE_OPPONENT': return new Set([interaction.ownTargetId]);
     default: return new Set();
   }
+}
+
+function getCouncilVotePower(
+  view: GamePlayerViewV2,
+  voterIds: readonly CardId[]
+): number {
+  const voterIdSet = new Set(voterIds);
+  return view.self.board.reduce(
+    (total, card) =>
+      voterIdSet.has(card.id)
+        ? total + (card.role.id === CardRole.VILLAGER ? 2 : 1)
+        : total,
+    0
+  );
 }
 
 function getPurgeOwnTargets(view: GamePlayerViewV2, rule: ReturnType<typeof getPurgeRuleForRound>) {
@@ -404,9 +420,8 @@ function interactionPrompt(interaction: InteractionState): string {
     case 'BLOOD_MOON_TARGET': return 'Chọn một role đối thủ đã lộ';
     case 'DEFENSE_SOURCE': return 'Bước 1 · Chọn Bảo vệ đang phát sáng';
     case 'DEFENSE_TARGET': return `Bước 2 · Chọn lá nhận khiên từ ${interaction.sourceId}`;
-    case 'COUNCIL_TARGET': return 'Đủ 3 voter · chọn một lá đối thủ';
-    case 'REACTION_SOURCE': return 'Chọn Sói Hộ Vệ đang phát sáng';
-    case 'REACTION_TARGET': return `Chọn lá được ${interaction.sourceId} bảo kê`;
+    case 'COUNCIL_TARGET': return 'Đủ trọng số · chọn một lá đối thủ';
+    case 'REACTION_SOURCE': return 'Chọn Kẻ Thế Mạng sẽ chết thay';
     case 'PURGE_OWN': return 'Chọn một lá phe mình đang phát sáng';
     case 'PURGE_OPPONENT': return `${interaction.ownTargetId} đã chọn · chọn lá đối thủ để SWAP`;
     default: return '';

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { AbilityId, CardRole, PlayerId } from '@twofold/shared-types';
 import {
   CardEffectKind,
+  CardEffectRule,
   createInitialCard,
   isCardAlive,
   transitionCard,
@@ -26,14 +27,14 @@ function createPipelineGame(): GameState {
       createInitialCard(PlayerId.PLAYER_A, 5, CardRole.SHOOTER),
       createInitialCard(PlayerId.PLAYER_A, 6, CardRole.PRIEST),
       createInitialCard(PlayerId.PLAYER_A, 7, CardRole.AVENGER),
-      createInitialCard(PlayerId.PLAYER_A, 8, CardRole.WOLF_GUARD),
+      createInitialCard(PlayerId.PLAYER_A, 8, CardRole.SUBSTITUTE),
     ]),
     [PlayerId.PLAYER_B]: createInitialPlayerState(PlayerId.PLAYER_B, [
       createInitialCard(PlayerId.PLAYER_B, 1, CardRole.VILLAGER),
       createInitialCard(PlayerId.PLAYER_B, 2, CardRole.GUARD),
       createInitialCard(PlayerId.PLAYER_B, 3, CardRole.SEER),
       createInitialCard(PlayerId.PLAYER_B, 4, CardRole.WEREWOLF),
-      createInitialCard(PlayerId.PLAYER_B, 5, CardRole.WOLF_GUARD),
+      createInitialCard(PlayerId.PLAYER_B, 5, CardRole.SUBSTITUTE),
     ]),
   });
 }
@@ -154,6 +155,21 @@ function enterFinalDuel(): GameState {
   };
 }
 
+function passPendingCouncilReactions(state: GameState): GameState {
+  let next = state;
+  for (const playerId of [PlayerId.PLAYER_A, PlayerId.PLAYER_B]) {
+    const council = next.players[playerId].submissions.council;
+    if (next.phase.type !== 'COUNCIL_REACTION') break;
+    if (council.pendingTargetId === null || council.reaction !== null) continue;
+    next = dispatchPlayerAction(next, {
+      type: 'COUNCIL_REACTION_SUBMIT',
+      playerId,
+      order: { type: 'PASS' },
+    });
+  }
+  return next;
+}
+
 describe('ruleset v0.2 validation/resolution pipeline', () => {
   it('runs pass actions through Setup, Day, Night, Defense and Council', () => {
     let state = enterNight();
@@ -205,17 +221,6 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
       playerId: PlayerId.PLAYER_B,
       order: { type: 'PASS' },
     });
-    state = dispatchPlayerAction(state, {
-      type: 'COUNCIL_REACTION_SUBMIT',
-      playerId: PlayerId.PLAYER_A,
-      order: { type: 'PASS' },
-    });
-    expect(state.phase).toEqual({ type: 'COUNCIL_PLAN' });
-    state = dispatchPlayerAction(state, {
-      type: 'COUNCIL_REACTION_SUBMIT',
-      playerId: PlayerId.PLAYER_B,
-      order: { type: 'PASS' },
-    });
     expect(state.phase).toEqual({ type: 'NIGHT_PLAN' });
   });
 
@@ -253,14 +258,10 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
         type: 'ACCUSE',
         targetId: 'B4',
         guessedRole: CardRole.WEREWOLF,
-        voterIds: ['A2', 'A3', 'A4'],
+        voterIds: ['A2', 'A3'],
       },
     });
-    state = dispatchPlayerAction(state, {
-      type: 'COUNCIL_REACTION_SUBMIT',
-      playerId: PlayerId.PLAYER_A,
-      order: { type: 'PASS' },
-    });
+    expect(state.phase).toEqual({ type: 'COUNCIL_PLAN' });
     state = dispatchPlayerAction(state, {
       type: 'COUNCIL_ACCUSATION_SUBMIT',
       playerId: PlayerId.PLAYER_B,
@@ -268,19 +269,15 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
         type: 'ACCUSE',
         targetId: 'A1',
         guessedRole: CardRole.WEREWOLF,
-        voterIds: ['B1', 'B2', 'B3'],
+        voterIds: ['B1', 'B2'],
       },
     });
 
-    expect(state.phase).toEqual({ type: 'COUNCIL_PLAN' });
+    expect(state.phase).toEqual({ type: 'COUNCIL_REACTION' });
     expect(isCardAlive(state.players[PlayerId.PLAYER_A].board[0])).toBe(true);
     expect(isCardAlive(state.players[PlayerId.PLAYER_B].board[3])).toBe(true);
 
-    state = dispatchPlayerAction(state, {
-      type: 'COUNCIL_REACTION_SUBMIT',
-      playerId: PlayerId.PLAYER_B,
-      order: { type: 'PASS' },
-    });
+    state = passPendingCouncilReactions(state);
 
     expect(state.phase).toEqual({ type: 'NIGHT_PLAN' });
     expect(state.players[PlayerId.PLAYER_A].board[0].occupant.state).toEqual({
@@ -295,7 +292,7 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
     expect(state.players[PlayerId.PLAYER_B].board[0].occupant.state.visibility).toBe('REVEALED');
   });
 
-  it('consumes and reveals Wolf Guard only when its reaction rescues the target', () => {
+  it('consumes, reveals and eliminates Substitute when it accepts the reaction', () => {
     let state = enterCouncil();
     state = dispatchPlayerAction(state, {
       type: 'COUNCIL_ACCUSATION_SUBMIT',
@@ -314,16 +311,10 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
     });
     state = dispatchPlayerAction(state, {
       type: 'COUNCIL_REACTION_SUBMIT',
-      playerId: PlayerId.PLAYER_A,
-      order: { type: 'PASS' },
-    });
-    state = dispatchPlayerAction(state, {
-      type: 'COUNCIL_REACTION_SUBMIT',
       playerId: PlayerId.PLAYER_B,
       order: {
-        type: 'WOLF_GUARD_RESCUE',
+        type: 'SUBSTITUTE_SACRIFICE',
         sourceId: 'B5',
-        targetId: 'B4',
       },
     });
 
@@ -332,10 +323,11 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
     expect(
       getRoleAbility(
         state.players[PlayerId.PLAYER_B].board[4].occupant.role,
-        AbilityId.WOLF_GUARD_RESCUE
+        AbilityId.SUBSTITUTE_SACRIFICE
       )?.remainingUses
     ).toBe(0);
-    expect(state.events.map((event) => event.type)).toContain('WOLF_GUARD_RESCUED');
+    expect(isCardAlive(state.players[PlayerId.PLAYER_B].board[4])).toBe(false);
+    expect(state.events.map((event) => event.type)).toContain('SUBSTITUTE_SACRIFICED');
   });
 
   it('emits public council accusation outcome with voter context', () => {
@@ -351,20 +343,11 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
       },
     });
     state = dispatchPlayerAction(state, {
-      type: 'COUNCIL_REACTION_SUBMIT',
-      playerId: PlayerId.PLAYER_A,
-      order: { type: 'PASS' },
-    });
-    state = dispatchPlayerAction(state, {
       type: 'COUNCIL_ACCUSATION_SUBMIT',
       playerId: PlayerId.PLAYER_B,
       order: { type: 'PASS' },
     });
-    state = dispatchPlayerAction(state, {
-      type: 'COUNCIL_REACTION_SUBMIT',
-      playerId: PlayerId.PLAYER_B,
-      order: { type: 'PASS' },
-    });
+    state = passPendingCouncilReactions(state);
 
     const resolved = state.events.find(
       (event) => event.type === 'COUNCIL_ACCUSATION_RESOLVED'
@@ -401,17 +384,7 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
       },
     });
     state = dispatchPlayerAction(state, {
-      type: 'COUNCIL_REACTION_SUBMIT',
-      playerId: PlayerId.PLAYER_A,
-      order: { type: 'PASS' },
-    });
-    state = dispatchPlayerAction(state, {
       type: 'COUNCIL_ACCUSATION_SUBMIT',
-      playerId: PlayerId.PLAYER_B,
-      order: { type: 'PASS' },
-    });
-    state = dispatchPlayerAction(state, {
-      type: 'COUNCIL_REACTION_SUBMIT',
       playerId: PlayerId.PLAYER_B,
       order: { type: 'PASS' },
     });
@@ -432,17 +405,20 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
     ).toEqual([PlayerId.PLAYER_B]);
   });
 
-  it('announces skipped defenses publicly', () => {
+  it('keeps skipped defense choices private to their owners', () => {
     const state = enterRoundTwoDay();
     const skipped = state.events.filter((event) => event.type === 'DEFENSE_SKIPPED');
     expect(skipped.map((event) => event.playerId)).toEqual([
       PlayerId.PLAYER_A,
       PlayerId.PLAYER_B,
     ]);
-    expect(skipped.every((event) => event.visibility.type === 'PUBLIC')).toBe(true);
+    expect(skipped.map((event) => event.visibility)).toEqual([
+      { type: 'PRIVATE', playerId: PlayerId.PLAYER_A },
+      { type: 'PRIVATE', playerId: PlayerId.PLAYER_B },
+    ]);
   });
 
-  it('announces seer inspection publicly while keeping the target private', () => {
+  it('keeps a normal Seer inspection source and target private', () => {
     let state = enterNight();
     state = dispatchPlayerAction(state, {
       type: 'NIGHT_SUBMIT',
@@ -475,12 +451,7 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
         event.type === 'ABILITY_RESOLVED' &&
         event.abilityId === AbilityId.SEER_INSPECT
     );
-    expect(
-      seerEvents.find((event) => event.visibility.type === 'PUBLIC')
-    ).toMatchObject({
-      sourceCardId: 'B3',
-      targetCardId: null,
-    });
+    expect(seerEvents.some((event) => event.visibility.type === 'PUBLIC')).toBe(false);
     expect(
       seerEvents.find((event) => event.visibility.type === 'PRIVATE')
     ).toMatchObject({
@@ -494,11 +465,69 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
         event.type === 'ABILITY_RESOLVED' &&
         event.abilityId === AbilityId.SEER_INSPECT
     );
-    expect(opponentSeerEvents).toHaveLength(1);
-    expect(opponentSeerEvents[0].targetCardId).toBeNull();
+    expect(opponentSeerEvents).toHaveLength(0);
   });
 
-  it('keeps Wolf Guard hidden and unspent when its reaction does not match', () => {
+  it('reveals Seer when executing a previously identified Werewolf', () => {
+    const initial = enterNight();
+    let state: GameState = {
+      ...initial,
+      players: {
+        ...initial.players,
+        [PlayerId.PLAYER_B]: {
+          ...initial.players[PlayerId.PLAYER_B],
+          privateIntel: [
+            {
+              id: 'intel:B3:A1:round:0',
+              sourceAbilityId: AbilityId.SEER_INSPECT,
+              sourceInstanceId: 'B:3',
+              targetInstanceId: 'A:1',
+              observedAtSlotId: 'A1',
+              discoveredRole: CardRole.WEREWOLF,
+              discoveredRound: 1,
+            },
+          ],
+        },
+      },
+    };
+    state = dispatchPlayerAction(state, {
+      type: 'NIGHT_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      order: { type: 'PASS' },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'NIGHT_SUBMIT',
+      playerId: PlayerId.PLAYER_B,
+      order: {
+        type: 'USE_ABILITY',
+        sourceId: 'B3',
+        abilityId: AbilityId.SEER_INSPECT,
+        targetId: 'A1',
+      },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'DEFENSE_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      order: { type: 'PROTECT', sourceId: 'A3', targetId: 'A1' },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'DEFENSE_SUBMIT',
+      playerId: PlayerId.PLAYER_B,
+      order: { type: 'PASS' },
+    });
+
+    expect(state.players[PlayerId.PLAYER_B].board[2].occupant.state.visibility).toBe(
+      'REVEALED'
+    );
+    expect(isCardAlive(state.players[PlayerId.PLAYER_A].board[0])).toBe(false);
+    expect(
+      state.events.some(
+        (event) => event.type === 'CARD_REVEALED' && event.cardId === 'B3'
+      )
+    ).toBe(true);
+  });
+
+  it('keeps Substitute hidden and unspent when it declines', () => {
     let state = enterCouncil();
     for (const action of [
       {
@@ -518,17 +547,8 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
       },
       {
         type: 'COUNCIL_REACTION_SUBMIT' as const,
-        playerId: PlayerId.PLAYER_A,
-        order: { type: 'PASS' as const },
-      },
-      {
-        type: 'COUNCIL_REACTION_SUBMIT' as const,
         playerId: PlayerId.PLAYER_B,
-        order: {
-          type: 'WOLF_GUARD_RESCUE' as const,
-          sourceId: 'B5' as const,
-          targetId: 'B1' as const,
-        },
+        order: { type: 'PASS' as const },
       },
     ]) {
       state = dispatchPlayerAction(state, action);
@@ -538,10 +558,86 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
     expect(
       getRoleAbility(
         state.players[PlayerId.PLAYER_B].board[4].occupant.role,
-        AbilityId.WOLF_GUARD_RESCUE
+        AbilityId.SUBSTITUTE_SACRIFICE
       )?.remainingUses
     ).toBe(1);
-    expect(state.events.map((event) => event.type)).not.toContain('WOLF_GUARD_RESCUED');
+    expect(state.events.map((event) => event.type)).not.toContain('SUBSTITUTE_SACRIFICED');
+  });
+
+  it('prevents Substitute from saving itself', () => {
+    let state = enterCouncil();
+    state = dispatchPlayerAction(state, {
+      type: 'COUNCIL_ACCUSATION_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      order: {
+        type: 'ACCUSE',
+        targetId: 'B5',
+        guessedRole: CardRole.SUBSTITUTE,
+        voterIds: ['A2', 'A3'],
+      },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'COUNCIL_ACCUSATION_SUBMIT',
+      playerId: PlayerId.PLAYER_B,
+      order: { type: 'PASS' },
+    });
+
+    expect(() =>
+      dispatchPlayerAction(state, {
+        type: 'COUNCIL_REACTION_SUBMIT',
+        playerId: PlayerId.PLAYER_B,
+        order: { type: 'SUBSTITUTE_SACRIFICE', sourceId: 'B5' },
+      })
+    ).toThrow('không thể chết thay cho chính mình');
+  });
+
+  it('allows Substitute reaction through a Purge lock', () => {
+    let state = enterCouncil();
+    const source = transitionCard(state.players[PlayerId.PLAYER_B].board[4], {
+      type: 'APPLY_EFFECT',
+      effect: {
+        id: 'purge-lock:B5:round:2',
+        kind: CardEffectKind.PURGE_LOCK,
+        source: { type: 'RULE', rule: CardEffectRule.PURGE_LOCK },
+        appliedRound: 2,
+        expires: { type: 'AFTER_PHASE', phase: 'NIGHT_RESOLUTION', round: 2 },
+      },
+    });
+    state = {
+      ...state,
+      players: {
+        ...state.players,
+        [PlayerId.PLAYER_B]: {
+          ...state.players[PlayerId.PLAYER_B],
+          board: state.players[PlayerId.PLAYER_B].board.map((card) =>
+            card.id === source.id ? source : card
+          ),
+        },
+      },
+    };
+    state = dispatchPlayerAction(state, {
+      type: 'COUNCIL_ACCUSATION_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      order: {
+        type: 'ACCUSE',
+        targetId: 'B4',
+        guessedRole: CardRole.WEREWOLF,
+        voterIds: ['A2', 'A3'],
+      },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'COUNCIL_ACCUSATION_SUBMIT',
+      playerId: PlayerId.PLAYER_B,
+      order: { type: 'PASS' },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'COUNCIL_REACTION_SUBMIT',
+      playerId: PlayerId.PLAYER_B,
+      order: { type: 'SUBSTITUTE_SACRIFICE', sourceId: 'B5' },
+    });
+
+    expect(isCardAlive(state.players[PlayerId.PLAYER_B].board[3])).toBe(true);
+    expect(isCardAlive(state.players[PlayerId.PLAYER_B].board[4])).toBe(false);
   });
 
   it('locks failed Council voters for the next Council only', () => {
@@ -559,16 +655,6 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
     for (const action of [
       {
         type: 'COUNCIL_ACCUSATION_SUBMIT' as const,
-        playerId: PlayerId.PLAYER_B,
-        order: { type: 'PASS' as const },
-      },
-      {
-        type: 'COUNCIL_REACTION_SUBMIT' as const,
-        playerId: PlayerId.PLAYER_A,
-        order: { type: 'PASS' as const },
-      },
-      {
-        type: 'COUNCIL_REACTION_SUBMIT' as const,
         playerId: PlayerId.PLAYER_B,
         order: { type: 'PASS' as const },
       },
@@ -607,8 +693,6 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
     for (const action of [
       { type: 'COUNCIL_ACCUSATION_SUBMIT' as const, playerId: PlayerId.PLAYER_A, order: { type: 'PASS' as const } },
       { type: 'COUNCIL_ACCUSATION_SUBMIT' as const, playerId: PlayerId.PLAYER_B, order: { type: 'PASS' as const } },
-      { type: 'COUNCIL_REACTION_SUBMIT' as const, playerId: PlayerId.PLAYER_A, order: { type: 'PASS' as const } },
-      { type: 'COUNCIL_REACTION_SUBMIT' as const, playerId: PlayerId.PLAYER_B, order: { type: 'PASS' as const } },
     ]) {
       state = dispatchPlayerAction(state, action);
     }
@@ -648,20 +732,135 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
         playerId: PlayerId.PLAYER_A,
         order: { type: 'PASS' as const },
       },
-      {
-        type: 'COUNCIL_REACTION_SUBMIT' as const,
-        playerId: PlayerId.PLAYER_B,
-        order: { type: 'PASS' as const },
-      },
     ]) {
       state = dispatchPlayerAction(state, action);
     }
+    state = passPendingCouncilReactions(state);
 
     expect(isCardAlive(state.players[PlayerId.PLAYER_A].board[6])).toBe(false);
     expect(isCardAlive(state.players[PlayerId.PLAYER_B].board[3])).toBe(false);
     expect(
       state.events.some(
         (event) => event.type === 'CARD_ELIMINATED' && event.cause.type === 'REVENGE'
+      )
+    ).toBe(true);
+  });
+
+  it('prevents a Day skill source from voting or using another skill that round', () => {
+    const initial = createPipelineGame();
+    const deadVillager = transitionCard(initial.players[PlayerId.PLAYER_A].board[1], {
+      type: 'ELIMINATE',
+    });
+    let state = enterRoundTwoDay({
+      ...initial,
+      players: {
+        ...initial.players,
+        [PlayerId.PLAYER_A]: {
+          ...initial.players[PlayerId.PLAYER_A],
+          board: initial.players[PlayerId.PLAYER_A].board.map((card) =>
+            card.id === deadVillager.id ? deadVillager : card
+          ),
+        },
+      },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'DAY_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      action: { type: 'REVIVE', sourceId: 'A4', targetId: 'A2' },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'DAY_SUBMIT',
+      playerId: PlayerId.PLAYER_B,
+      action: { type: 'PASS' },
+    });
+
+    expect(() =>
+      dispatchPlayerAction(state, {
+        type: 'COUNCIL_ACCUSATION_SUBMIT',
+        playerId: PlayerId.PLAYER_A,
+        order: {
+          type: 'ACCUSE',
+          targetId: 'B4',
+          guessedRole: CardRole.WEREWOLF,
+          voterIds: ['A2', 'A4'],
+        },
+      })
+    ).toThrow('đã dùng kỹ năng trong vòng này');
+
+    state = dispatchPlayerAction(state, {
+      type: 'COUNCIL_ACCUSATION_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      order: { type: 'PASS' },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'COUNCIL_ACCUSATION_SUBMIT',
+      playerId: PlayerId.PLAYER_B,
+      order: { type: 'PASS' },
+    });
+    expect(() =>
+      dispatchPlayerAction(state, {
+        type: 'NIGHT_SUBMIT',
+        playerId: PlayerId.PLAYER_A,
+        order: {
+          type: 'USE_ABILITY',
+          sourceId: 'A4',
+          abilityId: AbilityId.WITCH_POISON,
+          targetId: 'B1',
+        },
+      })
+    ).toThrow('đã dùng kỹ năng trong vòng này');
+  });
+
+  it('lets Guard protection block an Avenger reaction', () => {
+    let state = enterRoundTwoDay();
+    state = dispatchPlayerAction(state, {
+      type: 'DAY_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      action: { type: 'MARK', sourceId: 'A7', targetId: 'B1' },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'DAY_SUBMIT',
+      playerId: PlayerId.PLAYER_B,
+      action: { type: 'PASS' },
+    });
+    for (const playerId of [PlayerId.PLAYER_A, PlayerId.PLAYER_B]) {
+      state = dispatchPlayerAction(state, {
+        type: 'COUNCIL_ACCUSATION_SUBMIT',
+        playerId,
+        order: { type: 'PASS' },
+      });
+    }
+    state = dispatchPlayerAction(state, {
+      type: 'NIGHT_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      order: { type: 'PASS' },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'NIGHT_SUBMIT',
+      playerId: PlayerId.PLAYER_B,
+      order: {
+        type: 'USE_ABILITY',
+        sourceId: 'B4',
+        abilityId: AbilityId.WEREWOLF_ATTACK,
+        targetId: 'A7',
+      },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'DEFENSE_SUBMIT',
+      playerId: PlayerId.PLAYER_A,
+      order: { type: 'PASS' },
+    });
+    state = dispatchPlayerAction(state, {
+      type: 'DEFENSE_SUBMIT',
+      playerId: PlayerId.PLAYER_B,
+      order: { type: 'PROTECT', sourceId: 'B2', targetId: 'B1' },
+    });
+
+    expect(isCardAlive(state.players[PlayerId.PLAYER_A].board[6])).toBe(false);
+    expect(isCardAlive(state.players[PlayerId.PLAYER_B].board[0])).toBe(true);
+    expect(
+      state.events.some(
+        (event) => event.type === 'EFFECT_BLOCKED' && event.targetCardId === 'B1'
       )
     ).toBe(true);
   });
@@ -857,11 +1056,7 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
           event.type === 'CARD_ELIMINATED' && event.cardId === 'B1'
       )
     ).toMatchObject({
-      cause: {
-        type: 'PLAYER_ABILITY',
-        abilityId: PlayerSpecialAbilityId.BLOOD_MOON,
-        playerId: PlayerId.PLAYER_A,
-      },
+      cause: { type: 'HIDDEN_NIGHT' },
     });
     expect(state.events.some((event) => event.type === 'CARD_REVEALED')).toBe(false);
   });
@@ -1039,7 +1234,7 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
     );
   });
 
-  it('skips the later overlapping round-seven Purge SWAP instead of failing the round', () => {
+  it('fizzles the whole round-seven Purge SWAP batch when selections overlap', () => {
     let state = enterPurge(7);
     state = dispatchPlayerAction(state, {
       type: 'PURGE_SUBMIT',
@@ -1055,27 +1250,26 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
     expect(state.phase).toEqual({ type: 'DAY_A' });
     expect(state.players[PlayerId.PLAYER_A].submissions.purge).toBeNull();
     expect(state.players[PlayerId.PLAYER_B].submissions.purge).toBeNull();
-    // Lệnh SWAP của A vẫn thực thi trên snapshot đầu vòng.
-    expect(state.players[PlayerId.PLAYER_A].board[0]).toMatchObject({
-      id: 'A1',
-      occupant: { id: 'B:1' },
-    });
-    expect(state.players[PlayerId.PLAYER_B].board[0]).toMatchObject({
-      id: 'B1',
-      occupant: { id: 'A:1' },
-    });
-    // Lệnh của B trùng lá đã bị chọn trước nên bị bỏ qua, B2/A2 giữ nguyên.
+    expect(state.players[PlayerId.PLAYER_A].board[0].occupant.id).toBe('A:1');
+    expect(state.players[PlayerId.PLAYER_B].board[0].occupant.id).toBe('B:1');
     expect(state.players[PlayerId.PLAYER_B].board[1].occupant.id).toBe('B:2');
     expect(state.players[PlayerId.PLAYER_A].board[1].occupant.id).toBe('A:2');
     const swapEvents = state.events.filter(
       (event) => event.type === 'PURGE_RESOLVED' && event.rule === 'SWAP'
     );
     expect(swapEvents).toHaveLength(2);
-    expect(swapEvents[1]).toMatchObject({
-      playerId: PlayerId.PLAYER_B,
-      targetCardId: null,
-      swapTargetCardId: null,
-    });
+    expect(swapEvents).toEqual([
+      expect.objectContaining({
+        playerId: PlayerId.PLAYER_A,
+        targetCardId: null,
+        swapTargetCardId: null,
+      }),
+      expect.objectContaining({
+        playerId: PlayerId.PLAYER_B,
+        targetCardId: null,
+        swapTargetCardId: null,
+      }),
+    ]);
   });
 
   it('rejects skipping round-seven Purge SWAP while a valid pair remains', () => {
@@ -1240,8 +1434,6 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
     for (const action of [
       { type: 'COUNCIL_ACCUSATION_SUBMIT' as const, playerId: PlayerId.PLAYER_A, order: { type: 'PASS' as const } },
       { type: 'COUNCIL_ACCUSATION_SUBMIT' as const, playerId: PlayerId.PLAYER_B, order: { type: 'PASS' as const } },
-      { type: 'COUNCIL_REACTION_SUBMIT' as const, playerId: PlayerId.PLAYER_A, order: { type: 'PASS' as const } },
-      { type: 'COUNCIL_REACTION_SUBMIT' as const, playerId: PlayerId.PLAYER_B, order: { type: 'PASS' as const } },
       { type: 'NIGHT_SUBMIT' as const, playerId: PlayerId.PLAYER_A, order: { type: 'PASS' as const } },
       { type: 'NIGHT_SUBMIT' as const, playerId: PlayerId.PLAYER_B, order: { type: 'PASS' as const } },
       { type: 'DEFENSE_SUBMIT' as const, playerId: PlayerId.PLAYER_A, order: { type: 'PASS' as const } },
@@ -1480,7 +1672,7 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
           type: 'ACCUSE' as const,
           targetId: 'B1' as const,
           guessedRole: null,
-          voterIds: ['A1', 'A2', 'A3'] as const,
+          voterIds: ['A2', 'A3'] as const,
         },
       },
       {
@@ -1490,14 +1682,13 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
           type: 'ACCUSE' as const,
           targetId: 'A1' as const,
           guessedRole: null,
-          voterIds: ['B1', 'B2', 'B3'] as const,
+          voterIds: ['B2', 'B3'] as const,
         },
       },
-      { type: 'COUNCIL_REACTION_SUBMIT' as const, playerId: PlayerId.PLAYER_A, order: { type: 'PASS' as const } },
-      { type: 'COUNCIL_REACTION_SUBMIT' as const, playerId: PlayerId.PLAYER_B, order: { type: 'PASS' as const } },
     ]) {
       council = dispatchPlayerAction(council, action);
     }
+    council = passPendingCouncilReactions(council);
     expect(council.phase).toEqual({ type: 'FINAL_DUEL' });
   });
 
@@ -1562,7 +1753,7 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
 
     expect(state.phase).toEqual({ type: 'DAY_B' });
     expect(state.players[PlayerId.PLAYER_A].board[4].occupant.state.visibility).toBe(
-      'HIDDEN'
+      'REVEALED'
     );
     expect(state.players[PlayerId.PLAYER_B].board[0].occupant.state).toEqual({
       life: 'DEAD',
@@ -1578,7 +1769,7 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
       state.events.some(
         (event) => event.type === 'CARD_REVEALED' && event.cardId === 'A5'
       )
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it('revives an own hidden corpse without changing its visibility', () => {

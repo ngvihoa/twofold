@@ -35,7 +35,7 @@ describe('v0.2 web action builders', () => {
         ['A1', 'A2', 'A3']
       ),
       createCouncilReactionPassAction(PlayerId.PLAYER_A),
-      createCouncilReactionAction(PlayerId.PLAYER_A, 'A10', 'A1'),
+      createCouncilReactionAction(PlayerId.PLAYER_A, 'A10'),
       createNightPassAction(PlayerId.PLAYER_A),
       createNightAbilityAction(
         PlayerId.PLAYER_A,
@@ -88,7 +88,7 @@ describe('v0.2 web action builders', () => {
         CardRole.WEREWOLF,
         ['A1', 'A1', 'A2']
       )
-    ).toThrow(/ba voter khác nhau/u);
+    ).toThrow(/voter khác nhau/u);
   });
 
   it('derives the four-rule Purge cycle from round six', () => {

@@ -87,8 +87,8 @@ describe('formatGameHistoryMessage', () => {
       'Người chơi A bỏ qua phòng thủ',
     ],
     [
-      { type: 'WOLF_GUARD_RESCUED', sourceCardId: 'B8', targetCardId: 'B4' },
-      'Sói Hộ Vệ cứu lá B4',
+      { type: 'SUBSTITUTE_SACRIFICED', sourceCardId: 'B8', targetCardId: 'B4' },
+      'Kẻ Thế Mạng cứu lá B4',
     ],
     [
       {

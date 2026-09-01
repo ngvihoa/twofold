@@ -36,7 +36,11 @@ export function hasAvailableAbility(
   abilityId: AbilityId
 ): boolean {
   if (!isLivingCard(card)) return false;
-  if (card.effects.some((effect) => effect.kind === 'PURGE_LOCK')) return false;
+  if (
+    abilityId !== AbilityId.SUBSTITUTE_SACRIFICE &&
+    card.effects.some((effect) => effect.kind === 'PURGE_LOCK')
+  ) return false;
+  if (card.effects.some((effect) => effect.kind === 'ROUND_EXHAUSTED')) return false;
   const ability = card.role.abilities.find((candidate) => candidate.abilityId === abilityId);
   return Boolean(
     ability && (!('remainingUses' in ability) || ability.remainingUses > 0)
@@ -91,15 +95,15 @@ export function createCouncilPassAction(playerId: PlayerId): PlayerGameAction {
   });
 }
 
-/** Tạo cáo buộc Council với đúng ba voter khác nhau. */
+/** Tạo cáo buộc Council với từ một đến ba voter khác nhau. */
 export function createCouncilAccusationAction(
   playerId: PlayerId,
   targetId: CardId,
   guessedRole: CardRole | null,
   voterIds: readonly CardId[]
 ): PlayerGameAction {
-  if (voterIds.length !== 3 || new Set(voterIds).size !== 3) {
-    throw new Error('Council accusation cần đúng ba voter khác nhau.');
+  if (voterIds.length < 1 || voterIds.length > 3 || new Set(voterIds).size !== voterIds.length) {
+    throw new Error('Council accusation cần từ một đến ba voter khác nhau.');
   }
   return parseAction({
     type: 'COUNCIL_ACCUSATION_SUBMIT',
@@ -119,16 +123,15 @@ export function createCouncilReactionPassAction(
   });
 }
 
-/** Tạo reaction cứu target bằng ability của Sói Hộ Vệ. */
+/** Tạo reaction để Kẻ Thế Mạng chết thay target đang chờ xử lý. */
 export function createCouncilReactionAction(
   playerId: PlayerId,
-  sourceId: CardId,
-  targetId: CardId
+  sourceId: CardId
 ): PlayerGameAction {
   return parseAction({
     type: 'COUNCIL_REACTION_SUBMIT',
     playerId,
-    order: { type: 'WOLF_GUARD_RESCUE', sourceId, targetId },
+    order: { type: 'SUBSTITUTE_SACRIFICE', sourceId },
   });
 }
 
