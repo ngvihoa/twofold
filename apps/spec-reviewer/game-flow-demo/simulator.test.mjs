@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { fuzzGames, simulateGame } from "./simulator.mjs";
+import { fuzzGames, fuzzInvalidActions, simulateGame } from "./simulator.mjs";
 
 test("seeded full-match simulator is deterministic", () => {
   const first = simulateGame("p06-deterministic");
@@ -25,4 +25,11 @@ test("500 seeded BOT matches preserve state invariants and terminate", () => {
   for (const action of ["day.submit:shoot", "day.submit:revive", "day.submit:mark", "day.submit:purify", "night.submit:attack", "night.submit:inspect", "night.submit:poison", "night.submit:bloodmoon", "purge.submit:default"]) {
     assert.ok(actions.has(action), `Thiếu coverage ${action}`);
   }
+});
+
+test("invalid-action fuzz rejects atomically across reachable states", () => {
+  const result = fuzzInvalidActions({ count: 200, prefix: "p07-invalid" });
+  assert.equal(result.games, 200);
+  assert.ok(result.rejections >= 5_000);
+  assert.ok(result.phases.includes("ended"));
 });

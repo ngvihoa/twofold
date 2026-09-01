@@ -40,7 +40,7 @@
 | WEB-06 | 05/10 | Thắng/thua, nhận thua, reconnect | Developer | Đang làm | Final Duel/result/rematch local 38/38; còn surrender + reconnect + consent multiplayer |
 | WEB-07 | 05/10 | Build pha Thanh trừng màu đỏ từ Vòng 6: Cắt bỏ, Đảo chiến tuyến, Ép lộ diện, Khóa mạch | Developer + Game Designer | Playtest/Review | Local suite 38/38 + browser V6–V9/reaction pass; còn human full-match/balance playtest |
 | WEB-08 | 05/10 | Kết quả, đấu lại, đối thủ khác | Developer + UI/UX | Ý tưởng | WEB-06 |
-| QA-01 | 19/10 | Test deterministic resolution và desync | Developer | Đang làm | P0.6: 500-seed regression + 5.000-seed audit local pass; còn event replay/desync hai client |
+| QA-01 | 19/10 | Test deterministic resolution và desync | Developer | Đang làm | P0.6–P0.7: 5.000 valid seed + 76.991 atomic rejection pass; còn event replay/desync hai client |
 | PT-01 | 19/10 | Tổ chức ít nhất 10 session với đồng nghiệp | Game Designer/PO | Ý tưởng | Build ổn định |
 | PT-02 | 19/10 | Tổng hợp comprehension/completion/duration/rematch | Game Designer/PO | Ý tưởng | PT-01 |
 | UX-05 | 19/10 | Sửa các điểm chặn hiểu luật | UI/UX Game | Ý tưởng | PT-01 |

@@ -1,5 +1,16 @@
 # Nhật ký kiểm tra
 
+## 01/09/2026 — P0.7 invalid-action atomic rejection
+
+- TDD red: `simulator.mjs` chưa export `fuzzInvalidActions`; test fail ở ESM import như expected.
+- Thêm corpus theo phase qua public `dispatch`: unknown type, wrong phase/seat, malformed payload, rematch sớm và replay action đã khóa.
+- Mỗi rejection so snapshot trước/sau; snapshot giữ riêng `Infinity`/`NaN` để không bị JSON normalize.
+- Regression: **3/3 simulator tests pass**; 200 seed đi qua đủ 12 phase.
+- Audit `p07-audit-*`: **76.991/76.991 action bị reject atomically**, không accepted-invalid hoặc input mutation.
+- CLI smoke `--count=20 --invalid-count=20`: 7.881 rejection, đủ 12 phase.
+
+Giới hạn: corpus có chủ đích, không phải arbitrary object/security fuzzing; replay local tuần tự, chưa mô phỏng network concurrency/desync.
+
 ## 01/09/2026 — P0.6 seeded full-match fuzzing
 
 - Thêm simulator deterministic chạy hai seat qua setup, Day, Council/reaction, Night/Defense, Purge, Final Duel và match result.

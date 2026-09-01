@@ -26,6 +26,12 @@ npm run fuzz:game --workspace=@twofold/spec-reviewer -- --count=500 --prefix=loc
 
 Mỗi seed phải kết thúc trong `250` transition. Khi fail, lỗi in seed, round, phase, action và trace gần nhất để tái hiện. Có thể đổi giới hạn bằng `--max-steps=<n>`.
 
+P0.7 có thể fuzz thêm action sai và replay action đã khóa. Mọi rejection phải giữ state đầu vào nguyên vẹn:
+
+```bash
+npm run fuzz:game --workspace=@twofold/spec-reviewer -- --count=500 --invalid-count=200 --prefix=local
+```
+
 ### Bản web trực quan
 
 Khi local server đang chạy, mở:

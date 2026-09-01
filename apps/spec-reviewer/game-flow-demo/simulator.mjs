@@ -262,3 +262,82 @@ export function fuzzGames({ count = 500, prefix = "p06", maxSteps = 250 } = {}) 
   }
   return summaries;
 }
+
+function stateSnapshot(state) {
+  return JSON.stringify(state, (_key, value) => {
+    if (value === Infinity) return "__TWOFOLD_INFINITY__";
+    if (Number.isNaN(value)) return "__TWOFOLD_NAN__";
+    return value;
+  });
+}
+
+export function assertActionRejectedAtomically(state, action) {
+  const before = stateSnapshot(state);
+  let rejection = null;
+  try {
+    dispatch(state, action);
+  } catch (error) {
+    rejection = error;
+  }
+  if (!rejection) throw new Error(`Engine đã nhận action lẽ ra không hợp lệ: ${JSON.stringify(action)}.`);
+  const after = stateSnapshot(state);
+  if (after !== before) {
+    throw new Error(`Rejected action đã mutation state đầu vào: ${JSON.stringify(action)}.`);
+  }
+  return rejection.message;
+}
+
+function malformedActionFor(state, validAction) {
+  if (state.phase.startsWith("setup-")) return { ...validAction, order: [] };
+  if (state.phase === "purge") return { type: "purge.submit", seat: validAction.seat, target: "Z1", swapTarget: "Z2" };
+  if (state.phase.startsWith("day-")) return { type: "day.submit", seat: validAction.seat, kind: "unsupported" };
+  if (state.phase === "council") return { type: "council.submit", seat: validAction.seat, kind: "accuse", target: "Z1", guess: "wolf", voters: [] };
+  if (state.phase === "council-reaction") return { type: "council.react", seat: "Z", use: true };
+  if (state.phase === "night-plan") return { type: "night.submit", seat: validAction.seat, kind: "unsupported", target: "Z1" };
+  if (state.phase === "dusk-defense") return { type: "defense.submit", seat: validAction.seat, target: "Z1" };
+  if (state.phase === "night-resolution") return { type: "night.submit", seat: "A", kind: "pass" };
+  if (state.phase === "final-duel") return { type: "final.submit", seat: validAction.seat, guess: "not-a-role" };
+  return { type: "day.submit", seat: "A", kind: "pass" };
+}
+
+function invalidActionsFor(state, validAction) {
+  const actions = [
+    { type: "action.unknown" },
+    malformedActionFor(state, validAction),
+  ];
+  if (state.phase !== "ended") actions.push({ type: "match.rematch", seed: "invalid-early-rematch" });
+  if (validAction.seat) actions.push({ ...validAction, seat: "Z" });
+  return actions;
+}
+
+export function fuzzInvalidActions({ count = 200, prefix = "p07", maxSteps = 250 } = {}) {
+  let rejections = 0;
+  const phases = new Set();
+  for (let game = 0; game < count; game += 1) {
+    const seed = `${prefix}-${game}`;
+    const random = randomFromSeed(`${seed}:policy`);
+    let state = createGame(seed);
+    let ended = false;
+    for (let step = 0; step < maxSteps; step += 1) {
+      assertSimulationInvariants(state);
+      phases.add(state.phase);
+      if (state.phase === "ended") {
+        assertActionRejectedAtomically(state, { type: "day.submit", seat: "A", kind: "pass" });
+        rejections += 1;
+        ended = true;
+        break;
+      }
+      const validAction = chooseSimulationAction(state, random);
+      for (const invalidAction of invalidActionsFor(state, validAction)) {
+        assertActionRejectedAtomically(state, invalidAction);
+        rejections += 1;
+      }
+      const nextState = dispatch(state, validAction);
+      assertActionRejectedAtomically(nextState, validAction);
+      rejections += 1;
+      state = nextState;
+    }
+    if (!ended) throw new Error(`Invalid-action fuzz seed ${seed} không kết thúc trong ${maxSteps} transition.`);
+  }
+  return { games: count, rejections, phases: [...phases].sort() };
+}
