@@ -1,11 +1,22 @@
 # Game Core ↔ Prototype Parity Audit
 
+> **TÀI LIỆU LỊCH SỬ — KHÔNG PHẢI TRẠNG THÁI HIỆN HÀNH.** Audit này ghi lại
+> một lần đồng bộ ngày 30/08/2026. Sau ADR-0005, `spec-reviewer` tiếp tục thử
+> rule mới trong khi `game-core`/web giữ snapshot runtime riêng; hai parity test
+> xuyên workspace đã được gỡ. Agent không được dùng các kết luận “Khớp” bên
+> dưới để suy ra logic hiện tại. Đọc
+> [Spec → Runtime Migration Policy](spec-runtime-migration-policy.md) và tạo task
+> migration có kế hoạch nếu muốn chuyển rule sang runtime.
+
 - **Ngày audit:** 30/08/2026
 - **Prototype tham chiếu:** `apps/spec-reviewer/game-flow-demo/engine.mjs`
 - **Target:** `packages/game-core`
 - **Phạm vi:** rule/state/resolution; không so animation, bot local hoặc timing UI
 
 ## Kết luận hiện tại
+
+Phần này là kết luận tại thời điểm audit 30/08/2026 và đã bị policy mới thay thế;
+không mô tả parity hiện tại.
 
 Core TypeScript đã có full-match deterministic từ Setup tới Final Duel/Ended và
 đã port toàn bộ vertical slice chính: Day, Council, Night/Defense, Blood Moon,

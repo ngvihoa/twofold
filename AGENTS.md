@@ -4,6 +4,21 @@ Tài liệu này cung cấp toàn bộ bối cảnh kiến trúc, quy chuẩn m�
 
 ---
 
+## 0. Ranh giới bắt buộc giữa Spec và Runtime
+
+Mọi agent phải đọc và tuân thủ [Spec → Runtime Migration Policy](docs/development/spec-runtime-migration-policy.md) trước khi thay đổi rule, engine, shared contract hoặc gameplay web.
+
+- `apps/spec-reviewer` là nguồn thử nghiệm rule mới hơn dành cho PO, game design và playtest.
+- `packages/game-core`, `packages/shared-types` và `apps/web` là snapshot runtime có thể chậm hơn spec.
+- Không giả định hai phía có logic giống nhau và không cố ép parity ở mọi commit.
+- Không import source, adapter, fixture hoặc test trực tiếp qua ranh giới reviewer ↔ runtime.
+- Thay đổi trong reviewer không cấp quyền tự động sửa runtime. Muốn chuyển rule sang web/core phải tạo một task migration có kế hoạch, freeze mốc spec nguồn, ghi scope/out-of-scope, contract changes, test plan và acceptance criteria.
+- Không resolve conflict bằng cách chọn toàn bộ logic của một phía đè lên phía còn lại chỉ vì phía đó mới hơn.
+
+Nếu task không nói rõ đang thay đổi spec hay runtime, agent phải xác định phạm vi từ file/task hiện có; khi quyết định có thể làm thay đổi behavior production, phải hỏi lại Product Owner.
+
+---
+
 ## 1. Tổng quan Dự án (Project Overview)
 
 - **Tên dự án:** Twofold
@@ -56,7 +71,7 @@ twofold/
 │   └── project-management/          # Roadmap, task tracker dành cho PO & Team
 ├── pnpm-workspace.yaml              # Cấu hình pnpm workspace
 ├── package.json                     # Root package scripts
-├── AGENT.md                         # Tài liệu này
+├── AGENTS.md                        # Chỉ dẫn tự động áp dụng cho agent trong toàn repo
 └── README.md                        # Tài liệu tổng quan dự án
 ```
 
@@ -147,3 +162,6 @@ Khi thao tác hoặc mở rộng codebase trong repository này, Agent cần tu�
 5. **Tham chiếu Tài liệu Thiết kế & Quản lý Dự án**:
    - Trước khi thay đổi luật hoặc cơ chế game, hãy đối chiếu các quyết định trong [`docs/decisions/`](docs/decisions/) và tài liệu [`docs/game-design/`](docs/game-design/).
    - Sau mỗi buổi sync hoặc khi hoàn thành task, cập nhật tiến độ tương ứng trong [`docs/project-management/task-tracker.md`](docs/project-management/task-tracker.md).
+6. **Không tự động đồng bộ Spec → Runtime**:
+   - Mọi thay đổi xuyên `apps/spec-reviewer` → `packages/game-core`/`packages/shared-types`/`apps/web` phải có task migration riêng theo policy tại [`docs/development/spec-runtime-migration-policy.md`](docs/development/spec-runtime-migration-policy.md).
+   - Test pass độc lập ở hai workspace không phải bằng chứng parity.

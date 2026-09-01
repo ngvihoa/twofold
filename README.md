@@ -18,6 +18,12 @@ Ba trụ cột thiết kế:
 - **Đánh lừa:** khiến đối thủ diễn giải sai ý đồ hoặc vai trò.
 - **Cam kết:** mỗi lựa chọn có hậu quả; không hoàn tác sau khi xác nhận.
 
+> **Lưu ý:** `apps/spec-reviewer` là nguồn thử nghiệm rule
+> mới hơn; `packages/game-core` và `apps/web` là snapshot runtime có thể chậm hơn.
+> Không tự động ép parity hoặc import source giữa hai phía. Mọi lần đồng bộ phải
+> đi qua một task migration có kế hoạch theo
+> [Spec → Runtime Migration Policy](docs/development/spec-runtime-migration-policy.md).
+
 ---
 
 ## Cấu trúc Monorepo
@@ -164,6 +170,7 @@ Cả ba cùng review luật và playtest theo vòng lặp: **Thiết kế → Pr
 3. Task chỉ được coi là xong khi thỏa “Điều kiện hoàn thành”.
 4. Từ feature freeze, ưu tiên sửa lỗi, đơn giản hóa, cân bằng và UX; không thêm mechanic mới nếu chưa có quyết định scope.
 5. Commit nhỏ, mô tả rõ; ví dụ: `docs: chốt luật treo cổ v0.1`.
+6. Thay đổi trong `spec-reviewer` không mặc định phải được port ngay sang web/core; chỉ đồng bộ qua task migration đáp ứng policy Spec → Runtime.
 
 ## Chỉ số Alpha cần theo dõi
 

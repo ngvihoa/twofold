@@ -15,6 +15,7 @@
 - Game-flow demo giữ engine và test độc lập để playtest spec.
 - Rule mới chỉ được chuyển sang web/game core qua một task migration riêng sau một khoảng ổn định; task phải chỉ rõ ADR/spec nguồn và bổ sung test tại đích.
 - Sói Hộ Vệ tiếp tục tồn tại trong catalog role với trạng thái `Chưa dùng`. Kẻ Thế Mạng chỉ thay vị trí của role này trong bộ 10 lá của phase prototype hiện tại.
+- Quy trình vận hành và acceptance criteria cho việc chuyển rule được định nghĩa tại [Spec → Runtime Migration Policy](../development/spec-runtime-migration-policy.md).
 
 ## Hệ quả
 

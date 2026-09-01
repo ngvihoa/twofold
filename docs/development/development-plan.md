@@ -5,13 +5,19 @@
 - **Mục tiêu phát hành:** Web Alpha nội bộ trước 30/10/2026
 - **Phạm vi áp dụng:** Toàn bộ Monorepo (`apps/web`, `packages/game-core`, `packages/shared-types`, `packages/cli`)
 
+> **Policy hiện hành:** `apps/spec-reviewer` là nguồn thử nghiệm rule mới hơn,
+> còn `packages/game-core`/`apps/web` là snapshot runtime có thể chậm hơn. Không
+> suy diễn parity từ tên rule hoặc flow tương tự. Xem
+> [Spec → Runtime Migration Policy](spec-runtime-migration-policy.md) trước khi
+> sửa logic qua ranh giới này.
+
 ---
 
 ## 0. Snapshot triển khai 30/08/2026
 
 | Khu vực | Đã có | Chưa có / không được suy diễn |
 |---|---|---|
-| `apps/spec-reviewer/game-flow-demo` | Full-loop local prototype, bot B, gameplay UI/motion và bộ role v0.2 | Không phải authoritative multiplayer và chưa có human playtest có ghi nhận |
+| `apps/spec-reviewer/game-flow-demo` | Full-loop local prototype, bot B, gameplay UI/motion và nguồn thử nghiệm rule mới hơn | Không phải authoritative multiplayer; không tự động đồng bộ vào runtime |
 | `apps/web` | TanStack routes Home/Room/Play và mock UI | Chưa có room server/realtime hoàn chỉnh; Play vẫn tự chuyển state và dùng random outcome |
 | `packages/shared-types` | Enum, schema, room contract và WebSocket DTO sơ bộ | Chưa có action/view/event contract v0.2 đầy đủ |
 | `packages/game-core` | Model card, role, ability, effect và player nền; đã hỗ trợ bài chết nhưng còn ẩn | Chưa có phase machine v0.2 và player-view serializer v0.2 |
@@ -71,6 +77,9 @@ graph TB
 | [`packages/game-core`](../../packages/game-core) | **TypeScript Thuần (Zero runtime deps) + Vitest** | State Machine, Rule Validator, Night Resolution Engine, Hanging Calculator, Calamity Handler |
 | [`packages/cli`](../../packages/cli) | **Node.js ESM thuần** | CLI quản lý monorepo (`pnpm tf`), build, test & scaffolding |
 | [`apps/spec-reviewer`](../../apps/spec-reviewer) | **Vanilla JS, CSS Modules, JSON** | Công cụ tra cứu & thẩm định 92 vai trò của PO |
+
+`apps/spec-reviewer` không nằm trong dependency graph của runtime. Bảng trên mô
+tả trách nhiệm, không có nghĩa `game-core` phải luôn khớp rule với reviewer.
 
 ---
 
