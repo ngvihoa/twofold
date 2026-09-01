@@ -12,6 +12,7 @@ describe('game phase labels', () => {
       DAY_B: 'Ban ngày · Người chơi B hành động',
       COUNCIL_PLAN: 'Hội đồng · Lập cáo buộc',
       COUNCIL_RESOLUTION: 'Hội đồng · Công bố phán quyết',
+      COUNCIL_REACTION: 'Hội đồng · Quyết định chết thay',
       NIGHT_PLAN: 'Ban đêm · Chọn hành động',
       DUSK_DEFENSE: 'Phòng thủ ban đêm · Đặt khiên',
       NIGHT_RESOLUTION: 'Ban đêm · Phân giải hành động',

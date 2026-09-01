@@ -176,7 +176,7 @@ function resolveDayAction(
         AbilityId.SHOOTER_SHOOT,
         target.id,
         events,
-        false
+        true
       );
       next = resolvedSource.state;
       const eliminated = eliminateCard(next, target.id, true, {
@@ -356,6 +356,20 @@ function useAndRevealSource(
       }),
     },
   };
+  updatedSource = transitionCard(updatedSource, {
+    type: 'APPLY_EFFECT',
+    effect: {
+      id: `round-exhausted:${source.occupant.id}:round:${next.round}`,
+      kind: CardEffectKind.ROUND_EXHAUSTED,
+      source: { type: 'RULE', rule: CardEffectRule.DAY_ABILITY_USED },
+      appliedRound: next.round,
+      expires: {
+        type: 'AFTER_PHASE',
+        phase: 'NIGHT_RESOLUTION',
+        round: next.round,
+      },
+    },
+  });
   next = replaceCard(next, updatedSource);
   events.push({
     type: 'ABILITY_RESOLVED',
@@ -416,6 +430,15 @@ function resolveRevengeChain(
 
     const markedTarget = findRevengeTarget(next, source.occupant.id);
     if (!markedTarget || !isCardAlive(markedTarget)) continue;
+    if (hasCardEffect(markedTarget, CardEffectKind.PROTECTION)) {
+      events.push({
+        type: 'EFFECT_BLOCKED',
+        visibility: { type: 'PUBLIC' },
+        targetCardId: markedTarget.id,
+        effectKind: CardEffectKind.PROTECTION,
+      });
+      continue;
+    }
     const eliminated = eliminateCard(
       next,
       markedTarget.id,
@@ -499,7 +522,13 @@ function submitCouncilAccusation(
       },
     },
   }));
-  return resolveCouncilWhenReady(next);
+  return PLAYER_ORDER.every(
+    (candidate) => next.players[candidate].submissions.council.accusation !== null
+  )
+    ? prepareCouncilResolution(
+        transitionGameState(next, { type: 'COUNCIL_ORDERS_LOCKED' })
+      )
+    : next;
 }
 
 function validateCouncilAccusation(
@@ -528,9 +557,14 @@ function validateCouncilAccusation(
     }
   }
 
-  if (order.voterIds.length !== 3 || new Set(order.voterIds).size !== 3) {
-    throw new RuleValidationError('Council cần đúng ba voter khác nhau.');
+  if (
+    order.voterIds.length < 1 ||
+    order.voterIds.length > 3 ||
+    new Set(order.voterIds).size !== order.voterIds.length
+  ) {
+    throw new RuleValidationError('Council cần từ một đến ba voter khác nhau.');
   }
+  let votePower = 0;
   for (const voterId of order.voterIds) {
     const voter = getOwnedLivingCard(state, playerId, voterId, 'Council voter');
     if (getRoleDefinition(voter.occupant.role.id).faction !== Faction.VILLAGE) {
@@ -544,6 +578,15 @@ function validateCouncilAccusation(
         `${voter.id} đang bị Khóa mạch và không thể tham gia Council.`
       );
     }
+    if (hasCardEffect(voter, CardEffectKind.ROUND_EXHAUSTED)) {
+      throw new RuleValidationError(
+        `${voter.id} đã dùng kỹ năng trong vòng này nên không thể tham gia Council.`
+      );
+    }
+    votePower += voter.occupant.role.id === CardRole.VILLAGER ? 2 : 1;
+  }
+  if (votePower < 3) {
+    throw new RuleValidationError('Council cần tổng trọng số ít nhất ba phiếu.');
   }
 }
 
@@ -562,7 +605,9 @@ function availableCouncilRoleGuesses(
       Math.max(0, (remaining.get(card.occupant.role.id) ?? 0) - 1)
     );
   }
-  return Object.values(CardRole).filter((role) => (remaining.get(role) ?? 0) > 0);
+  return [...remaining.entries()]
+    .filter(([, count]) => count > 0)
+    .map(([role]) => role);
 }
 
 function submitCouncilReaction(
@@ -570,7 +615,11 @@ function submitCouncilReaction(
   playerId: PlayerId,
   order: CouncilReactionOrder
 ): GameState {
-  assertPhase(state, 'COUNCIL_PLAN');
+  assertPhase(state, 'COUNCIL_REACTION');
+  const pendingTargetId = state.players[playerId].submissions.council.pendingTargetId;
+  if (!pendingTargetId) {
+    throw new RuleValidationError(`${playerId} không có án Treo cổ cần phản ứng.`);
+  }
   assertSubmissionOpen(
     state.players[playerId].submissions.council.reaction,
     'Council Reaction',
@@ -588,7 +637,12 @@ function submitCouncilReaction(
       },
     },
   }));
-  return resolveCouncilWhenReady(next);
+  return PLAYER_ORDER.every((candidate) => {
+    const council = next.players[candidate].submissions.council;
+    return council.pendingTargetId === null || council.reaction !== null;
+  })
+    ? resolveCouncilReactions(next)
+    : next;
 }
 
 function validateCouncilReaction(
@@ -597,40 +651,33 @@ function validateCouncilReaction(
   order: CouncilReactionOrder
 ): void {
   if (order.type === 'PASS') return;
-  const source = getOwnedLivingCard(state, playerId, order.sourceId, 'Wolf Guard source');
-  getOwnedLivingCard(state, playerId, order.targetId, 'Wolf Guard target');
-  requireAvailableAbility(source, AbilityId.WOLF_GUARD_RESCUE);
-}
-
-function resolveCouncilWhenReady(state: GameState): GameState {
-  if (!allCouncilSlotsSubmitted(state)) return state;
-  return resolveCouncil(
-    transitionGameState(state, { type: 'COUNCIL_ORDERS_LOCKED' })
+  const targetId = state.players[playerId].submissions.council.pendingTargetId;
+  if (!targetId) throw new RuleValidationError('Không có target cần chết thay.');
+  const source = getOwnedLivingCard(state, playerId, order.sourceId, 'Substitute source');
+  if (source.id === targetId) {
+    throw new RuleValidationError('Kẻ Thế Mạng không thể chết thay cho chính mình.');
+  }
+  const ability = getRoleAbility(
+    source.occupant.role,
+    AbilityId.SUBSTITUTE_SACRIFICE
   );
+  if (!ability || ability.remainingUses < 1) {
+    throw new RuleValidationError('Không còn Kẻ Thế Mạng hợp lệ.');
+  }
 }
 
-function allCouncilSlotsSubmitted(state: GameState): boolean {
-  return PLAYER_ORDER.every((playerId) => {
-    const council = state.players[playerId].submissions.council;
-    return council.accusation !== null && council.reaction !== null;
-  });
-}
-
-function resolveCouncil(state: GameState): GameState {
+function prepareCouncilResolution(state: GameState): GameState {
   const accusationOrders = snapshotCouncilOrders(state, 'accusation');
-  const reactionOrders = snapshotCouncilOrders(state, 'reaction');
   const initialCards = new Map<CardId, GameCard>();
   for (const playerId of PLAYER_ORDER) {
     for (const card of state.players[playerId].board) initialCards.set(card.id, card);
   }
 
   const events: GameEventDraft[] = [];
-  const pendingDeaths = new Map<CardId, CardEliminationCause>();
   const failedVoters: Array<{
     readonly playerId: PlayerId;
-    readonly voterIds: readonly [CardId, CardId, CardId];
+    readonly voterIds: readonly CardId[];
   }> = [];
-  const successfulTargets = new Map<PlayerId, CardId>();
   let next = state;
 
   for (const playerId of PLAYER_ORDER) {
@@ -677,7 +724,25 @@ function resolveCouncil(state: GameState): GameState {
       succeeded: correct,
     });
     if (correct) {
-      successfulTargets.set(playerId, originalTarget.id);
+      const target = getCard(next, originalTarget.id);
+      if (target.occupant.state.visibility === 'HIDDEN') {
+        next = replaceCard(next, transitionCard(target, { type: 'REVEAL' }));
+        events.push({
+          type: 'CARD_REVEALED',
+          visibility: { type: 'PUBLIC' },
+          cardId: target.id,
+        });
+      }
+      next = updatePlayer(next, originalTarget.owner, (player) => ({
+        ...player,
+        submissions: {
+          ...player.submissions,
+          council: {
+            ...player.submissions.council,
+            pendingTargetId: originalTarget.id,
+          },
+        },
+      }));
     } else {
       failedVoters.push({ playerId, voterIds: accusation.voterIds });
     }
@@ -710,10 +775,39 @@ function resolveCouncil(state: GameState): GameState {
     }
   }
 
-  for (const [accuserId, targetId] of successfulTargets) {
-    const defenderId = getCard(next, targetId).owner;
-    const reaction = reactionOrders[defenderId];
-    if (reaction.type === 'WOLF_GUARD_RESCUE' && reaction.targetId === targetId) {
+  for (const playerId of PLAYER_ORDER) {
+    if (next.players[playerId].submissions.council.pendingTargetId !== null) continue;
+    next = updatePlayer(next, playerId, (player) => ({
+      ...player,
+      submissions: {
+        ...player.submissions,
+        council: { ...player.submissions.council, reaction: { type: 'PASS' } },
+      },
+    }));
+  }
+  next = appendGameEvents(next, events);
+
+  const needsReaction = PLAYER_ORDER.some(
+    (playerId) => next.players[playerId].submissions.council.pendingTargetId !== null
+  );
+  return needsReaction
+    ? transitionGameState(next, { type: 'COUNCIL_REACTION_REQUIRED' })
+    : finishCouncilResolution(next);
+}
+
+function resolveCouncilReactions(state: GameState): GameState {
+  const events: GameEventDraft[] = [];
+  const pendingDeaths = new Map<CardId, CardEliminationCause>();
+  let next = state;
+
+  for (const defenderId of PLAYER_ORDER) {
+    const council = next.players[defenderId].submissions.council;
+    const targetId = council.pendingTargetId;
+    if (!targetId) continue;
+    const reaction = council.reaction;
+    if (!reaction) throw new Error(`Thiếu Council reaction của ${defenderId}.`);
+
+    if (reaction.type === 'SUBSTITUTE_SACRIFICE') {
       let source = getCard(next, reaction.sourceId);
       if (source.occupant.state.visibility === 'HIDDEN') {
         source = transitionCard(source, { type: 'REVEAL' });
@@ -729,7 +823,7 @@ function resolveCouncil(state: GameState): GameState {
           ...source.occupant,
           role: transitionRole(source.occupant.role, {
             type: 'ABILITY_USED',
-            abilityId: AbilityId.WOLF_GUARD_RESCUE,
+            abilityId: AbilityId.SUBSTITUTE_SACRIFICE,
             targetInstanceId: getCard(next, targetId).occupant.id,
             round: next.round,
           }),
@@ -737,14 +831,21 @@ function resolveCouncil(state: GameState): GameState {
       };
       next = replaceCard(next, source);
       events.push({
-        type: 'WOLF_GUARD_RESCUED',
+        type: 'SUBSTITUTE_SACRIFICED',
         visibility: { type: 'PUBLIC' },
         sourceCardId: source.id,
         targetCardId: targetId,
       });
-      continue;
+      pendingDeaths.set(source.id, {
+        type: 'COUNCIL',
+        playerId: otherPlayer(defenderId),
+      });
+    } else {
+      pendingDeaths.set(targetId, {
+        type: 'COUNCIL',
+        playerId: otherPlayer(defenderId),
+      });
     }
-    pendingDeaths.set(targetId, { type: 'COUNCIL', playerId: accuserId });
   }
 
   const eliminatedIds: CardId[] = [];
@@ -754,8 +855,12 @@ function resolveCouncil(state: GameState): GameState {
     eliminatedIds.push(...eliminated.eliminatedIds);
   }
   next = resolveRevengeChain(next, eliminatedIds, true, events);
-  next = clearCouncilSubmissions(next);
   next = appendGameEvents(next, events);
+  return finishCouncilResolution(next);
+}
+
+function finishCouncilResolution(state: GameState): GameState {
+  const next = clearCouncilSubmissions(state);
 
   const result = getEliminationResult(next);
   if (result) return transitionGameState(next, { type: 'GAME_ENDED', result });
@@ -806,7 +911,7 @@ function clearCouncilSubmissions(state: GameState): GameState {
       ...player,
       submissions: {
         ...player.submissions,
-        council: { accusation: null, reaction: null },
+        council: { accusation: null, reaction: null, pendingTargetId: null },
       },
     }));
   }
@@ -944,18 +1049,24 @@ function resolvePurge(state: GameState): GameState {
       for (const card of state.players[playerId].board) snapshot.set(card.id, card);
     }
     const replacements = new Map<CardId, GameCard>();
-    const usedCardIds = new Set<CardId>();
+    const selectedCardIds = PLAYER_ORDER.flatMap((playerId) => {
+      const order = orders[playerId];
+      if (order.rule !== 'SWAP') throw new Error('Purge SWAP snapshot không đồng nhất.');
+      return [order.ownTargetId, order.opponentTargetId].filter(
+        (cardId): cardId is CardId => cardId !== null
+      );
+    });
+    const hasOverlappingSelection = new Set(selectedCardIds).size !== selectedCardIds.length;
     for (const playerId of PLAYER_ORDER) {
       const order = orders[playerId];
       if (order.rule !== 'SWAP') throw new Error('Purge SWAP snapshot không đồng nhất.');
       if (
+        hasOverlappingSelection ||
         order.ownTargetId === null ||
-        order.opponentTargetId === null ||
-        usedCardIds.has(order.ownTargetId) ||
-        usedCardIds.has(order.opponentTargetId)
+        order.opponentTargetId === null
       ) {
-        // Không còn cặp hợp lệ (hoặc cặp đã bị đối thủ chọn trước): bỏ qua
-        // lệnh SWAP của bên này thay vì làm chết turn.
+        // Hai lệnh SWAP được phân giải như một batch. Nếu chúng chạm cùng
+        // một slot thì cả batch fizzle để kết quả không phụ thuộc thứ tự player.
         events.push({
           type: 'PURGE_RESOLVED',
           visibility: { type: 'PUBLIC' },
@@ -969,8 +1080,6 @@ function resolvePurge(state: GameState): GameState {
       const ownSlot = snapshot.get(order.ownTargetId);
       const opponentSlot = snapshot.get(order.opponentTargetId);
       if (!ownSlot || !opponentSlot) throw new Error('Thiếu card trong Purge SWAP snapshot.');
-      usedCardIds.add(order.ownTargetId);
-      usedCardIds.add(order.opponentTargetId);
       replacements.set(ownSlot.id, moveCardRuntimeToSlot(opponentSlot, ownSlot));
       replacements.set(opponentSlot.id, moveCardRuntimeToSlot(ownSlot, opponentSlot));
       events.push({
@@ -1266,7 +1375,7 @@ function resolveNight(state: GameState): GameState {
     if (defense.type !== 'PROTECT') {
       events.push({
         type: 'DEFENSE_SKIPPED',
-        visibility: { type: 'PUBLIC' },
+        visibility: { type: 'PRIVATE', playerId },
         playerId,
       });
       continue;
@@ -1306,7 +1415,7 @@ function resolveNight(state: GameState): GameState {
     next = replaceCard(next, transitionCard(target, { type: 'APPLY_EFFECT', effect: protection }));
     events.push({
       type: 'EFFECT_APPLIED',
-      visibility: { type: 'PUBLIC' },
+      visibility: { type: 'PRIVATE', playerId },
       targetCardId: target.id,
       effectKind: CardEffectKind.PROTECTION,
     });
@@ -1334,7 +1443,7 @@ function resolveNight(state: GameState): GameState {
       }));
       events.push({
         type: 'ABILITY_RESOLVED',
-        visibility: { type: 'PUBLIC' },
+        visibility: { type: 'PRIVATE', playerId },
         abilityId: PlayerSpecialAbilityId.BLOOD_MOON,
         sourceCardId: null,
         targetCardId: target.id,
@@ -1347,18 +1456,24 @@ function resolveNight(state: GameState): GameState {
           effectKind: CardEffectKind.PROTECTION,
         });
       } else {
-        pendingDeaths.set(target.id, {
-          type: 'PLAYER_ABILITY',
-          abilityId: PlayerSpecialAbilityId.BLOOD_MOON,
-          playerId,
-        });
+        pendingDeaths.set(target.id, { type: 'HIDDEN_NIGHT' });
       }
       continue;
     }
 
     let source = getCard(next, order.sourceId);
     const target = getCard(next, order.targetId);
-    if (source.occupant.state.visibility === 'HIDDEN') {
+    const knownIntel =
+      order.abilityId === AbilityId.SEER_INSPECT
+        ? next.players[playerId].privateIntel.find(
+            (intel) => intel.targetInstanceId === target.occupant.id
+          )
+        : undefined;
+    const isSeerExecution =
+      order.abilityId === AbilityId.SEER_INSPECT &&
+      knownIntel !== undefined &&
+      getRoleDefinition(knownIntel.discoveredRole).faction === Faction.WEREWOLF;
+    if (isSeerExecution && source.occupant.state.visibility === 'HIDDEN') {
       source = transitionCard(source, { type: 'REVEAL' });
       next = replaceCard(next, source);
       events.push({
@@ -1383,18 +1498,6 @@ function resolveNight(state: GameState): GameState {
     next = replaceCard(next, source);
 
     if (order.abilityId === AbilityId.SEER_INSPECT) {
-      const known = next.players[playerId].privateIntel.find(
-        (intel) => intel.targetInstanceId === target.occupant.id
-      );
-      // Thông báo công khai "Tiên tri đã hành động" nhưng ẩn mục tiêu,
-      // khớp log prototype: "A dùng Tiên tri. Kết quả được giữ riêng."
-      events.push({
-        type: 'ABILITY_RESOLVED',
-        visibility: { type: 'PUBLIC' },
-        abilityId: order.abilityId,
-        sourceCardId: source.id,
-        targetCardId: null,
-      });
       events.push({
         type: 'ABILITY_RESOLVED',
         visibility: { type: 'PRIVATE', playerId },
@@ -1402,12 +1505,8 @@ function resolveNight(state: GameState): GameState {
         sourceCardId: source.id,
         targetCardId: target.id,
       });
-      if (known) {
-        pendingDeaths.set(target.id, {
-          type: 'ABILITY',
-          abilityId: order.abilityId,
-          sourceCardId: source.id,
-        });
+      if (knownIntel) {
+        pendingDeaths.set(target.id, { type: 'HIDDEN_NIGHT' });
       } else {
         const intel = {
           id: `intel:${playerId}:${source.id}:${target.id}:round:${next.round}`,
@@ -1435,7 +1534,7 @@ function resolveNight(state: GameState): GameState {
 
     events.push({
       type: 'ABILITY_RESOLVED',
-      visibility: { type: 'PUBLIC' },
+      visibility: { type: 'PRIVATE', playerId },
       abilityId: order.abilityId,
       sourceCardId: source.id,
       targetCardId: target.id,
@@ -1448,17 +1547,19 @@ function resolveNight(state: GameState): GameState {
         effectKind: CardEffectKind.PROTECTION,
       });
     } else {
-      pendingDeaths.set(target.id, {
-        type: 'ABILITY',
-        abilityId: order.abilityId,
-        sourceCardId: source.id,
-      });
+      pendingDeaths.set(target.id, { type: 'HIDDEN_NIGHT' });
     }
   }
 
   const nightEliminatedIds: CardId[] = [];
-  for (const [cardId, cause] of pendingDeaths) {
-    const eliminated = eliminateCard(next, cardId, false, cause, events);
+  for (const [cardId] of pendingDeaths) {
+    const eliminated = eliminateCard(
+      next,
+      cardId,
+      false,
+      { type: 'HIDDEN_NIGHT' },
+      events
+    );
     next = eliminated.state;
     nightEliminatedIds.push(...eliminated.eliminatedIds);
   }
@@ -1495,7 +1596,8 @@ function clearNightEffects(state: GameState): GameState {
         if (
           effect.kind === CardEffectKind.PROTECTION ||
           effect.kind === CardEffectKind.REVENGE_MARK ||
-          effect.kind === CardEffectKind.PURGE_LOCK
+          effect.kind === CardEffectKind.PURGE_LOCK ||
+          effect.kind === CardEffectKind.ROUND_EXHAUSTED
         ) {
           updated = transitionCard(updated, { type: 'REMOVE_EFFECT', effectId: effect.id });
         }
@@ -1533,6 +1635,12 @@ function livingCount(player: PlayerState): number {
 }
 
 const PLAYER_ORDER = [PlayerId.PLAYER_A, PlayerId.PLAYER_B] as const;
+
+function otherPlayer(playerId: PlayerId): PlayerId {
+  return playerId === PlayerId.PLAYER_A
+    ? PlayerId.PLAYER_B
+    : PlayerId.PLAYER_A;
+}
 
 type SubmissionKey = 'night' | 'defense' | 'purge' | 'finalGuess';
 
@@ -1581,6 +1689,11 @@ function assertCardAbilitySourceAvailable(source: GameCard): void {
   if (hasCardEffect(source, CardEffectKind.PURGE_LOCK)) {
     throw new RuleValidationError(
       `${source.id} đang bị Khóa mạch và không thể dùng ability trong vòng này.`
+    );
+  }
+  if (hasCardEffect(source, CardEffectKind.ROUND_EXHAUSTED)) {
+    throw new RuleValidationError(
+      `${source.id} đã dùng kỹ năng trong vòng này và không thể hành động thêm.`
     );
   }
 }

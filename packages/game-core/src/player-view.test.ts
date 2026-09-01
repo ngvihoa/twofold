@@ -163,7 +163,7 @@ describe('ruleset v0.2 player view serializer', () => {
     expect('privateIntel' in playerBView.opponent).toBe(false);
   });
 
-  it('removes effect identity and source from serialized card effects', () => {
+  it('keeps Guard target private while retaining the effect in its owner view', () => {
     const game = createViewTestGame();
     const protection: CardEffectState = {
       id: 'effect-guard-a5-target-b1-round-1',
@@ -191,10 +191,13 @@ describe('ruleset v0.2 player view serializer', () => {
         },
       },
     };
+    expect(
+      serializePlayerView(nextGame, PlayerId.PLAYER_A).opponent.board[0].effects
+    ).toEqual([]);
     const effectView = serializePlayerView(
       nextGame,
-      PlayerId.PLAYER_A
-    ).opponent.board[0].effects[0];
+      PlayerId.PLAYER_B
+    ).self.board[0].effects[0];
 
     expect(effectView).toEqual({
       kind: CardEffectKind.PROTECTION,

@@ -32,6 +32,7 @@ export const GamePhaseStateSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('DAY_B') }),
   z.object({ type: z.literal('COUNCIL_PLAN') }),
   z.object({ type: z.literal('COUNCIL_RESOLUTION') }),
+  z.object({ type: z.literal('COUNCIL_REACTION') }),
   z.object({ type: z.literal('NIGHT_PLAN') }),
   z.object({ type: z.literal('DUSK_DEFENSE') }),
   z.object({ type: z.literal('NIGHT_RESOLUTION') }),
@@ -57,7 +58,7 @@ export const CouncilOrderSchema = z.discriminatedUnion('type', [
     type: z.literal('ACCUSE'),
     targetId: CardIdSchema,
     guessedRole: CardRoleSchema.nullable(),
-    voterIds: z.tuple([CardIdSchema, CardIdSchema, CardIdSchema]),
+    voterIds: z.array(CardIdSchema).min(1).max(3),
   }),
 ]);
 export type CouncilOrder = z.infer<typeof CouncilOrderSchema>;
@@ -65,9 +66,8 @@ export type CouncilOrder = z.infer<typeof CouncilOrderSchema>;
 export const CouncilReactionOrderSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('PASS') }),
   z.object({
-    type: z.literal('WOLF_GUARD_RESCUE'),
+    type: z.literal('SUBSTITUTE_SACRIFICE'),
     sourceId: CardIdSchema,
-    targetId: CardIdSchema,
   }),
 ]);
 export type CouncilReactionOrder = z.infer<typeof CouncilReactionOrderSchema>;

@@ -22,6 +22,7 @@ export type PhaseMachineEvent =
   | { readonly type: 'SETUP_COMPLETED' }
   | { readonly type: 'DAY_ACTION_COMPLETED'; readonly playerId: PlayerId }
   | { readonly type: 'COUNCIL_ORDERS_LOCKED' }
+  | { readonly type: 'COUNCIL_REACTION_REQUIRED' }
   | { readonly type: 'COUNCIL_RESOLVED' }
   | { readonly type: 'NIGHT_ORDERS_LOCKED' }
   | { readonly type: 'DEFENSE_ORDERS_LOCKED' }
@@ -106,6 +107,15 @@ export function transitionPhase(
       break;
 
     case 'COUNCIL_RESOLUTION':
+      if (event.type === 'COUNCIL_REACTION_REQUIRED') {
+        return { ...state, phase: { type: 'COUNCIL_REACTION' } };
+      }
+      if (event.type === 'COUNCIL_RESOLVED') {
+        return { ...state, phase: { type: 'NIGHT_PLAN' } };
+      }
+      break;
+
+    case 'COUNCIL_REACTION':
       if (event.type === 'COUNCIL_RESOLVED') {
         return { ...state, phase: { type: 'NIGHT_PLAN' } };
       }

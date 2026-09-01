@@ -24,6 +24,7 @@
 | DEV-02 | Architecture | Phác state machine authoritative | Developer | Tuần này | Có state, event, transition và validation chính |
 | DEV-03 | Reliability | Nghiên cứu reconnect/resume | Developer | Ý tưởng | Có proposal window và cách phục hồi state |
 | DEV-04 | Delivery | Đề xuất stack, deploy, log | Developer | Ý tưởng | Có ADR draft và rủi ro lớn |
+| MIG-01 | Spec → Runtime | Đồng bộ ruleset reviewer tại `b770f7b` sang shared-types/game-core | Developer | Xong | Standard deck dùng Kẻ Thế Mạng; Council/đêm/khiên/Purge khớp spec đã freeze; runtime tests và web typecheck pass; khác biệt còn lại được ghi rõ |
 | TEAM-01 | Process | Chốt Definition of Done và nhịp sync | Cả team | Tuần này | Team đồng ý cách cập nhật task/decision/playtest |
 
 ## Backlog đến Web Alpha

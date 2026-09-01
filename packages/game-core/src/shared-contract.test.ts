@@ -68,7 +68,7 @@ describe('shared-types ruleset v0.2 contract', () => {
       {
         type: 'COUNCIL_REACTION_SUBMIT',
         playerId: PlayerId.PLAYER_B,
-        order: { type: 'WOLF_GUARD_RESCUE', sourceId: 'B10', targetId: 'B1' },
+        order: { type: 'SUBSTITUTE_SACRIFICE', sourceId: 'B10' },
       },
       {
         type: 'NIGHT_SUBMIT',
@@ -168,7 +168,7 @@ describe('shared-types ruleset v0.2 contract', () => {
     ).toBe(true);
   });
 
-  it('rejects malformed IDs, incomplete Council voters and public hidden roles', () => {
+  it('rejects malformed IDs, empty Council voters and public hidden roles', () => {
     expect(CardIdSchema.safeParse('A20').success).toBe(false);
     expect(
       PlayerGameActionSchema.safeParse({
@@ -178,7 +178,7 @@ describe('shared-types ruleset v0.2 contract', () => {
           type: 'ACCUSE',
           targetId: 'B1',
           guessedRole: CardRole.WEREWOLF,
-          voterIds: ['A1', 'A2'],
+          voterIds: [],
         },
       }).success
     ).toBe(false);

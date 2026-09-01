@@ -31,6 +31,7 @@ const ROLE_ART: Record<CardRole, string> = {
   [CardRole.SHOOTER]: '/characters/xa-thu.webp',
   [CardRole.AVENGER]: '/characters/ke-bao-thu.png',
   [CardRole.PRIEST]: '/characters/muc-su.png',
+  [CardRole.SUBSTITUTE]: '/characters/soi-ho-ve.webp',
   [CardRole.WOLF_GUARD]: '/characters/soi-ho-ve.webp',
 };
 

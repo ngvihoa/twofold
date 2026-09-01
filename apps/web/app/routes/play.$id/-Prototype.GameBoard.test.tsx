@@ -103,7 +103,7 @@ describe('PrototypeGameBoard', () => {
 
   it.each([
     ['DAY_A', 1, 'Xạ thủ bắn'],
-    ['COUNCIL_PLAN', 2, 'Chọn 3 người'],
+    ['COUNCIL_PLAN', 2, 'Chọn voter'],
     ['NIGHT_PLAN', 2, 'Ma sói tấn công'],
     ['DUSK_DEFENSE', 2, 'Đặt khiên'],
     ['PURGE_PLAN', 6, 'Thanh trừng CUT'],

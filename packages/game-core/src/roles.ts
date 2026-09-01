@@ -36,6 +36,7 @@ export type AbilityState =
   | { readonly abilityId: AbilityId.SHOOTER_SHOOT; readonly remainingUses: number }
   | { readonly abilityId: AbilityId.AVENGER_MARK }
   | { readonly abilityId: AbilityId.PRIEST_PURIFY; readonly remainingUses: number }
+  | { readonly abilityId: AbilityId.SUBSTITUTE_SACRIFICE; readonly remainingUses: number }
   | { readonly abilityId: AbilityId.WOLF_GUARD_RESCUE; readonly remainingUses: number };
 
 /**
@@ -112,6 +113,12 @@ export const ROLE_DEFINITIONS = {
     faction: Faction.VILLAGE,
     abilities: [AbilityId.PRIEST_PURIFY],
   },
+  [CardRole.SUBSTITUTE]: {
+    id: CardRole.SUBSTITUTE,
+    displayName: 'Kẻ Thế Mạng',
+    faction: Faction.WEREWOLF,
+    abilities: [AbilityId.SUBSTITUTE_SACRIFICE],
+  },
   [CardRole.WOLF_GUARD]: {
     id: CardRole.WOLF_GUARD,
     displayName: 'Sói Hộ Vệ',
@@ -131,7 +138,7 @@ export const STANDARD_DECK = [
   CardRole.SHOOTER,
   CardRole.AVENGER,
   CardRole.PRIEST,
-  CardRole.WOLF_GUARD,
+  CardRole.SUBSTITUTE,
 ] as const satisfies readonly CardRole[];
 
 /** Tra cứu metadata bất biến của một role trong ruleset hiện tại. */
@@ -159,6 +166,8 @@ function createInitialAbilityStates(role: CardRole): readonly AbilityState[] {
       return [{ abilityId: AbilityId.AVENGER_MARK }];
     case CardRole.PRIEST:
       return [{ abilityId: AbilityId.PRIEST_PURIFY, remainingUses: 1 }];
+    case CardRole.SUBSTITUTE:
+      return [{ abilityId: AbilityId.SUBSTITUTE_SACRIFICE, remainingUses: 1 }];
     case CardRole.WOLF_GUARD:
       return [{ abilityId: AbilityId.WOLF_GUARD_RESCUE, remainingUses: 1 }];
     default:
