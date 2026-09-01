@@ -53,7 +53,7 @@ function assertGameWebSocketRequest(request: Request): void {
   }
 }
 
-/** Tạo crossws hooks dùng chung cho Vite dev và production server. */
+/** Tạo crossws hooks cho Nitro native WebSocket route ở dev và production. */
 export function createGameWebSocketHooks(
   roomServer: GameRoomServer = gameRoomServer
 ): Partial<Hooks> {

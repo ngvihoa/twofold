@@ -3,18 +3,13 @@ import {
   createStartHandler,
   defaultStreamHandler,
 } from '@tanstack/react-start/server';
-import { plugin as websocketPlugin } from 'crossws/server/node';
-import { gameWebSocketHooks } from '../server/game-websocket';
 
 const startEntry = createServerEntry({
   fetch: createStartHandler(defaultStreamHandler),
 });
 
 /**
- * Production server entry: HTTP dùng TanStack Start, WebSocket dùng cùng server
- * process qua crossws. Vite dev gắn cùng hooks bằng plugin trong vite.config.
+ * HTTP entry của TanStack Start. WebSocket `/api/ws` được Nitro route xử lý
+ * riêng khi `features.websocket` được bật trong Vite config.
  */
-export default {
-  ...startEntry,
-  plugins: [websocketPlugin(gameWebSocketHooks)],
-};
+export default startEntry;

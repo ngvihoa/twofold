@@ -25,7 +25,7 @@ ${colors.bold}Monorepo Status:${colors.reset}
 ${colors.bold}Core Apps & Tools:${colors.reset}
   • ${colors.bold}spec-reviewer${colors.reset}: PO Specification & Role Atlas Review Hub
   • ${colors.bold}web${colors.reset}: Twofold Web Alpha Game Client
-  • ${colors.bold}game-core${colors.reset}: Ruleset v0.1 & Turn State Machine
+  • ${colors.bold}game-core${colors.reset}: Ruleset v0.2 & Turn State Machine
   • ${colors.bold}shared-types${colors.reset}: Shared Schema & Type Definitions
   • ${colors.bold}cli${colors.reset}: Centralized Monorepo Management CLI
 
@@ -36,4 +36,3 @@ ${colors.bold}Quick Commands:${colors.reset}
   ${colors.cyan}tf create <app|package> <name>${colors.reset}  Scaffold new project
 `);
 }
-

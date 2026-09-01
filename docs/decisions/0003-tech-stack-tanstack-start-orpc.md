@@ -45,9 +45,9 @@
 
 ### Amendment 01/09/2026
 
-TanStack Start version đang dùng build production trên `srvx`, không phải Nitro.
-Implementation giữ nguyên quyết định all-in-one và `crossws`: production gắn
-`crossws/server/node` vào custom Start server entry; Vite dev gắn cùng hooks vào
-HTTP upgrade event. `/api/ws` và contract không đổi. Room/session hiện in-memory
-và chỉ phù hợp single process; reconnect persistence/multi-replica phải được
-xem lại trước khi scale.
+TanStack Start version đang dùng build production qua Nitro node-server trên
+`srvx`. Implementation giữ nguyên quyết định all-in-one và `crossws`, nhưng
+đăng ký `/api/ws` bằng native Nitro `defineWebSocketHandler` với
+`features.websocket`; cùng route chạy ở Vite dev và production. Room/session
+hiện in-memory và chỉ phù hợp single process; reconnect persistence hoặc
+multi-replica phải được xem lại trước khi scale.

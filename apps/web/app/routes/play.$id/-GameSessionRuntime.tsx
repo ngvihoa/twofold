@@ -1,5 +1,6 @@
 import type { GameTransport } from '../../features/game/session/game-transport';
 import { GamePresentationActorContext } from '../../features/game/presentation/game-presentation-context';
+import { GamePresentationSync } from '../../features/game/presentation/game-presentation-sync';
 import { GameSessionActorContext } from '../../features/game/session/game-session-context';
 import {
   selectCanSubmit,
@@ -9,6 +10,7 @@ import {
   selectView,
 } from '../../features/game/session/game-session-machine';
 import { PrototypeGameBoard } from './-Prototype.GameBoard';
+import { PrototypeGameEventPresentation } from './-Prototype.GameEventPresentation';
 import { GameSetupPanel } from './-GameSetupPanel';
 
 export interface GameSessionRuntimeProps {
@@ -58,6 +60,13 @@ function GameSessionContent() {
     });
   };
 
+  const presentation = view ? (
+    <>
+      <GamePresentationSync gameId={view.gameId} events={view.events} />
+      <PrototypeGameEventPresentation />
+    </>
+  ) : null;
+
   if (view === null) {
     return (
       <section className="mx-auto flex w-full max-w-xl flex-1 items-center justify-center p-6 text-center">
@@ -92,23 +101,29 @@ function GameSessionContent() {
 
   if (view.phase.type === 'SETUP') {
     return (
-      <GameSetupPanel
-        player={view.self}
+      <>
+        {presentation}
+        <GameSetupPanel
+          player={view.self}
+          pendingAction={pendingAction}
+          error={error}
+          canSubmit={canSubmit}
+          onSubmit={(action) => actor.send({ type: 'SUBMIT_ACTION', action })}
+        />
+      </>
+    );
+  }
+
+  return (
+    <>
+      {presentation}
+      <PrototypeGameBoard
+        view={view}
         pendingAction={pendingAction}
         error={error}
         canSubmit={canSubmit}
         onSubmit={(action) => actor.send({ type: 'SUBMIT_ACTION', action })}
       />
-    );
-  }
-
-  return (
-    <PrototypeGameBoard
-      view={view}
-      pendingAction={pendingAction}
-      error={error}
-      canSubmit={canSubmit}
-      onSubmit={(action) => actor.send({ type: 'SUBMIT_ACTION', action })}
-    />
+    </>
   );
 }

@@ -27,8 +27,8 @@ pnpm --filter @twofold/web start
 ```
 
 Gameplay client mặc định kết nối same-origin `/api/ws`; `VITE_GAME_WS_URL` chỉ
-là override cho topology tách server. `crossws` được gắn vào Vite dev server và
-production server entry. Room store gọi `game-core` trên server rồi gửi
+là override cho topology tách server. Nitro native WebSocket route dùng cùng
+một gateway cho Vite dev và production. Room store gọi `game-core` rồi gửi
 `GamePlayerViewV2` đã lọc riêng cho từng player; frontend không resolve rule.
 
 Room và reconnect session hiện được giữ trong memory của một process. Restart

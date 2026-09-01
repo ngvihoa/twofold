@@ -4,7 +4,6 @@ import {
   CardIdSchema,
   CardRole,
   ClientWsMessageSchema,
-  DayActionType,
   GameEventSchema,
   GamePlayerViewV2Schema,
   PlayerGameActionSchema,
@@ -54,7 +53,7 @@ describe('shared-types ruleset v0.2 contract', () => {
       {
         type: 'DAY_SUBMIT',
         playerId: PlayerId.PLAYER_A,
-        action: { type: DayActionType.SHOOT, sourceId: 'A7', targetId: 'B1' },
+        action: { type: 'SHOOT', sourceId: 'A7', targetId: 'B1' },
       },
       {
         type: 'COUNCIL_ACCUSATION_SUBMIT',

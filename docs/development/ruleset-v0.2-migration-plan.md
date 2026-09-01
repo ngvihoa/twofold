@@ -774,27 +774,17 @@ Các event chính:
 
 Web chịu trách nhiệm dịch event thành nội dung và animation. Structured event cũng phục vụ reconnect, replay và audit rule.
 
-### 12.1. Chính sách legacy log trong thời gian migration
+### 12.1. Structured history sau compatibility cleanup
 
 `GameState.events` là event history authoritative duy nhất. Reconnect, replay,
 state synchronization, audit rule và presentation mới phải đọc structured
 event; không được đọc hoặc suy luận gameplay state từ chuỗi log.
 
-`MasterGameState.logs` và legacy player view chỉ được giữ cho adapter v0.1
-trong thời gian consumer migration:
-
-- legacy log **không authoritative** và không đảm bảo phản ánh các action sau
-  khi khởi tạo trận;
-- `GameEngine.dispatch()` chỉ preserve field này, không derive chuỗi tiếng Việt
-  từ structured event;
-- legacy logs được khai báo readonly; snapshot và legacy view không nhận mutable
-  reference tới array nội bộ;
-- core không xây thêm mapper `GameEvent → EventLogEntry`, vì mapper đó là
-  presentation concern và sẽ tạo hai event history phải duy trì song song;
-- server, test rule và frontend mới không được dùng legacy log cho resolution,
-  replay hoặc synchronization;
-- `MasterGameState.logs`, `getPlayerView()` và legacy projection liên quan sẽ bị
-  xóa sau khi server và `apps/web` đã chuyển sang contract v0.2.
+PR 4.6 đã xóa `MasterGameState.logs`, `getPlayerView()`, legacy WebSocket schema
+và toàn bộ projection v0.1. `GameEngine` chỉ giữ `GameState.events` và chỉ trả
+filtered `GamePlayerViewV2` qua authoritative player view boundary. Core không
+xây mapper `GameEvent → EventLogEntry`, vì wording và animation là presentation
+concern của web.
 
 Nếu UI cần activity feed, UI tự map các `GameEvent` đã được lọc theo viewer sang
 nội dung bản địa hóa.
@@ -1118,8 +1108,10 @@ Check hiện tại pass 43 web tests và 81 game-core tests.
 Hoàn thành ngày 01/09/2026 để kiểm chứng session machine bằng transport thật
 trước PR 4.5.
 
-- Vite dev gắn `crossws` vào HTTP upgrade event; production custom Start entry
-  gắn cùng hooks vào `srvx`. Cả hai phục vụ same-origin `/api/ws`.
+- Nitro bật native WebSocket feature và scan `server/api/ws.ts`; cùng một
+  `defineWebSocketHandler` phục vụ same-origin `/api/ws` ở Vite dev lẫn
+  production. Cách này thay plugin `server.ssrLoadModule()` cũ không còn tương
+  thích với `FetchableDevEnvironment` của Vite 8/TanStack Start.
 - `GameRoomServer` giữ room/session trong memory, gán `PLAYER_A/B`, gọi duy nhất
   `GameEngine.dispatch()` và broadcast player-specific `GamePlayerViewV2`.
 - Client message được validate bằng `ClientWsMessageSchema`; outbound message
@@ -1149,19 +1141,24 @@ Acceptance criteria:
 - [x] Production smoke test xác nhận SSR, static asset và hai WebSocket peer.
 - [x] 43 web tests, typecheck và production client/SSR build pass.
 
-#### Các lát tiếp theo của PR 4
+#### Các lát hoàn tất PR 4
 
-1. **PR 4.5 — Structured history:** derive wording/presentation từ
-   `GameEventV2`, giữ private event đúng viewer boundary.
-2. **PR 4.6 — Compatibility cleanup:** kiểm tra và xóa contract v0.1/adapter
-   còn sót sau khi structured history đã thay toàn bộ presentation cũ. Local
-   phase/card/log và `Math.random()` trong route gameplay đã được xóa ở PR 4.4.
+1. **PR 4.5 — Structured history (hoàn thành 01/09/2026):** history rail derive
+   wording từ `GameEventV2`; presentation actor hydrate reconnect snapshot mà
+   không replay, rồi dedupe và phát tuần tự live event đã được server lọc theo
+   viewer. UI có animation, skip current và skip toàn bộ queue.
+2. **PR 4.6 — Compatibility cleanup (hoàn thành 01/09/2026):** xóa schema/type
+   v0.1, `MasterGameState.logs`, `getPlayerView()`, legacy projection và enum
+   `CALAMITY`. WebSocket, server và web chỉ còn contract v0.2. `core-adapter.mjs`
+   của Spec Reviewer thuộc PR 3 và vẫn được giữ làm presentation reference,
+   không phải transport/player-view adapter v0.1 vừa xóa.
 
 ### PR 5 — Cleanup và documentation
 
 - [ ] Đánh dấu tài liệu v0.1 là archived.
 - [ ] Tạo tài liệu game rules v0.2 chính thức.
-- [ ] Xóa `CALAMITY`, role cũ và compatibility adapter không còn dùng.
+- [x] Xóa `CALAMITY` và compatibility contract/projection v0.1 khỏi runtime.
+- [ ] Xóa role cũ hoặc presentation adapter khi không còn consumer sử dụng.
 - [ ] Ghi lại các quyết định rule trong `docs/decisions`.
 
 ---
