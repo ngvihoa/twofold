@@ -6,7 +6,7 @@
 - Owner/Agent: Codex
 - Branch: `codex/chat-playtest-prototype`
 - Commit trước khi làm: `75b104c`
-- Commit implementation: Chưa có
+- Commit implementation: `7180595`
 - Conversation/task source: Audit gameplay ngày 30/08/2026 và yêu cầu xử lý từng phần, bắt đầu từ P0
 - Trạng thái: Hoàn thành phần P0.1; giả định “đúng 3 voter” được thay thế ngay sau đó bởi `2026-08-30-002`
 
@@ -105,7 +105,7 @@ All 3 workspace checks passed!
 - Root cause: Xác định — state machine cũ được giữ khi chuyển path; không có regression test trong package check
 - Fix/decision: Sửa tại public engine seam và nối suite vào workspace check
 - Verify lại: PASS 9/9
-- Commit fix: Chưa có
+- Commit fix: `7180595`
 
 ## Quyết định sau implementation
 
@@ -147,7 +147,7 @@ All 3 workspace checks passed!
 - Docs: `apps/spec-reviewer/game-flow-demo/README.md`, record này
 - ADR: `docs/decisions/0001-core-rules-v0.1.md`
 - Screenshot/video: Chưa có
-- Commit/PR: Chưa có
+- Commit/PR: `7180595`
 
 ## Bước tiếp theo
 

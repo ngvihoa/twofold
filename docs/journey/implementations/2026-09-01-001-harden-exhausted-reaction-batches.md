@@ -6,7 +6,7 @@
 - Owner/Agent: Codex
 - Branch: `codex/chat-playtest-prototype`
 - Commit trước khi làm: Working tree P0.2.1, base lịch sử `75b104c`
-- Commit implementation: Chưa có
+- Commit implementation: `7180595`
 - Conversation/task source: CONV-006 — tiếp tục P0.3
 - Trạng thái: Hoàn thành prototype; chờ human playtest
 
@@ -94,7 +94,7 @@ After reaction: A4 ĐÃ CHẾT, A7 sống, VÒNG 9 · KHÓA LỆNH ĐÊM
 - Root cause: Xác định — thiếu `dayExhausted` ở bốn consumer của voter eligibility.
 - Fix/decision: thêm invariant ở submit, resolve, policy, UI và public view.
 - Verify lại: PASS test riêng, browser và suite 30/30.
-- Commit fix: Chưa có.
+- Commit fix: `7180595`.
 
 ### F-002 — Khóa mạch vô hiệu nhầm death reaction Kẻ Thế Mạng
 
@@ -105,7 +105,7 @@ After reaction: A4 ĐÃ CHẾT, A7 sống, VÒNG 9 · KHÓA LỆNH ĐÊM
 - Root cause: Xác định — selector reaction dùng chung điều kiện `purgeLockedRound` của active source.
 - Fix/decision: reaction selector riêng chỉ xét alive, role và charge; vẫn cấm tự cứu.
 - Verify lại: PASS automated và browser V9.
-- Commit fix: Chưa có.
+- Commit fix: `7180595`.
 
 ## Quyết định sau implementation
 
@@ -143,7 +143,7 @@ After reaction: A4 ĐÃ CHẾT, A7 sống, VÒNG 9 · KHÓA LỆNH ĐÊM
 - Docs/ADR: core gameplay, game flow, roles draft, role evolution, verification log, task tracker.
 - Screenshot/video: Không lưu; DOM evidence trong task.
 - Test report: record này và `docs/journey/verification-log.md`.
-- Commit/PR: Chưa có.
+- Commit/PR: `7180595`.
 
 ## Bước tiếp theo
 

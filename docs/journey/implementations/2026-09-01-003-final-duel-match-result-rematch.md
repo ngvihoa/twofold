@@ -6,7 +6,7 @@
 - Owner/Agent: Codex
 - Branch: `codex/chat-playtest-prototype`
 - Commit trước khi làm: Working tree P0.4
-- Commit implementation: Chờ commit
+- Commit implementation: `7180595`
 - Conversation/task source: CONV-006 — hoàn tất P0.5 rồi commit/push
 - Trạng thái: Hoàn thành prototype
 
@@ -90,7 +90,7 @@ Browser rematch: livingCards=20, setupButton=Khóa thứ tự 10 lá
 - Root cause: Xác định — guard/finalization phân tán và ended dispatch chặn rematch.
 - Fix/decision: guard sau Day/Council; finalizer chung; rematch special action.
 - Verify lại: PASS 38/38 + browser.
-- Commit fix: Chờ commit.
+- Commit fix: `7180595`.
 
 ## Quyết định sau implementation
 
@@ -127,7 +127,7 @@ Browser rematch: livingCards=20, setupButton=Khóa thứ tự 10 lá
 - Docs/ADR: ADR-0001, core gameplay, game flow, README.
 - Screenshot/video: Không lưu; DOM evidence trong task.
 - Test report: record này và verification log.
-- Commit/PR: Chờ commit.
+- Commit/PR: `7180595`.
 
 ## Bước tiếp theo
 

@@ -6,7 +6,7 @@
 - Owner/Agent: Codex
 - Branch: `codex/chat-playtest-prototype`
 - Commit trước khi làm: Working tree sau `2026-08-30-002`, base `75b104c`
-- Commit implementation: Chưa có
+- Commit implementation: `7180595`
 - Conversation/task source: CONV-006 — brainstorm cân bằng Tiên tri và thay Sói Hộ Vệ
 - Trạng thái: Hoàn thành; prototype đã implement và regression test
 
@@ -123,7 +123,7 @@ Feedback loop trước fix có **11/15 pass**: bốn regression mới fail vì `
 - Docs/ADR: `CONTEXT.md`, ADR-0001, core gameplay, game flow, roles draft, role evolution.
 - Screenshot/video: Chưa có.
 - Test report: Static review trong record này.
-- Commit/PR: Chưa có.
+- Commit/PR: `7180595`.
 
 ## Bước tiếp theo
 

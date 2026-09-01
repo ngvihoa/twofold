@@ -6,7 +6,7 @@
 - Owner/Agent: Codex
 - Branch: `codex/chat-playtest-prototype`
 - Commit trước khi làm: Working tree sau `2026-08-30-001`, base `75b104c`
-- Commit implementation: Chưa có
+- Commit implementation: `7180595`
 - Conversation/task source: Owner làm rõ “Dân làng tính 2 phiếu thì khi chọn không cần phải 3 nhân vật”
 - Trạng thái: Hoàn thành implementation; chờ browser review
 
@@ -83,7 +83,7 @@ Post-fix final: tests 11, pass 11, fail 0
 - Root cause: Xác định — validation dùng cardinality thay vì tổng trọng số
 - Fix/decision: Validate và resolve bằng `votePower >= 3`, cap tối đa ba voter
 - Verify lại: PASS
-- Commit fix: Chưa có
+- Commit fix: `7180595`
 
 ## Quyết định sau implementation
 
@@ -119,7 +119,7 @@ Post-fix final: tests 11, pass 11, fail 0
 - Test: `apps/spec-reviewer/game-flow-demo/engine.test.mjs`
 - Docs: `docs/decisions/0001-core-rules-v0.1.md`, `docs/game-design/core-gameplay-v0.1.md`, `docs/game-design/game-flow-v0.1.md`
 - Screenshot/video: Chưa có
-- Commit/PR: Chưa có
+- Commit/PR: `7180595`
 
 ## Bước tiếp theo
 

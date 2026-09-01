@@ -6,7 +6,7 @@
 - Owner/Agent: Codex
 - Branch: `codex/chat-playtest-prototype`
 - Commit trước khi làm: Working tree sau implementation P0.1, base `75b104c`
-- Commit implementation: Chưa có
+- Commit implementation: `7180595`
 - Conversation/task source: CONV-006 — kiểm tra P hiện tại rồi sửa P tiếp theo
 - Trạng thái: Hoàn thành prototype; chờ human playtest
 
@@ -105,7 +105,7 @@ Browser V9 fixture: A1 có KHÓA MẠCH; data-direct-source = null; vào Day V9
 - Root cause: Xác định — transition hard-code `day-A`, thiếu state/dispatcher.
 - Fix/decision: thêm `purgeRule`, state, submit/resolve và transition.
 - Verify lại: PASS 24/24 ở suite hiện tại.
-- Commit fix: Chưa có.
+- Commit fix: `7180595`.
 
 ### F-002 — Smoke automation click sớm trong animation
 
@@ -127,7 +127,7 @@ Browser V9 fixture: A1 có KHÓA MẠCH; data-direct-source = null; vào Day V9
 - Root cause: Xác định — engine chỉ phát hiện conflict sau hai submission, nhưng không phát hiện submission thứ hai là bất khả thi.
 - Fix/decision: kiểm tra existence của response ngay sau lựa chọn đầu tiên; thiếu một trong hai pool còn lại thì auto-fizzle.
 - Verify lại: PASS test riêng và 24/24 suite.
-- Commit fix: Chưa có.
+- Commit fix: `7180595`.
 
 ### F-004 — BOT Council retry vô hạn sau khi đã dùng Xạ thủ
 
@@ -138,7 +138,7 @@ Browser V9 fixture: A1 có KHÓA MẠCH; data-direct-source = null; vào Day V9
 - Root cause: Xác định — bot policy không xét `eliminationSpent`, UI không chặn retry sau exception.
 - Fix/decision: tách `chooseBotCouncilAction`; trả `pass` ngay khi đã tiêu quyền; lưu/hiện `botError` và không schedule lại vô hạn nếu còn lỗi.
 - Verify lại: red test 0/1 với actual `accuse`; green test 1/1 với `pass`; toàn suite 24/24.
-- Commit fix: Chưa có.
+- Commit fix: `7180595`.
 
 ## Quyết định sau implementation
 
@@ -179,7 +179,7 @@ Browser V9 fixture: A1 có KHÓA MẠCH; data-direct-source = null; vào Day V9
 - Docs/ADR: core gameplay, game flow, role evolution, verification log, task tracker.
 - Screenshot/video: Không lưu; browser smoke có DOM/history evidence trong task.
 - Test report: record này và `docs/journey/verification-log.md`.
-- Commit/PR: Chưa có.
+- Commit/PR: `7180595`.
 
 ## Bước tiếp theo
 

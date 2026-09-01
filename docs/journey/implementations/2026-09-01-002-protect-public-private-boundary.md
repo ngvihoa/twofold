@@ -6,7 +6,7 @@
 - Owner/Agent: Codex
 - Branch: `codex/chat-playtest-prototype`
 - Commit trước khi làm: Working tree P0.3
-- Commit implementation: Chờ commit
+- Commit implementation: `7180595`
 - Conversation/task source: CONV-006 — hoàn tất P0.4 trước P0.5
 - Trạng thái: Hoàn thành prototype
 
@@ -85,7 +85,7 @@ Browser BOT replay: Mục tiêu bí mật; opponent shields = 0; owner A2 shield
 - Root cause: Xác định — raw state/log dùng chung cho public consumer; presentation không sanitize opponent action.
 - Fix/decision: mask public payload, private overlay, sanitize log và dawn/replay.
 - Verify lại: PASS automated và browser.
-- Commit fix: Chờ commit.
+- Commit fix: `7180595`.
 
 ## Quyết định sau implementation
 
@@ -121,7 +121,7 @@ Browser BOT replay: Mục tiêu bí mật; opponent shields = 0; owner A2 shield
 - Docs/ADR: core gameplay, game flow, roles draft, README.
 - Screenshot/video: Không lưu; DOM evidence trong task.
 - Test report: record này và verification log.
-- Commit/PR: Chờ commit.
+- Commit/PR: `7180595`.
 
 ## Bước tiếp theo
 
