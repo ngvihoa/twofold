@@ -11,7 +11,7 @@ const startEntry = createServerEntry({
 });
 
 /**
- * Production srvx entry: HTTP dùng TanStack Start, WebSocket dùng cùng server
+ * Production server entry: HTTP dùng TanStack Start, WebSocket dùng cùng server
  * process qua crossws. Vite dev gắn cùng hooks bằng plugin trong vite.config.
  */
 export default {

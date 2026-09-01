@@ -34,7 +34,8 @@ function attachGameWebSocket(
 export function gameWebSocketVitePlugin(): Plugin {
   return {
     name: 'twofold-game-websocket',
-    apply: 'serve',
+    apply: (_, environment) =>
+      environment.command === 'serve' && !process.env.VITEST,
     async configureServer(server) {
       const module = await server.ssrLoadModule('/server/game-websocket.ts') as {
         GAME_WEBSOCKET_PATH: string;

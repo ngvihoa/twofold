@@ -5,7 +5,7 @@
 ## Infrastructure
 
 - TanStack Start + TanStack Router file-based routing.
-- Vite cho development, client build và SSR build.
+- Vite cho development; Nitro đóng gói SSR build cho production/Vercel.
 - TypeScript strict; route tree được generate bằng `tsr`.
 - Node.js `>=22.12.0`, pnpm `>=10.0.0`.
 
@@ -28,7 +28,7 @@ pnpm --filter @twofold/web start
 
 Gameplay client mặc định kết nối same-origin `/api/ws`; `VITE_GAME_WS_URL` chỉ
 là override cho topology tách server. `crossws` được gắn vào Vite dev server và
-production `srvx` entry. Room store gọi `game-core` trên server rồi gửi
+production server entry. Room store gọi `game-core` trên server rồi gửi
 `GamePlayerViewV2` đã lọc riêng cho từng player; frontend không resolve rule.
 
 Room và reconnect session hiện được giữ trong memory của một process. Restart
