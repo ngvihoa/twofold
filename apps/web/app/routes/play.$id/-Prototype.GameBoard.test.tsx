@@ -75,7 +75,7 @@ describe('PrototypeGameBoard', () => {
       />
     );
 
-    expect(html).toContain('role ẩn');
+    expect(html).toContain('Vai trò ẩn');
     expect(html).toContain('DEAD');
     expect(html).toContain('HIDDEN');
     expect(html).not.toContain(CardRole.WEREWOLF);
@@ -87,7 +87,7 @@ describe('PrototypeGameBoard', () => {
     ['NIGHT_PLAN', 2, 'Ma sói tấn công'],
     ['DUSK_DEFENSE', 2, 'Đặt khiên'],
     ['PURGE_PLAN', 6, 'Thanh trừng CUT'],
-    ['FINAL_DUEL', 6, CardRole.WEREWOLF],
+    ['FINAL_DUEL', 6, 'Ma sói'],
     ['DAWN', 2, 'thao tác tạm khóa'],
   ] as const)('renders the %s phase action surface', (phase, round, expected) => {
     const view = GamePlayerViewV2Schema.parse({

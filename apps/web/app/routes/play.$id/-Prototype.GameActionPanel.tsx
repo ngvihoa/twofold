@@ -29,6 +29,7 @@ import {
   type NightAbilityId,
 } from '../../features/game/action/game-action-model';
 import type { GameSessionError } from '../../features/game/session/game-session-machine';
+import { formatGameRoleName } from '../../features/game/presentation/game-display-labels';
 
 export interface PrototypeGameInteractionProviderProps {
   readonly view: GamePlayerViewV2;
@@ -223,9 +224,9 @@ function PhaseControls({ context }: { readonly context: GameInteractionContextVa
     if (interaction.kind === 'COUNCIL_GUESS') {
       return (
         <div className="flex max-w-2xl flex-wrap items-center justify-center gap-1.5">
-          <Prompt text={`Đoán role của ${interaction.targetId}`} />
+          <Prompt text={`Đoán vai trò của ${interaction.targetId}`} />
           {Object.values(CardRole).map((role) => (
-            <ActionButton key={role} label={role} disabled={disabled} onClick={() => submit(
+            <ActionButton key={role} label={formatGameRoleName(role)} disabled={disabled} onClick={() => submit(
               createCouncilAccusationAction(view.self.id, interaction.targetId, role, interaction.voterIds)
             )} />
           ))}
@@ -320,7 +321,7 @@ function PhaseControls({ context }: { readonly context: GameInteractionContextVa
     }
     case 'FINAL_DUEL':
       if (view.self.submissions.finalGuess) return <Prompt text="Dự đoán đã khóa · đang chờ kết quả" />;
-      return <div className="flex max-w-2xl flex-wrap items-center justify-center gap-1.5"><Prompt text="Đoán role cuối của đối thủ" />{Object.values(CardRole).map((role) => <ActionButton key={role} label={role} disabled={disabled} onClick={() => submit(createFinalGuessAction(view.self.id, role))} />)}</div>;
+      return <div className="flex max-w-2xl flex-wrap items-center justify-center gap-1.5"><Prompt text="Đoán vai trò cuối của đối thủ" />{Object.values(CardRole).map((role) => <ActionButton key={role} label={formatGameRoleName(role)} disabled={disabled} onClick={() => submit(createFinalGuessAction(view.self.id, role))} />)}</div>;
     case 'COUNCIL_RESOLUTION':
     case 'NIGHT_RESOLUTION':
     case 'DAWN':

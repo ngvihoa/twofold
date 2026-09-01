@@ -9,6 +9,7 @@ import {
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { GameSetupPanel } from './-GameSetupPanel';
+import { formatGameRoleName } from '../../features/game/presentation/game-display-labels';
 
 function createPlayerView() {
   const playerA = createInitialPlayerState(
@@ -48,7 +49,7 @@ describe('GameSetupPanel', () => {
     expect(html.match(/data-setup-card=/gu)).toHaveLength(10);
     for (const card of view.self.board) {
       expect(html).toContain(`data-setup-card="${card.instanceId}"`);
-      expect(html).toContain(card.role.id);
+      expect(html).toContain(formatGameRoleName(card.role.id));
     }
   });
 });

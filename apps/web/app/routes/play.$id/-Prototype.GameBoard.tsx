@@ -4,6 +4,7 @@ import type {
   PlayerGameAction,
 } from '@twofold/shared-types';
 import { History, Moon, Shield, Skull, Sun, Trophy } from 'lucide-react';
+import { formatGameHistoryMessage } from '../../features/game/presentation/game-history-message';
 import type { GameSessionError } from '../../features/game/session/game-session-machine';
 import {
   PrototypeGameActionPanel,
@@ -63,7 +64,7 @@ function PrototypeGameArena({ view }: { readonly view: GamePlayerViewV2 }) {
         <main className="grid min-w-0 grid-rows-[auto_minmax(17rem,1fr)_auto] gap-2">
           <PrototypeBoardSection
             title={`Đối thủ · ${view.opponent.id}`}
-            hint="Role công khai được nhấn sáng"
+            hint="Vai trò công khai được nhấn sáng"
             alive={opponentAlive}
             icon={<Skull className="h-4 w-4 text-rose-400" />}
           >
@@ -89,7 +90,7 @@ function PrototypeGameArena({ view }: { readonly view: GamePlayerViewV2 }) {
 
           <PrototypeBoardSection
             title={`Tay của bạn · ${view.self.id}`}
-            hint="Thông tin role chỉ hiện với bạn"
+            hint="Thông tin vai trò chỉ hiện với bạn"
             alive={selfAlive}
             icon={<Shield className="h-4 w-4 text-sky-300" />}
           >
@@ -187,16 +188,20 @@ function PrototypeHistoryRail({ events }: { readonly events: readonly GameEventV
           <History className="h-4 w-4 text-amber-300" /> Lịch sử trận đấu
         </h2>
         <p className="mt-1 text-[9px] leading-relaxed text-slate-500">
-          Prototype rail · wording và animation hoàn chỉnh thuộc PR 4.5.
+          Những diễn biến gần nhất được ghi lại theo thứ tự thời gian.
         </p>
       </header>
       <ol className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto">
-        {recentEvents.length > 0 ? recentEvents.map((event) => (
-          <li key={event.id} className="border-l-2 border-slate-700 pl-2 text-[10px] leading-relaxed text-slate-400">
-            <span className="font-mono text-slate-500">#{event.sequence} · V{event.round}</span>
-            <strong className="block text-slate-300">{event.type}</strong>
-          </li>
-        )) : (
+        {recentEvents.length > 0 ? recentEvents.map((event) => {
+          const message = formatGameHistoryMessage(event);
+          return (
+            <li key={event.id} className="border-l-2 border-slate-700 pl-2 text-[10px] leading-relaxed text-slate-400">
+              <span className="font-mono text-slate-500">#{event.sequence} · V{event.round}</span>
+              <strong className="block text-slate-200">{message.title}</strong>
+              <span className="block text-slate-400">{message.detail}</span>
+            </li>
+          );
+        }) : (
           <li className="rounded-lg border border-dashed border-slate-800 p-3 text-center text-[10px] text-slate-500">
             Chưa có structured event.
           </li>

@@ -5,6 +5,7 @@ import {
   type PublicCardViewV2,
 } from '@twofold/shared-types';
 import { Eye, EyeOff, Shield, Skull } from 'lucide-react';
+import { formatGameRoleName } from '../../features/game/presentation/game-display-labels';
 
 export type PrototypeGameCardProps =
   | ({ readonly kind: 'self'; readonly card: PrivateCardViewV2 } & CardInteractionProps)
@@ -35,6 +36,7 @@ export function PrototypeGameCard(props: PrototypeGameCardProps) {
   const revealed = card.state.visibility === 'REVEALED';
   const role =
     props.kind === 'self' ? props.card.role.id : props.card.role;
+  const roleName = role ? formatGameRoleName(role) : 'hidden';
   const protectedCard = card.effects.some((effect) => effect.kind === 'PROTECTION');
   const abilityResources =
     props.kind === 'self'
@@ -47,7 +49,7 @@ export function PrototypeGameCard(props: PrototypeGameCardProps) {
     <button
       type="button"
       data-card-id={card.id}
-      aria-label={`${card.id}${role ? ` ${role}` : ' role ẩn'}`}
+      aria-label={`${card.id} · ${roleName}`}
       aria-pressed={props.selected}
       disabled={!props.selectable}
       onClick={() => props.onSelect(card.id)}
@@ -75,7 +77,7 @@ export function PrototypeGameCard(props: PrototypeGameCardProps) {
         {role ? (
           <img
             src={ROLE_ART[role]}
-            alt={`Minh họa ${role}`}
+            alt={`Minh họa ${roleName}`}
             loading="lazy"
             decoding="async"
             className="h-full min-h-20 w-full object-cover object-top"
@@ -86,7 +88,9 @@ export function PrototypeGameCard(props: PrototypeGameCardProps) {
           </div>
         )}
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent px-1 pb-1 pt-5">
-          <strong className="block truncate text-[10px] leading-tight text-amber-50">{role ?? 'ROLE ẨN'}</strong>
+          {roleName !== 'hidden' && (
+            <strong className="block truncate text-[10px] leading-tight text-amber-50">{roleName}</strong>
+          )}
           <span className="font-mono text-[8px] text-slate-300">{card.instanceId}</span>
         </div>
       </div>
@@ -103,11 +107,11 @@ export function PrototypeGameCard(props: PrototypeGameCardProps) {
             </span>
           ) : null}
         </div>
-        {abilityResources.length > 0 ? (
+        {/* {abilityResources.length > 0 ? (
           <p className="truncate" title={abilityResources.join(' · ')}>
             {abilityResources.join(' · ')}
           </p>
-        ) : null}
+        ) : null} */}
       </div>
     </button>
   );

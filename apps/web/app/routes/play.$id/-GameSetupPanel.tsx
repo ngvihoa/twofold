@@ -3,6 +3,7 @@ import type {
   PrivatePlayerViewV2,
 } from '@twofold/shared-types';
 import type { GameSessionError } from '../../features/game/session/game-session-machine';
+import { formatGameRoleName } from '../../features/game/presentation/game-display-labels';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -127,6 +128,7 @@ export function GameSetupPanel({
         {draft.order.map((instanceId, index) => {
           const card = cardByInstanceId.get(instanceId);
           if (!card) return null;
+          const roleName = formatGameRoleName(card.role.id);
           return (
             <article
               key={instanceId}
@@ -153,13 +155,13 @@ export function GameSetupPanel({
                 <GripVertical className="h-4 w-4" aria-hidden="true" />
               </div>
               <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
-                <span className="text-sm font-bold text-indigo-200">{card.role.id}</span>
+                <span className="text-sm font-bold text-indigo-200">{roleName}</span>
                 <span className="font-mono text-[10px] text-slate-500">{instanceId}</span>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  aria-label={`Đưa ${card.role.id} sang trái`}
+                  aria-label={`Đưa ${roleName} sang trái`}
                   onClick={() => moveCard(index, index - 1)}
                   disabled={!editable || index === 0}
                   className="flex justify-center rounded-lg border border-slate-700 bg-slate-900/60 p-2 text-slate-300 hover:border-indigo-500 hover:text-indigo-300 disabled:cursor-not-allowed disabled:opacity-30"
@@ -168,7 +170,7 @@ export function GameSetupPanel({
                 </button>
                 <button
                   type="button"
-                  aria-label={`Đưa ${card.role.id} sang phải`}
+                  aria-label={`Đưa ${roleName} sang phải`}
                   onClick={() => moveCard(index, index + 1)}
                   disabled={!editable || index === draft.order.length - 1}
                   className="flex justify-center rounded-lg border border-slate-700 bg-slate-900/60 p-2 text-slate-300 hover:border-indigo-500 hover:text-indigo-300 disabled:cursor-not-allowed disabled:opacity-30"
