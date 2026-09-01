@@ -16,6 +16,16 @@ Bản web hiện là chế độ một người: người chơi điều khiển 
 npm run prototype:chat -- --seat=A --seed=twofold-01
 ```
 
+## Seed fuzzing P0.6
+
+Chạy full-match simulation deterministic để kiểm tra transition, BOT action và invariant state:
+
+```bash
+npm run fuzz:game --workspace=@twofold/spec-reviewer -- --count=500 --prefix=local
+```
+
+Mỗi seed phải kết thúc trong `250` transition. Khi fail, lỗi in seed, round, phase, action và trace gần nhất để tái hiện. Có thể đổi giới hạn bằng `--max-steps=<n>`.
+
 ### Bản web trực quan
 
 Khi local server đang chạy, mở:

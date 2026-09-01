@@ -1,5 +1,16 @@
 # Nhật ký kiểm tra
 
+## 01/09/2026 — P0.6 seeded full-match fuzzing
+
+- Thêm simulator deterministic chạy hai seat qua setup, Day, Council/reaction, Night/Defense, Purge, Final Duel và match result.
+- Invariant kiểm tra sau mỗi transition: 20 identity/position duy nhất, owner cố định, charge hợp lệ, public alive khớp state, card chết không giữ khiên, Final Duel đúng 1–1 và ended reveal toàn bộ.
+- Regression thường: **2/2 pass**, gồm deterministic replay và 500 seed; coverage đủ 12 phase và mọi Day/Night skill hiện tại.
+- CLI smoke 500 seed `p06-cli-check-*`: max 109 transition, kết thúc muộn nhất V11.
+- Audit mở rộng 5.000 seed `p06-audit-*`: **5.000/5.000 ended**, max 137 transition/V13; A thắng 2.278, B thắng 2.197, hòa 525.
+- Không quan sát action invalid, invariant violation, deadlock hoặc vượt guard 250 transition.
+
+Giới hạn: policy simulation đọc full state và không phải UI BOT production; đây không phải browser/human playtest, balance evidence hoặc network desync test.
+
 ## 01/09/2026 — P0.5 Final Duel, match result và rematch
 
 - Red 0/3: Day còn 1–1 vẫn sang `day-B`; Final Guess có thể overwrite; match result chưa lộ toàn bộ role/rematch chưa qua engine.
