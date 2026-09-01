@@ -44,6 +44,53 @@
   box-shadow: 0 0 20px rgba(56, 189, 248, 0.5), inset 0 0 10px rgba(56, 189, 248, 0.3);
 }
 
+@keyframes card-tooltip-enter-top {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes card-tooltip-enter-bottom {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.card-tooltip-enter-top,
+.card-tooltip-enter-bottom {
+  animation-duration: 160ms;
+  animation-fill-mode: both;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.card-tooltip-enter-top {
+  animation-name: card-tooltip-enter-top;
+  transform-origin: bottom center;
+}
+
+.card-tooltip-enter-bottom {
+  animation-name: card-tooltip-enter-bottom;
+  transform-origin: top center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-tooltip-enter-top,
+  .card-tooltip-enter-bottom {
+    animation: none;
+  }
+}
+
 /* Custom Scrollbar for Event Log */
 ::-webkit-scrollbar {
   width: 6px;
@@ -62,4 +109,3 @@
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(99, 102, 241, 0.8);
 }
-

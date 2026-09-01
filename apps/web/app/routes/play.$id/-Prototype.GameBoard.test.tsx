@@ -36,6 +36,23 @@ function createView() {
 }
 
 describe('PrototypeGameBoard', () => {
+  it('adds an accessible function tooltip to a known player card', () => {
+    const card = createView().self.board[0];
+    const html = renderToStaticMarkup(
+      <PrototypeGameCard
+        kind="self"
+        card={card}
+        selectable={false}
+        selected={false}
+        onSelect={vi.fn()}
+      />
+    );
+
+    expect(html).toContain('aria-describedby=');
+    expect(html).toContain('Phe Dân làng');
+    expect(html).toContain('trọng số 2 phiếu');
+  });
+
   it('renders both ten-card boards from the filtered player view', () => {
     const html = renderToStaticMarkup(
       <PrototypeGameBoard
@@ -79,6 +96,7 @@ describe('PrototypeGameBoard', () => {
     expect(html).toContain('DEAD');
     expect(html).toContain('HIDDEN');
     expect(html).not.toContain(CardRole.WEREWOLF);
+    expect(html).not.toContain('trọng số 2 phiếu');
   });
 
   it.each([
