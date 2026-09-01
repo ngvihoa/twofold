@@ -6,7 +6,7 @@
 - Owner/Agent: Codex
 - Branch: `codex/chat-playtest-prototype`
 - Commit trước khi làm: `b6a345d`
-- Commit implementation: Chờ commit
+- Commit implementation: `a861d6f`
 - Conversation/task source: CONV-006 — tiếp tục phase sau P0.6
 - Trạng thái: Hoàn thành prototype
 
@@ -81,7 +81,7 @@ Audit: games=200, rejections=76991, phases=12/12
 - Root cause: Xác định — P0.6 chỉ implement valid-action simulation.
 - Fix/decision: thêm atomic assertion, mutation corpus và seeded runner; không đổi engine.
 - Verify lại: PASS 200 seed/76.991 rejection.
-- Commit fix: Chờ commit.
+- Commit fix: `a861d6f`.
 
 ## Quyết định sau implementation
 
@@ -117,7 +117,7 @@ Audit: games=200, rejections=76991, phases=12/12
 - Docs/ADR: README demo, verification log, task tracker.
 - Screenshot/video: Không áp dụng.
 - Test report: record này và verification log.
-- Commit/PR: Chờ commit.
+- Commit/PR: `a861d6f`.
 
 ## Bước tiếp theo
 
