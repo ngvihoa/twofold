@@ -1,0 +1,149 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-background text-slate-100 font-game antialiased min-h-screen selection:bg-indigo-500 selection:text-white;
+  }
+}
+
+/* Custom Game Utilities */
+.card-perspective {
+  perspective: 1000px;
+}
+
+.card-inner {
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-style: preserve-3d;
+}
+
+.card-flipped {
+  transform: rotateY(180deg);
+}
+
+.card-front, .card-back {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.card-back {
+  transform: rotateY(180deg);
+}
+
+/* Glow effects */
+.glow-wolf {
+  box-shadow: 0 0 20px rgba(225, 29, 72, 0.4), inset 0 0 10px rgba(225, 29, 72, 0.2);
+}
+
+.glow-village {
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.4), inset 0 0 10px rgba(16, 185, 129, 0.2);
+}
+
+.glow-protected {
+  box-shadow: 0 0 20px rgba(56, 189, 248, 0.5), inset 0 0 10px rgba(56, 189, 248, 0.3);
+}
+
+@keyframes card-tooltip-enter-top {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes card-tooltip-enter-bottom {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.card-tooltip-enter-top,
+.card-tooltip-enter-bottom {
+  animation-duration: 160ms;
+  animation-fill-mode: both;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.card-tooltip-enter-top {
+  animation-name: card-tooltip-enter-top;
+  transform-origin: bottom center;
+}
+
+.card-tooltip-enter-bottom {
+  animation-name: card-tooltip-enter-bottom;
+  transform-origin: top center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-tooltip-enter-top,
+  .card-tooltip-enter-bottom {
+    animation: none;
+  }
+}
+
+@keyframes game-presentation-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.96);
+  }
+  12%, 82% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.99);
+  }
+}
+
+@keyframes game-presentation-progress {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+.game-presentation-event {
+  animation: game-presentation-enter 2200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: opacity, transform;
+}
+
+.game-presentation-progress {
+  animation: game-presentation-progress 2200ms linear both;
+  transform-origin: left center;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-presentation-event,
+  .game-presentation-progress {
+    animation: none;
+  }
+}
+
+/* Custom Scrollbar for Event Log */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(17, 24, 39, 0.6);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.4);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.8);
+}

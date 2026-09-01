@@ -1,12 +1,11 @@
 # Twofold Game Core (`@twofold/game-core`)
 
-Gói thư viện chứa các quy tắc trò chơi (ruleset), state machine trận đấu 1v1, định nghĩa vòng chơi và logic phân giải kỹ năng ngày/đêm theo quy tắc v0.1.
+Gói thư viện chứa authoritative ruleset v0.2, state machine trận đấu 1v1 và logic phân giải toàn bộ phase từ Setup đến Final Duel.
 
-## Quy tắc v0.1 đã thống nhất
+## Kiến trúc ruleset v0.2
 
 - Mỗi người bắt đầu với **10 lá trên sân**.
-- Host là Người chơi A và **đi trước** ở các pha theo luật v0.1.
-- Vòng 1 bắt đầu vào **Ban ngày**: A hành động, rồi B.
-- Sau đó là **Ban đêm**: A chọn hành động, rồi B; hành động đêm được giữ kín và giải quyết đồng thời sau khi cả hai đã xác nhận.
-- Chi tiết tham khảo: `docs/decisions/0001-core-rules-v0.1.md` và `docs/game-design/game-flow-v0.1.md`.
-
+- `GameEngine` chỉ nhận `PlayerGameAction` v0.2 và trả filtered player view.
+- Structured events là nguồn history duy nhất; private event được lọc theo viewer.
+- Day A/B chạy tuần tự; Council, Night, Defense và Purge khóa lệnh hai bên trước khi phân giải.
+- Chi tiết migration và decision log nằm trong `docs/development/ruleset-v0.2-migration-plan.md`.

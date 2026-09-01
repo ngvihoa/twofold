@@ -17,6 +17,7 @@ Thumbs.db
 node_modules/
 .next/
 dist/
+.output/
 build/
 coverage/
 .turbo/

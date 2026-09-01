@@ -17,7 +17,7 @@ Game không dùng ATK/DEF/HP như card battler truyền thống ở v0.1. Trọn
 | Ẩn | Đối thủ chưa biết vai trò thật |
 | Đã lộ | Vai trò thật được công khai |
 | Được bảo vệ | Có hiệu ứng ngăn bị loại theo phạm vi kỹ năng |
-| Đã chết / bị loại | Không còn trên sân và không hành động, trừ hiệu ứng bị động |
+| Đã chết / bị loại | Không còn hành động, trừ hiệu ứng bị động; lá ẩn ở lại vị trí tay, lá đã lộ ở lại lane công khai |
 
 Các trạng thái như bị câm lặng, bị đánh dấu hoặc ngụy trang chỉ thêm sau khi rule tương ứng được chọn cho prototype.
 
@@ -30,6 +30,8 @@ Các trạng thái như bị câm lặng, bị đánh dấu hoặc ngụy trang 
 - Vote lộ role của mọi lá phe dân được chọn làm voter khi tổng trọng số đạt đủ 3 phiếu và Hội đồng được xác nhận.
 - Hành động Ban ngày thiên về công khai và suy luận.
 - Hành động Ban đêm thiên về bí mật và can thiệp; đối thủ không thấy lựa chọn trước khi khóa.
+- Cái chết không tự động tiết lộ danh tính: lá còn ẩn bị loại trong đêm chết tại vị trí trên tay và đối thủ không biết phe hoặc role.
+- Lá đã công khai trước khi chết tiếp tục giữ nguyên thông tin công khai. Các cơ chế công khai như Treo cổ đoán đúng hoặc Ép lộ diện vẫn lộ role theo rule riêng.
 - Vai trò nâng cao sau này có thể phá luật lộ: che, giả hoặc tráo thông tin. Đây chưa phải mặc định.
 
 ## 4. Hành động mỗi pha

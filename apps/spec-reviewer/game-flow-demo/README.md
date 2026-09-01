@@ -34,7 +34,13 @@ npm run fuzz:game --workspace=@twofold/spec-reviewer -- --count=500 --invalid-co
 
 ### Bản web trực quan
 
-Khi local server đang chạy, mở:
+Chạy reviewer bằng Vite:
+
+```bash
+pnpm --filter @twofold/spec-reviewer dev
+```
+
+Sau đó mở:
 
 ```text
 http://127.0.0.1:4173/game-flow-demo/ui.html

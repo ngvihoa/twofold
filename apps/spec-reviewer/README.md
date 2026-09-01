@@ -8,6 +8,7 @@
 - **Gợi ý bộ test**: Cung cấp cấu hình 10 vai trò khởi đầu cho các đợt playtest Alpha.
 - **Role Shortlist Review (`shortlist.html`)**: Cho phép PO & Game Designer chọn lọc danh sách vai trò mong muốn, xem tổng hợp và sao chép định dạng text để mang vào các buổi họp thống nhất luật game.
 - **Game Flow Demo (`game-flow-demo/ui.html`)**: Prototype tương tác 1v1 để review trực tiếp nhịp Hội đồng → Ban ngày → Khóa lệnh đêm → Chạng vạng → Bình minh, gồm bot B và card đặc biệt từ Vòng 6.
+- **Review Notes (`/notes`)**: Ghi note chung hoặc note gắn với role, giữ cache khi offline và đồng bộ nhiều thiết bị qua Postgres.
 
 ## Cấu trúc thư mục
 
@@ -24,6 +25,12 @@ apps/spec-reviewer/
 │   ├── extract-wwo-roles.mjs       # Script trích xuất vai trò từ nguồn wikitext
 │   └── prepare-role-art.mjs        # Chuẩn bị asset hình ảnh tham chiếu
 ├── game-flow-demo/          # Spec demo game flow 1v1 chạy local
+├── api/notes.mjs            # Vercel Function CRUD và đồng bộ notes
+├── db/                      # Migrations Postgres cho notes
+├── lib/note-store.js        # Cache, outbox và sync phía trình duyệt
+├── notes/index.html         # Trang /notes
+├── notes.js                 # UI quản lý notes
+├── notes-widget.js          # Widget ghi chú nhanh nhúng được vào mọi trang HTML
 ├── index.html               # Giao diện chính Role Atlas
 ├── shortlist.html           # Giao diện xem danh sách đã chọn
 ├── app.js                   # Logic render, tìm kiếm và lọc vai trò
@@ -49,3 +56,39 @@ npm run --prefix apps/spec-reviewer check
 ```
 
 Sau khi dev server chạy, mở `http://127.0.0.1:4173/game-flow-demo/ui.html` để playtest spec game flow.
+
+## Cấu hình Review Notes
+
+Notes dùng Vercel Function làm API và Neon-compatible Postgres làm nguồn dữ liệu chính. `localStorage` chỉ là cache và outbox để PO vẫn ghi được khi tạm mất mạng.
+
+1. Tạo một Postgres database từ Vercel Marketplace (khuyến nghị Neon) và bảo đảm project có biến `DATABASE_URL`.
+2. Chạy lần lượt migrations trong `db/` bằng SQL console. Database mới chỉ cần `001`; database đã có bảng notes chạy thêm `002`, rồi `003` để hỗ trợ trạng thái Done.
+3. Sinh token dùng chung, ví dụ `openssl rand -hex 32`, rồi đặt giá trị đó vào biến môi trường `NOTES_WORKSPACE_TOKEN` trên Vercel.
+4. Deploy lại project. Mở `/notes`, nhập token một lần trên mỗi thiết bị rồi nhấn **Lưu & đồng bộ**.
+
+Không đưa `DATABASE_URL` hoặc secret key của database vào JavaScript phía trình duyệt. File [`.env.example`](.env.example) mô tả các biến cần thiết; `.env.local` không được commit.
+
+Vercel project đã được chuẩn hóa là `ngvihoas-projects/twofold-reviewer`. Lần đầu trên một máy, link project rồi pull Preview env (environment hiện chứa Neon credentials) về `.env.local`:
+
+```bash
+pnpm env:link:spec
+pnpm env:pull:spec
+pnpm --filter @twofold/spec-reviewer db:migrate
+pnpm --filter @twofold/spec-reviewer dev:vercel
+```
+
+Sau khi env trên Vercel thay đổi, chỉ cần chạy lại `pnpm env:pull:spec`. Có thể dùng `env:pull:development`, `env:pull:preview` hoặc `env:pull:production` trong workspace khi cần tách file theo environment.
+
+`pnpm --filter @twofold/spec-reviewer dev` vẫn chạy static server nhẹ; note sẽ được giữ local nhưng API đồng bộ không hoạt động trong chế độ đó.
+
+## Widget ghi chú nhanh (notes-widget)
+
+`notes-widget.js` là script nhúng được vào **bất kỳ trang HTML nào** được serve từ spec-reviewer. Khi import, nó tự hiển thị nút nổi "Ghi chú" ở góc phải dưới; PO nhấn vào sẽ mở modal ghi chú (nội dung, trạng thái, tùy chọn kèm ngữ cảnh trang hiện tại). Note lưu qua cùng `lib/note-store.js` nên xuất hiện ngay trên trang `/notes` và đồng bộ theo workspace token hiện có.
+
+Cách nhúng vào một trang:
+
+```html
+<script type="module" src="/notes-widget.js?v=20260829-3"></script>
+```
+
+Widget tự chứa CSS (prefix `tfnw-`) với fallback biến màu, nên chạy được cả trên trang không load `styles.css` (ví dụ `game-flow-demo/ui.html`); khi trang có design system thì widget tự theo theme sáng/tối. Import hai lần trên cùng một trang không bị nhân đôi widget (có cờ `window.__twofoldNotesWidget`).

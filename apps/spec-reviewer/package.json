@@ -3,12 +3,32 @@
   "version": "0.1.0",
   "private": true,
   "description": "Twofold Role Atlas & Specification Review Tool",
+  "type": "module",
   "scripts": {
-    "dev": "python3 -m http.server 4173",
-    "start": "python3 -m http.server 4173",
-    "check": "node scripts/check-role-data.mjs && node --test game-flow-demo/*.test.mjs",
+    "dev": "vite --host 0.0.0.0 --port 4173",
+    "dev:vercel": "vercel dev --listen 4173",
+    "vercel:link": "vercel link --yes --project twofold-reviewer --scope ngvihoas-projects",
+    "env:pull": "vercel env pull .env.local --environment=preview --yes",
+    "env:pull:development": "vercel env pull .env.development.local --environment=development --yes",
+    "env:pull:preview": "vercel env pull .env.preview.local --environment=preview --yes",
+    "env:pull:production": "vercel env pull .env.production.local --environment=production --yes",
+    "db:migrate": "node --env-file=.env.local scripts/migrate-notes.mjs",
+    "start": "vite preview --host 0.0.0.0 --port 4173",
+    "build": "vite build",
+    "check": "node --test scripts/check-role-data.mjs game-flow-demo/engine.test.mjs game-flow-demo/bot-policy.test.mjs test/*.test.mjs && vitest run game-flow-demo/core-adapter.test.mjs",
     "annotate:roles": "node scripts/annotate-role-gameplay.mjs",
-    "demo:chat": "node game-flow-demo/cli.mjs",
+    "demo:chat": "vite-node game-flow-demo/cli.mjs",
     "fuzz:game": "node game-flow-demo/fuzz.mjs"
+  },
+  "dependencies": {
+    "@twofold/game-core": "workspace:*",
+    "@twofold/shared-types": "workspace:*",
+    "@neondatabase/serverless": "^1.1.0"
+  },
+  "devDependencies": {
+    "vite": "^8.2.2",
+    "vite-node": "^2.1.9",
+    "vercel": "59.10.0",
+    "vitest": "^2.1.9"
   }
 }

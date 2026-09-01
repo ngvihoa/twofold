@@ -1,5 +1,5 @@
 import readline from "node:readline";
-import { chatSnapshot, createGame, dispatch, privateView, publicView, ROLE_DEFS } from "./engine.mjs";
+import { chatSnapshot, createGame, dispatch, privateView, publicView, ROLE_DEFS } from "./core-adapter.mjs";
 
 const args = process.argv.slice(2);
 const option = (name, fallback) => {
@@ -63,7 +63,12 @@ function parseCommand(line) {
   const parts = line.trim().split(/\s+/);
   const command = parts.shift()?.toLowerCase();
   if (!command) return null;
+  if (command === "begin") return { type: "round.begin" };
   if (command === "setup") return { type: "setup.submit", seat: parts.shift()?.toUpperCase(), order: parts.map((item) => item.toUpperCase()) };
+  if (command === "purge") {
+    const seat = parts.shift()?.toUpperCase();
+    return { type: "purge.submit", seat, target: parts.shift()?.toUpperCase(), swapTarget: parts.shift()?.toUpperCase() };
+  }
   if (command === "council") {
     const seat = parts.shift()?.toUpperCase();
     if (parts[0]?.toLowerCase() === "pass") return { type: "council.submit", seat, pass: true };
@@ -103,6 +108,8 @@ function parseCommand(line) {
 function helpText() {
   return [
     "setup A A1 A2 A3 A4 A5 A6 A7 A8 A9 A10",
+    "begin  (mở Bình minh đầu tiên sau khi hai bên khóa đội hình)",
+    "purge A A3 | purge A A3 B4  (V6+, form thứ hai dùng cho Đảo chiến tuyến)",
     "council A pass",
     "council A B3 A1 A2 A3  (B3 đã lộ)",
     "council A B3 guard A1 A2 A3",
