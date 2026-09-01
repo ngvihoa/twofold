@@ -128,7 +128,7 @@ Hệ tương khắc cần hướng tới:
 
 ### Kẻ Thế Mạng
 
-- Thuộc Phe Hắc Ám và thay Sói Hộ Vệ trong bộ 10 lá prototype.
+- Thuộc Phe Hắc Ám và thay Sói Hộ Vệ trong bộ 10 lá prototype hiện tại. Sói Hộ Vệ vẫn được giữ trong catalog để cân nhắc cho phase sau, không bị xóa khỏi danh sách role.
 - Không chọn trước một target để bảo kê. Khi một lá khác bên mình sắp bị Treo cổ bởi một Hội đồng hợp lệ, hệ thống mở một lựa chọn kín Có/Không cho chủ sở hữu Kẻ Thế Mạng.
 - Nếu đồng ý, Kẻ Thế Mạng tiêu phản ứng một lần/trận, chết thay target và lộ role; target sống nhưng vẫn lộ role vì án Treo cổ đã xác nhận đúng. Nếu từ chối, phản ứng chưa bị tiêu và án Treo cổ resolve bình thường.
 - Không kích hoạt khi chính Kẻ Thế Mạng là target, khi buộc tội sai, hoặc khi một lá chết bởi skill, Thanh trừng hay death reaction khác.

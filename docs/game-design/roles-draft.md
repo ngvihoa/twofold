@@ -29,7 +29,7 @@
 | Thầy bói | Chọn hai lá đối thủ; biết ít nhất một lá thuộc nhóm đặc biệt | — | Cần định nghĩa “đặc biệt” | Draft |
 | Kẻ tố cáo | Chọn một lá và đoán vai trò; đúng thì lộ nhưng chưa bị loại | — | Dễ trùng với Treo cổ; cần làm rõ khác biệt | Draft/rủi ro cao |
 | Người báo thù | — | — | Nếu bị Treo cổ, đối thủ phải lộ một lá | Draft |
-| Kẻ Thế Mạng | — | — | Phe Hắc Ám; một lần tự nguyện chết thay cho lá khác bên mình sắp bị Treo cổ hợp lệ | Đã chốt hướng prototype; thay Sói Hộ Vệ |
+| Kẻ Thế Mạng | — | — | Phe Hắc Ám; một lần tự nguyện chết thay cho lá khác bên mình sắp bị Treo cổ hợp lệ | Đã chốt cho bộ prototype hiện tại; Sói Hộ Vệ vẫn nằm trong catalog nhưng chưa dùng ở phase này |
 | Kẻ phá đám | Chọn một lá đối thủ; lá đó không thể là mục tiêu kỹ năng trong đêm kế | — | Có thể vô tình bảo vệ đối thủ | Draft |
 
 ## Bộ 10 lá prototype đang chốt

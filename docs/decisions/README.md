@@ -17,6 +17,7 @@ Thư mục này lưu các quyết định ảnh hưởng đến luật, scope ho
 | [ADR-0002](0002-alpha-scope-and-milestones.md) | Khóa phạm vi và milestone Web Alpha | Đã chấp nhận | 27/08/2026 |
 | [ADR-0003](0003-tech-stack-tanstack-start-orpc.md) | Chọn Tech Stack: TanStack Start, oRPC và All-in-One Realtime | Đã chấp nhận | 28/08/2026 |
 | [ADR-0004](0004-hidden-night-death-information.md) | Bài úp chết trong đêm không tự lộ danh tính | Đã chấp nhận cho prototype | 30/08/2026 |
+| [ADR-0005](0005-decouple-spec-reviewer-from-runtime-core.md) | Tách spec-reviewer khỏi game-core/shared-types và đồng bộ theo đợt | Đã chấp nhận | 01/09/2026 |
 
 ## Decision log nhỏ
 

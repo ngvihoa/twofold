@@ -13,12 +13,6 @@ importers:
       '@neondatabase/serverless':
         specifier: ^1.1.0
         version: 1.1.0
-      '@twofold/game-core':
-        specifier: workspace:*
-        version: link:../../packages/game-core
-      '@twofold/shared-types':
-        specifier: workspace:*
-        version: link:../../packages/shared-types
     devDependencies:
       vercel:
         specifier: 59.10.0
@@ -29,9 +23,6 @@ importers:
       vite-node:
         specifier: ^2.1.9
         version: 2.1.9(@types/node@22.20.1)(lightningcss@1.33.0)(terser@5.51.2)
-      vitest:
-        specifier: ^2.1.9
-        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@22.20.1)(lightningcss@1.33.0)(terser@5.51.2)
 
   apps/web:
     dependencies:
