@@ -10,24 +10,31 @@
 - Node.js `>=22.12.0`, pnpm `>=10.0.0`.
 
 ```bash
-# Development server
-VITE_GAME_WS_URL=ws://127.0.0.1:3000/game pnpm --filter @twofold/web dev
-
-# Hoặc chỉ chạy UI; route gameplay sẽ báo endpoint chưa được cấu hình
+# Development server: HTTP và WebSocket cùng chạy trên port 3000
 pnpm --filter @twofold/web dev
+
+# Chỉ cần override khi game server chạy ở origin khác
+VITE_GAME_WS_URL=ws://127.0.0.1:4000/api/ws pnpm --filter @twofold/web dev
 
 # Generate app/routeTree.gen.ts
 pnpm tf routes
 
 # Typecheck + production build
 pnpm tf check web
+
+# Chạy production bundle sau khi build
+pnpm --filter @twofold/web start
 ```
 
-Gameplay client dùng `VITE_GAME_WS_URL` làm endpoint cho WebSocket contract v0.2.
-Frontend không chạy `game-core` để thay authoritative server; nếu biến môi trường
-không tồn tại, `/play/$id` hiển thị trạng thái cấu hình thay vì dùng kết quả
-ngẫu nhiên. Setup, player board và action panel đều đọc contract v0.2; action
-panel chỉ gửi command và chờ snapshot authoritative từ server.
+Gameplay client mặc định kết nối same-origin `/api/ws`; `VITE_GAME_WS_URL` chỉ
+là override cho topology tách server. `crossws` được gắn vào Vite dev server và
+production `srvx` entry. Room store gọi `game-core` trên server rồi gửi
+`GamePlayerViewV2` đã lọc riêng cho từng player; frontend không resolve rule.
+
+Room và reconnect session hiện được giữ trong memory của một process. Restart
+server sẽ mất room; multi-replica cần sticky routing hoặc shared store. Server
+đã chấp nhận reconnect token nhưng client chưa persist token qua refresh.
+`SURRENDER` và `REMATCH_REQUEST` hiện trả `NOT_IMPLEMENTED`.
 
 ## Mục tiêu phát hành
 

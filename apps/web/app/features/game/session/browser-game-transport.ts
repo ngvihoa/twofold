@@ -61,13 +61,17 @@ export class BrowserGameTransport implements GameTransport {
       return;
     }
 
-    const socket = this.createSocket(resolveGameWebSocketUrl(this.endpoint));
+    const socketUrl = resolveGameWebSocketUrl(this.endpoint);
+    const socket = this.createSocket(socketUrl);
     this.socket = socket;
     socket.onopen = () => this.emit({ type: 'OPEN' });
     socket.onmessage = ({ data }) =>
       this.emit({ type: 'MESSAGE', message: parseInboundData(data) });
     socket.onerror = () =>
-      this.emit({ type: 'ERROR', error: new Error('Game WebSocket connection error.') });
+      this.emit({
+        type: 'ERROR',
+        error: new Error(`Game WebSocket connection error (${socketUrl}).`),
+      });
     socket.onclose = ({ reason }) => {
       if (this.socket === socket) this.socket = null;
       this.emit({ type: 'CLOSED', ...(reason ? { reason } : {}) });
@@ -76,7 +80,17 @@ export class BrowserGameTransport implements GameTransport {
 
   /** Chủ động đóng socket; session machine quyết định có reconnect hay không. */
   disconnect(): void {
-    this.socket?.close(1000, 'Client disconnect');
+    const socket = this.socket;
+    if (!socket) return;
+
+    // Release ownership synchronously so React remount/reconnect can create a
+    // fresh socket before the old CONNECTING socket emits its delayed close.
+    this.socket = null;
+    socket.onopen = null;
+    socket.onmessage = null;
+    socket.onerror = null;
+    socket.onclose = null;
+    socket.close(1000, 'Client disconnect');
   }
 
   /**

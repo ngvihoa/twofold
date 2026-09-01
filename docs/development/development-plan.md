@@ -22,7 +22,7 @@ Lát triển khai kế tiếp không port toàn bộ prototype. Dev làm lần l
 
 ## 1. Tổng quan & Kiến trúc Hệ thống Đã Chốt
 
-Dự án **Twofold** là game đối kháng chiến thuật 1v1 theo lượt với cơ chế thông tin ẩn lấy cảm hứng từ Ma Sói. Để tối ưu hóa tốc độ phát triển cho team nhỏ và đơn giản hóa quy trình triển khai (chỉ 1 dịch vụ web duy nhất), hệ thống áp dụng kiến trúc **All-in-One Fullstack App** với **TanStack Start + oRPC + Nitro Native WebSocket**.
+Dự án **Twofold** là game đối kháng chiến thuật 1v1 theo lượt với cơ chế thông tin ẩn lấy cảm hứng từ Ma Sói. Để tối ưu hóa tốc độ phát triển cho team nhỏ và đơn giản hóa quy trình triển khai (chỉ 1 dịch vụ web duy nhất), hệ thống áp dụng kiến trúc **All-in-One Fullstack App** với **TanStack Start + oRPC + srvx/crossws WebSocket**.
 
 ```mermaid
 graph TB
@@ -35,7 +35,7 @@ graph TB
     subgraph Server [All-in-One Web App Server - apps/web]
         SSR[TanStack Start Server / SSR]
         ORPC_S[oRPC Server Router\nRoom Creation & Matchmaking API]
-        WS_S[Nitro WebSocket Handler - crossws\nRoom Manager & State Relay]
+        WS_S[srvx + crossws /api/ws\nRoom Manager & State Relay]
     end
 
     subgraph Engine [Shared Core Packages]
@@ -55,7 +55,7 @@ graph TB
 ```
 
 ### Nguyên tắc Kỹ thuật Cốt lõi
-1. **Single Deployment (All-in-One):** Toàn bộ Frontend UI, RPC Endpoints và Realtime WebSocket Game Loop được gộp trong `apps/web` (chạy trên Nitro Server), chỉ cần deploy 1 container/service Node.js duy nhất.
+1. **Single Deployment (All-in-One):** Toàn bộ Frontend UI, RPC Endpoints và Realtime WebSocket Game Loop được gộp trong `apps/web` (TanStack Start trên `srvx`), chỉ cần deploy 1 container/service Node.js duy nhất.
 2. **Contract-First Type-Safety (oRPC + Zod):** Mọi tương tác RPC và payload hành động đều được định nghĩa tại `packages/shared-types`, đảm bảo an toàn kiểu dữ liệu 100% từ Client tới Server.
 3. **Deterministic & Headless Core (`packages/game-core`):** Game engine không phụ thuộc vào UI hay Network layer, 100% unit-testable với Vitest.
 4. **Anti-Cheat by Design (State Isolation):** Server chỉ broadcast thông tin công khai (Public State) và thông tin riêng hợp lệ (Private State) cho từng client, tuyệt đối không gửi vai trò ẩn của đối thủ qua mạng.
@@ -66,7 +66,7 @@ graph TB
 
 | Workspace / Module | Tech Stack Đã Chốt | Trách nhiệm chính |
 |---|---|---|
-| [`apps/web`](../../apps/web) | **TanStack Start + React 19 + TailwindCSS + Nitro WebSockets (`crossws`)** | Frontend Game Client (Bàn đấu, Animation, UI Panels) + All-in-One Backend Server (oRPC handlers + WebSocket Room Manager) |
+| [`apps/web`](../../apps/web) | **TanStack Start + React 19 + TailwindCSS + `srvx`/`crossws`** | Frontend Game Client (Bàn đấu, Animation, UI Panels) + All-in-One Backend Server (oRPC handlers + WebSocket Room Manager) |
 | [`packages/shared-types`](../../packages/shared-types) | **TypeScript + Zod + oRPC Contracts** | Nguồn sự thật (Single Source of Truth) cho Schemas, DTOs, Enums, Contracts giữa Client và Server |
 | [`packages/game-core`](../../packages/game-core) | **TypeScript Thuần (Zero runtime deps) + Vitest** | State Machine, Rule Validator, Night Resolution Engine, Hanging Calculator, Calamity Handler |
 | [`packages/cli`](../../packages/cli) | **Node.js ESM thuần** | CLI quản lý monorepo (`pnpm tf`), build, test & scaffolding |
@@ -85,10 +85,9 @@ twofold/
 │   │   │   ├── components/          # UI Components (Board, Card, Slot, ActionPanel, EventLog, Dialogs)
 │   │   │   ├── hooks/               # useGameSocket, useGameState, usePlayerActions
 │   │   │   └── client.tsx           # Client entry
-│   │   ├── server/                  # Backend in TanStack Start (Nitro Engine)
-│   │   │   ├── rpc/                 # oRPC router implementations (createRoom, getRoomInfo)
-│   │   │   └── ws/                  # Nitro WebSocket handler (crossws) + In-memory Room Store
-│   │   ├── app.config.ts            # TanStack Start / Nitro config (bật websocket support)
+│   │   ├── server/                  # Room store, crossws hooks và Vite upgrade plugin
+│   │   ├── app/server.ts            # Custom production srvx entry gắn crossws
+│   │   ├── vite.config.ts           # TanStack Start + WebSocket dev wiring
 │   │   └── package.json
 │   └── spec-reviewer/               # Công cụ tra cứu 92 vai trò của PO
 ├── packages/
@@ -187,7 +186,8 @@ flowchart TD
 - [x] **ST-01A:** Khởi tạo `packages/shared-types` với schema/enum/contract/DTO nền.
 - [ ] **ST-01B:** Đồng bộ action, player view và event contract v0.2.
 - [x] **WEB-INIT-A:** Khởi tạo `apps/web` với TanStack Start và các route graybox.
-- [ ] **WEB-INIT-B:** Kết nối oRPC/Nitro WebSocket thật; scaffold hiện chưa phải bằng chứng realtime hoàn chỉnh.
+- [x] **WEB-INIT-B1:** Kết nối `srvx`/`crossws` `/api/ws`, room store và authoritative player snapshot thật.
+- [ ] **WEB-INIT-B2:** Hoàn thiện oRPC cho create room/get room info; WebSocket vertical slice chưa thay HTTP/RPC API.
 - [x] **GC-01A:** Thiết lập model card/role/effect/player nền trong `packages/game-core`.
 - [ ] **GC-01B:** Dựng authoritative phase spine v0.2; xem DEV-02A–D trong Task Tracker.
 

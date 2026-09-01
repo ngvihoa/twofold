@@ -82,4 +82,30 @@ describe('BrowserGameTransport', () => {
     transport.disconnect();
     expect(socket.closed).toEqual([{ code: 1000, reason: 'Client disconnect' }]);
   });
+
+  it('can reconnect immediately after disconnecting a connecting socket', () => {
+    const firstSocket = new FakeWebSocket();
+    const secondSocket = new FakeWebSocket();
+    const sockets = [firstSocket, secondSocket];
+    const events: GameTransportEvent[] = [];
+    const transport = new BrowserGameTransport(
+      'ws://game.test/socket',
+      () => sockets.shift() ?? secondSocket
+    );
+    transport.subscribe((event) => events.push(event));
+
+    transport.connect();
+    transport.disconnect();
+    transport.connect();
+
+    expect(firstSocket.closed).toEqual([
+      { code: 1000, reason: 'Client disconnect' },
+    ]);
+    expect(firstSocket.onerror).toBeNull();
+    expect(firstSocket.onclose).toBeNull();
+
+    secondSocket.readyState = 1;
+    secondSocket.onopen?.call(secondSocket as unknown as WebSocket, {} as Event);
+    expect(events).toEqual([{ type: 'OPEN' }]);
+  });
 });

@@ -939,6 +939,7 @@ Không đưa vào XState phía frontend:
 - [x] Setup reorder thật.
 - [x] Render player view mới.
 - [x] Action panel theo phase.
+- [x] WebSocket `/api/ws` vertical slice với authoritative room server.
 - [ ] Event-driven Council, Dusk và Dawn presentation.
 - [x] Loại bỏ toàn bộ mock rule và random outcome.
 
@@ -1022,8 +1023,8 @@ PR 4.3 mount session/presentation actor boundary vào `/play/$id` và thay riên
 Setup mock bằng player view v0.2. Các gameplay phase chưa migrate tiếp tục dùng
 legacy board trong giai đoạn chuyển tiếp.
 
-- Browser transport nhận endpoint từ `VITE_GAME_WS_URL`; client không hard-code
-  đường dẫn WebSocket khi backend endpoint chưa được chốt.
+- Browser transport mặc định dùng same-origin `/api/ws`; `VITE_GAME_WS_URL`
+  chỉ override khi backend chạy ở origin khác.
 - Setup UI đọc duy nhất `view.self.board` và `view.self.setup`; không import hay
   gọi `game-core` để resolve rule.
 - Draft order chứa `CardInstanceId[]`, vì occupant identity phải đi theo card
@@ -1048,10 +1049,11 @@ Acceptance criteria PR 4.3:
 - [x] Snapshot reconciliation không ghi đè unsaved draft khi order không đổi.
 - [x] Unit tests và web typecheck/build pass.
 
-> Hoàn thành PR 4.3 ngày 31/08/2026. `/play/$id` chỉ khởi tạo runtime khi có
-> `VITE_GAME_WS_URL`; Setup dùng player view/action v0.2, còn các phase sau Setup
-> tạm render legacy board cho tới PR 4.4–4.6. Browser transport chỉ làm I/O và
-> JSON serialization; inbound schema validation vẫn thuộc session machine.
+> Hoàn thành PR 4.3 ngày 31/08/2026. Ở thời điểm lát này, `/play/$id` chỉ khởi
+> tạo runtime khi có `VITE_GAME_WS_URL` và các phase sau Setup còn render legacy
+> board. Hai giới hạn này đã được thay ở PR 4.4 và transport vertical slice;
+> browser transport vẫn chỉ làm I/O/JSON, inbound schema validation thuộc
+> session machine.
 
 #### PR 4.4 — Player board và phase action panels
 
@@ -1100,6 +1102,37 @@ Acceptance criteria PR 4.4:
 > `GamePlayerViewV2`, còn command dock chỉ tạo `PlayerGameAction` đã qua shared
 > schema và chờ snapshot authoritative từ server. `pnpm --filter @twofold/web
 > check` pass đủ 33 tests, typecheck, client build và SSR build.
+
+#### PR 4 transport vertical slice — `/api/ws`
+
+Hoàn thành ngày 01/09/2026 để kiểm chứng session machine bằng transport thật
+trước PR 4.5.
+
+- Vite dev gắn `crossws` vào HTTP upgrade event; production custom Start entry
+  gắn cùng hooks vào `srvx`. Cả hai phục vụ same-origin `/api/ws`.
+- `GameRoomServer` giữ room/session trong memory, gán `PLAYER_A/B`, gọi duy nhất
+  `GameEngine.dispatch()` và broadcast player-specific `GamePlayerViewV2`.
+- Client message được validate bằng `ClientWsMessageSchema`; outbound message
+  và core player view được parse lại tại shared schema boundary.
+- Action có `playerId` khác session bị từ chối; origin khác host bị chặn.
+- Reconnect token có thể attach socket mới vào đúng seat và snapshot hiện tại.
+- Actor lifecycle sở hữu transport cleanup; `disconnect()` giải phóng socket
+  đồng bộ để React development remount không kẹt ở socket `CONNECTING` cũ.
+- `SURRENDER`/`REMATCH_REQUEST` trả `NOT_IMPLEMENTED`; session token phía client
+  chưa persist qua refresh.
+- Room/session mất khi process restart. Multi-replica cần sticky routing hoặc
+  shared store và không thuộc vertical slice này.
+
+Acceptance criteria:
+
+- [x] Hai peer cùng room nhận seat A/B và filtered snapshot riêng.
+- [x] Action đi qua core, rule error trả `ACTION_REJECTED`.
+- [x] Invalid JSON/schema trả protocol `ERROR` mà không vào room state.
+- [x] Room full, player impersonation và cross-origin upgrade bị từ chối.
+- [x] Reconnect giữ session/seat và thay socket cũ.
+- [x] Vite dev smoke test thật xác nhận A/B join và không lộ hidden role.
+- [x] Production smoke test xác nhận SSR, static asset và hai WebSocket peer.
+- [x] 40 web tests, typecheck và production client/SSR build pass.
 
 #### Các lát tiếp theo của PR 4
 

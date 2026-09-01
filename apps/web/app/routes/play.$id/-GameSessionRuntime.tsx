@@ -51,7 +51,6 @@ function GameSessionContent() {
 
   React.useEffect(() => {
     actor.send({ type: 'CONNECT' });
-    return () => actor.send({ type: 'DISCONNECT' });
   }, [actor]);
 
   const retryConnection = () => {

@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "vite dev --host",
     "build": "vite build",
+    "start": "srvx serve --prod --entry=dist/server/server.js --static=../client",
     "routes:generate": "tsr generate",
     "test": "vitest run",
     "typecheck": "pnpm routes:generate && tsc --noEmit",
@@ -22,9 +23,11 @@
     "@twofold/shared-types": "workspace:*",
     "@xstate/react": "^6.1.0",
     "clsx": "^2.1.1",
+    "crossws": "0.4.12",
     "lucide-react": "^0.439.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "srvx": "0.11.22",
     "tailwind-merge": "^2.5.2",
     "xstate": "^5.32.6",
     "zod": "^3.23.8"

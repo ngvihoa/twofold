@@ -17,9 +17,9 @@
 
 ## 2. Quyết định
 
-- **Frontend & App Server Host:** Sử dụng **TanStack Start** (React 19 + TanStack Router + TailwindCSS) chạy trên nền **Nitro Engine**.
+- **Frontend & App Server Host:** Sử dụng **TanStack Start** (React 19 + TanStack Router + TailwindCSS) chạy trên server runtime do Start cung cấp.
 - **Contract-First API:** Sử dụng **oRPC** kết hợp **Zod** để định nghĩa contract API cho các thao tác HTTP/RPC (tạo phòng, tra cứu thông tin phòng, cấu hình trước trận).
-- **Multiplayer Transport (All-in-One):** Gộp trực tiếp **WebSocket Server** vào trong `apps/web` bằng **Nitro native WebSocket handler (`crossws`)**, lắng nghe kết nối tại `wss://.../api/ws`. Toàn bộ project web client và game server chỉ cần **1 lần deploy duy nhất** (Single Container / Node.js Instance).
+- **Multiplayer Transport (All-in-One):** Gộp trực tiếp **WebSocket Server** vào trong `apps/web` bằng `crossws`, lắng nghe kết nối tại `wss://.../api/ws`. Toàn bộ project web client và game server chỉ cần **1 lần deploy duy nhất** (Single Container / Node.js Instance).
 - **Core Game Engine:** Tách độc lập tại `packages/game-core` bằng **TypeScript thuần** (Zero runtime dependencies) và kiểm thử với **Vitest**.
 - **Shared Schemas:** Đặt toàn bộ Schemas, Enums, DTOs và Contracts tại `packages/shared-types`.
 
@@ -39,7 +39,15 @@
 
 ## 4. Cách kiểm chứng / Khi nào xem lại
 
-- **Mốc M1 (07/09/2026):** Hoàn thành POC 2 trình duyệt join cùng room code qua Nitro WebSocket và nhận state đồng bộ.
+- **Mốc M1 (07/09/2026):** Hoàn thành POC 2 trình duyệt join cùng room code qua `srvx`/`crossws` và nhận state đồng bộ.
 - **Mốc M3 (21/09/2026):** Chạy thử 1 vòng chơi Day $\rightarrow$ Night $\rightarrow$ Dawn.
 - **Xem lại khi:** Quy mô vượt quá phạm vi 1 server RAM đơn lẻ hoặc cần mở rộng sang hệ thống Matchmaking tự động phân tán (Multi-region cluster).
 
+### Amendment 01/09/2026
+
+TanStack Start version đang dùng build production trên `srvx`, không phải Nitro.
+Implementation giữ nguyên quyết định all-in-one và `crossws`: production gắn
+`crossws/server/node` vào custom Start server entry; Vite dev gắn cùng hooks vào
+HTTP upgrade event. `/api/ws` và contract không đổi. Room/session hiện in-memory
+và chỉ phù hợp single process; reconnect persistence/multi-replica phải được
+xem lại trước khi scale.
