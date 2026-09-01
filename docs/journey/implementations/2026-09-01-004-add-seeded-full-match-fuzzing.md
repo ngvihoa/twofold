@@ -6,7 +6,7 @@
 - Owner/Agent: Codex
 - Branch: `codex/chat-playtest-prototype`
 - Commit trước khi làm: `e9cd1bb`
-- Commit implementation: Chờ commit
+- Commit implementation: `63c2a19`
 - Conversation/task source: CONV-006 — tiếp tục phase sau P0.5
 - Trạng thái: Hoàn thành prototype
 
@@ -107,7 +107,7 @@ Không có failure được quan sát trong 5.000 seed audit. Đây là bằng c
 - Docs/ADR: README demo, verification log, task tracker.
 - Screenshot/video: Không áp dụng.
 - Test report: record này và verification log.
-- Commit/PR: Chờ commit.
+- Commit/PR: `63c2a19`.
 
 ## Bước tiếp theo
 
