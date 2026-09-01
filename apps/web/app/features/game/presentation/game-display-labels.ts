@@ -1,4 +1,32 @@
-import { CardRole } from '@twofold/shared-types';
+import {
+  CardRole,
+  PlayerId,
+  type GamePlayerViewV2,
+} from '@twofold/shared-types';
+
+type GamePhaseType = GamePlayerViewV2['phase']['type'];
+
+/** Wording có nghĩa cho phase; không để enum kỹ thuật rò ra giao diện. */
+export const GAME_PHASE_LABELS = {
+  SETUP: 'Chuẩn bị đội hình',
+  DAY_A: 'Ban ngày · Người chơi A hành động',
+  DAY_B: 'Ban ngày · Người chơi B hành động',
+  COUNCIL_PLAN: 'Hội đồng · Lập cáo buộc',
+  COUNCIL_RESOLUTION: 'Hội đồng · Công bố phán quyết',
+  NIGHT_PLAN: 'Ban đêm · Chọn hành động',
+  DUSK_DEFENSE: 'Phòng thủ ban đêm · Đặt khiên',
+  NIGHT_RESOLUTION: 'Ban đêm · Phân giải hành động',
+  DAWN: 'Bình minh · Công bố kết quả',
+  PURGE_PLAN: 'Thanh Trừng · Chọn mục tiêu',
+  PURGE_RESOLUTION: 'Thanh Trừng · Công bố kết quả',
+  FINAL_DUEL: 'Đối đầu cuối trận',
+  ENDED: 'Trận đấu kết thúc',
+} as const satisfies Record<GamePhaseType, string>;
+
+const GAME_PLAYER_LABELS = {
+  [PlayerId.PLAYER_A]: 'Người chơi A',
+  [PlayerId.PLAYER_B]: 'Người chơi B',
+} as const satisfies Record<PlayerId, string>;
 
 /** Tên vai trò dùng ở presentation; domain và wire contract vẫn giữ enum ổn định. */
 export const GAME_ROLE_LABELS = {
@@ -72,6 +100,14 @@ const GAME_ROLE_TOOLTIPS = {
 
 export function formatGameRoleName(role: CardRole): string {
   return GAME_ROLE_LABELS[role];
+}
+
+export function formatGamePhaseName(phase: GamePhaseType): string {
+  return GAME_PHASE_LABELS[phase];
+}
+
+export function formatGamePlayerName(player: PlayerId): string {
+  return GAME_PLAYER_LABELS[player];
 }
 
 export function getGameRoleTooltipContent(

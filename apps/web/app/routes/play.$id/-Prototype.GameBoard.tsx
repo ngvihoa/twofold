@@ -4,6 +4,10 @@ import type {
   PlayerGameAction,
 } from '@twofold/shared-types';
 import { History, Moon, Shield, Skull, Sun, Trophy } from 'lucide-react';
+import {
+  formatGamePhaseName,
+  formatGamePlayerName,
+} from '../../features/game/presentation/game-display-labels';
 import { formatGameHistoryMessage } from '../../features/game/presentation/game-history-message';
 import type { GameSessionError } from '../../features/game/session/game-session-machine';
 import {
@@ -132,10 +136,12 @@ function PrototypeTopbar({
       </div>
       <div className="ml-auto flex items-center gap-2 rounded-full border border-white/10 bg-black/25 px-3 py-2 text-[10px] font-black uppercase tracking-widest">
         {daylight ? <Sun className="h-3.5 w-3.5 text-amber-300" /> : <Moon className="h-3.5 w-3.5 text-indigo-300" />}
-        {view.phase.type}
+        {formatGamePhaseName(view.phase.type)}
       </div>
       <span className="rounded-md border border-white/10 bg-black/20 px-2 py-1 text-[9px] text-slate-400">
-        {view.activePlayer ? `Active · ${view.activePlayer}` : 'Simultaneous / resolution'}
+        {view.activePlayer
+          ? `Đang hành động · ${formatGamePlayerName(view.activePlayer)}`
+          : 'Hai bên cùng chọn / đang phân giải'}
       </span>
     </header>
   );

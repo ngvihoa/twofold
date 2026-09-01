@@ -29,7 +29,10 @@ import {
   type NightAbilityId,
 } from '../../features/game/action/game-action-model';
 import type { GameSessionError } from '../../features/game/session/game-session-machine';
-import { formatGameRoleName } from '../../features/game/presentation/game-display-labels';
+import {
+  formatGamePhaseName,
+  formatGameRoleName,
+} from '../../features/game/presentation/game-display-labels';
 
 export interface PrototypeGameInteractionProviderProps {
   readonly view: GamePlayerViewV2;
@@ -197,7 +200,7 @@ export function PrototypeGameActionPanel() {
       <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-center">
         <div>
           <p className="text-[9px] font-black uppercase tracking-[0.22em] text-amber-200">Vòng {view.round}</p>
-          <h2 className="text-sm font-black text-white">{phaseTitle(view.phase.type)}</h2>
+          <h2 className="text-sm font-black text-white">{formatGamePhaseName(view.phase.type)}</h2>
         </div>
         <PhaseControls context={context} />
       </div>
@@ -408,10 +411,6 @@ function interactionPrompt(interaction: InteractionState): string {
     case 'PURGE_OPPONENT': return `${interaction.ownTargetId} đã chọn · chọn lá đối thủ để SWAP`;
     default: return '';
   }
-}
-
-function phaseTitle(phase: GamePlayerViewV2['phase']['type']): string {
-  return ({ SETUP: 'Chuẩn bị đội hình', DAY_A: 'Ban ngày · lượt A', DAY_B: 'Ban ngày · lượt B', COUNCIL_PLAN: 'Hội đồng treo cổ', COUNCIL_RESOLUTION: 'Công bố Hội đồng', NIGHT_PLAN: 'Khóa lệnh đêm', DUSK_DEFENSE: 'Chạng vạng · đặt khiên', NIGHT_RESOLUTION: 'Phán xét trong đêm', DAWN: 'Bình minh hé lộ', PURGE_PLAN: 'Thanh trừng', PURGE_RESOLUTION: 'Công bố Thanh trừng', FINAL_DUEL: 'Final Duel', ENDED: 'Kết thúc' } as const)[phase];
 }
 
 function Prompt({ text }: { readonly text: string }) {

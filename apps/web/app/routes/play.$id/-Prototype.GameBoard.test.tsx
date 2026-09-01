@@ -69,6 +69,8 @@ describe('PrototypeGameBoard', () => {
     expect(html).toContain('data-prototype-scene="day"');
     expect(html).toContain('Mệnh lệnh hiện tại');
     expect(html).toContain('Lịch sử trận đấu');
+    expect(html).toContain('Ban ngày · Người chơi A hành động');
+    expect(html).not.toContain('DAY_A');
     expect(html).toContain('/characters/dan-lang.png');
     expect(html).not.toContain('<form');
     expect(html).not.toContain('<select');
