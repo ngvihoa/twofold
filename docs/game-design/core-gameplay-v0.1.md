@@ -1,12 +1,12 @@
 # Core Gameplay v0.1
 
 - Phiên bản: 0.1
-- Ngày cập nhật: 27/08/2026
+- Ngày cập nhật: 01/09/2026
 - Trạng thái: Draft có thể chơi thử
 
 ## 1. Tầm nhìn
 
-Game chiến thuật 1v1 nơi mỗi bên điều khiển 10 lá có vai trò ẩn. Người chơi dùng kỹ năng để lấy lợi thế; năng lực Ban ngày làm lộ role ngay khi xác nhận, còn năng lực Ban đêm được giữ bí mật tới Bình minh. Vote cũng tạo thông tin công khai vì các lá phe dân được chọn làm voter sẽ lộ role.
+Game chiến thuật 1v1 nơi mỗi bên điều khiển 10 lá có vai trò ẩn. Người chơi dùng kỹ năng để lấy lợi thế; năng lực Ban ngày làm lộ role ngay khi xác nhận, còn năng lực Ban đêm mặc định không tự làm lộ source. Hội đồng cũng tạo thông tin công khai vì các lá phe dân được chọn làm voter sẽ lộ role.
 
 Game không dùng ATK/DEF/HP như card battler truyền thống ở v0.1. Trọng tâm là trạng thái, thông tin, lựa chọn mục tiêu và hậu quả.
 
@@ -25,7 +25,9 @@ Các trạng thái như bị câm lặng, bị đánh dấu hoặc ngụy trang 
 
 - Chủ sở hữu luôn biết vai trò của 10 lá mình.
 - Đối thủ chỉ thấy vị trí và trạng thái công khai của lá đang ẩn.
-- Mỗi role có một ngưỡng lộ theo phase. Năng lực Ban ngày lộ role ngay khi xác nhận thành công; action Ban đêm giữ kín tới Bình minh. Vote lộ role của mọi lá phe dân được chọn làm voter khi xác nhận đủ ba lá.
+- Năng lực Ban ngày lộ role ngay khi xác nhận thành công. Action Ban đêm, gồm source và target, được giữ kín khi commit; tới Bình minh chỉ công bố outcome được phép công khai, source vẫn ẩn trừ ngoại lệ ghi rõ theo role.
+- Ma sói tấn công và Tiên tri soi thường không làm lộ source. Lệnh kết liễu của Tiên tri là ngoại lệ: Tiên tri lộ tại Bình minh khi lệnh resolve, kể cả nếu bị chặn.
+- Vote lộ role của mọi lá phe dân được chọn làm voter khi tổng trọng số đạt đủ 3 phiếu và Hội đồng được xác nhận.
 - Hành động Ban ngày thiên về công khai và suy luận.
 - Hành động Ban đêm thiên về bí mật và can thiệp; đối thủ không thấy lựa chọn trước khi khóa.
 - Vai trò nâng cao sau này có thể phá luật lộ: che, giả hoặc tráo thông tin. Đây chưa phải mặc định.
@@ -44,13 +46,14 @@ Mỗi người chỉ thực hiện tối đa **một hành động chính trong 
 
 - Dùng một kỹ năng Ban ngày hợp lệ; xác nhận thành công làm lộ role của source.
 - Từ Vòng 2, mở Vote/Hội đồng.
-- Vote hiển thị giữa bàn; người chơi chọn đúng 3 lá phe dân của mình làm voter. Click lần đầu chọn, click lần hai bỏ chọn; nút Xác nhận chỉ bật khi đủ 3. Nút Bỏ qua luôn có thể dùng.
-- Sau khi xác nhận, các voter phe dân được chọn lộ role. Dân làng đóng góp 2 vote. Mục tiêu đối thủ được chọn sau khi đủ 3 voter và vẫn bị xử lý như Treo cổ bình thường.
+- Vote hiển thị giữa bàn; người chơi chọn tối đa 3 lá phe dân của mình làm voter. Click lần đầu chọn, click lần hai bỏ chọn; mục tiêu và nút Xác nhận chỉ mở khi tổng trọng số đạt ít nhất 3 phiếu. Nút Bỏ qua luôn có thể dùng.
+- Sau khi xác nhận, các voter phe dân được chọn lộ role. Dân làng đóng góp 2 phiếu, role Dân khác đóng góp 1 phiếu. Vì vậy Dân làng + 1 role Dân khác đã đủ 3 phiếu. Mục tiêu đối thủ vẫn bị xử lý như Treo cổ bình thường.
+- Một lá đã dùng kỹ năng Ban ngày trong vòng hiện tại không được dùng lại làm voter ở Hội đồng cùng vòng. Trạng thái này được validate ở cả lúc khóa lựa chọn và lúc resolve.
 - Bỏ lượt.
 
 ### Ban đêm
 
-- Dùng một kỹ năng Ban đêm hợp lệ; action và source được giữ bí mật tới Bình minh.
+- Dùng một kỹ năng Ban đêm hợp lệ; action, source và target được giữ bí mật khi commit. Bình minh công bố outcome nhưng không tự động công bố source.
 - Mỗi bên chỉ chọn một main order; Tiên tri vì vậy cạnh tranh trực tiếp với action giết của Ma sói hoặc role đêm khác.
 - Bỏ lượt.
 
@@ -69,12 +72,12 @@ Mỗi lá chỉ kích hoạt kỹ năng tối đa một lần trong cùng vòng,
 
 ## 5. Vote và Treo cổ v0.1
 
-Từ Vòng 2, Vote mở trong phiên Ban ngày. Người chơi chọn đúng ba lá phe dân còn sống, đủ điều kiện, của mình làm voter; sau đó chọn một lá đối thủ làm mục tiêu treo cổ. Các voter phe dân được chọn lộ role khi xác nhận. Dân làng có trọng số 2, role khác có trọng số 1. Vote vào lá Dân làng của đối thủ vẫn là Treo cổ bình thường; role của mục tiêu lộ theo quy tắc Treo cổ và không được miễn loại.
+Từ Vòng 2, Vote mở trong phiên Ban ngày. Người chơi chọn từ một đến tối đa ba lá phe dân còn sống, đủ điều kiện, cho tới khi tổng trọng số đạt ít nhất 3 phiếu; sau đó chọn một lá đối thủ làm mục tiêu treo cổ. Các voter được chọn lộ role khi xác nhận. Dân làng có trọng số 2, role Dân khác có trọng số 1. Vote vào lá Dân làng của đối thủ vẫn là Treo cổ bình thường; role của mục tiêu lộ theo quy tắc Treo cổ và không được miễn loại.
 
 - Click voter lần đầu để chọn, click lần hai để bỏ chọn.
-- Nút Xác nhận bị disable cho tới khi đủ đúng 3 voter; không dùng popup xác nhận.
+- Nút Xác nhận bị disable cho tới khi tổng trọng số đạt ít nhất 3 phiếu; không dùng popup xác nhận.
 - Nút Bỏ qua là lựa chọn hợp lệ.
-- Mục tiêu treo cổ chỉ được chọn sau khi đã đủ 3 voter.
+- Mục tiêu treo cổ chỉ được chọn sau khi đã đủ 3 phiếu.
 
 Trong lượt Ban ngày, người chơi có thể:
 
@@ -115,19 +118,33 @@ Hệ tương khắc cần hướng tới:
 ### Tiên tri
 
 - Chỉ dùng Ban đêm và không có countdown riêng.
-- Lần soi đầu làm lộ role mục tiêu cho người dùng và đánh dấu card.
-- Lá phe bóng tối đã bị soi có thể được chọn lại ở lần sau để kết liễu có điều kiện.
-- Lá phe sáng sau lần soi đầu bị disable khỏi mục tiêu soi lại; UI làm mờ và giải thích rằng lá này đã lộ phe sáng.
+- Soi thường không làm lộ Tiên tri; kết quả sáng/tối và dấu đã soi chỉ hiện cho chủ sở hữu.
+- Lá Phe Hắc Ám đã bị soi có thể được chọn lại ở lần sau để ra lệnh kết liễu có điều kiện.
+- Khi lệnh kết liễu resolve, Tiên tri lộ tại Bình minh kể cả nếu Bảo vệ chặn; target chỉ chết khi không được bảo vệ.
+- Lá phe sáng sau lần soi đầu bị disable khỏi mục tiêu soi lại; UI làm mờ và giải thích rằng lá này đã được xác định là phe sáng.
 - Mỗi đêm chỉ có một main order, nên người chơi phải chọn Tiên tri hoặc action giết khác.
+
+### Kẻ Thế Mạng
+
+- Thuộc Phe Hắc Ám và thay Sói Hộ Vệ trong bộ 10 lá prototype.
+- Không chọn trước một target để bảo kê. Khi một lá khác bên mình sắp bị Treo cổ bởi một Hội đồng hợp lệ, hệ thống mở một lựa chọn kín Có/Không cho chủ sở hữu Kẻ Thế Mạng.
+- Nếu đồng ý, Kẻ Thế Mạng tiêu phản ứng một lần/trận, chết thay target và lộ role; target sống nhưng vẫn lộ role vì án Treo cổ đã xác nhận đúng. Nếu từ chối, phản ứng chưa bị tiêu và án Treo cổ resolve bình thường.
+- Không kích hoạt khi chính Kẻ Thế Mạng là target, khi buộc tội sai, hoặc khi một lá chết bởi skill, Thanh trừng hay death reaction khác.
+- Phản ứng resolve trước khi loại target và trước `WIN_CHECK`. Hồi sinh không hoàn lại phản ứng đã dùng.
+- Nếu hai bên cùng tạo án Treo cổ hợp lệ trong một Hội đồng, hai lựa chọn Có/Không được khóa kín trước rồi mới resolve trong cùng batch; không bên nào được phản ứng dựa trên lựa chọn của đối thủ.
 
 ## 8. Phân giải xung đột
 
 Các luật đã chốt:
 
 - Bảo vệ chặn các nguồn loại bỏ và skill tấn công nhắm trực tiếp trong thời gian hiệu lực, gồm tấn công, độc và death reaction tương ứng; không chặn soi, debuff hoặc Treo cổ Ban ngày.
+- Kẻ Thế Mạng không chặn Treo cổ; nó thay đổi lá nhận kết quả loại bỏ từ target sang chính nó.
 - Action đêm đã khóa vẫn resolve nếu source bị loại trước lượt resolve.
 - Hồi sinh Ban ngày resolve ngay trước win-check và giữ nguyên usage/reveal state của lá.
 - Nếu hai bên cùng hết bài sau toàn bộ action và reaction của batch, kết quả là hòa.
+- Khóa mạch chỉ vô hiệu active skill và quyền Vote trong vòng hiện tại; không vô hiệu death reaction/passive đã đủ điều kiện, gồm Kẻ Thế Mạng và Kẻ báo thù.
+- Target Bảo vệ chỉ hiện trong private payload của chủ sở hữu. Nếu khiên chặn thành công, Bình minh công bố vị trí được cứu nhưng không công bố loại lệnh hay source bị chặn.
+- Soi thường của Tiên tri không tạo public timeline item; target, action kind và kết quả chỉ nằm trong private payload. Lệnh kết liễu vẫn là ngoại lệ công khai đã chốt.
 
 Thứ tự cụ thể giữa các action chính và death reaction Thợ săn vẫn cần xác nhận theo recommendation trong Game Flow.
 
@@ -139,6 +156,9 @@ Dev nên biểu diễn hành động thành event có thứ tự ưu tiên, khô
 - Nhận thua: thua ngay sau xác nhận.
 - Mất kết nối: mở reconnect window; hết thời hạn mới xử thua.
 - Kết quả được kiểm tra sau mỗi resolution và sau các hành động có thể kết thúc trận.
+- Nếu chưa có bên hết bài nhưng mỗi bên còn đúng một lá, chuyển ngay sang Final Duel trước lượt/phase kế tiếp.
+- Mỗi bên khóa một dự đoán role cuối của đối thủ và không được đổi. Hai bên cùng đúng hoặc cùng sai thì hòa; chỉ một bên đúng thì bên đó thắng.
+- Khi có kết quả, toàn bộ role hai board được lộ để giải thích trận đấu.
 
 ## 9. Thanh trừng
 
@@ -146,6 +166,7 @@ Dev nên biểu diễn hành động thành event có thứ tự ưu tiên, khô
 - Từ Vòng 6, sau Bình minh và trước Ban ngày, mỗi vòng thêm một pha Thanh trừng màu đỏ để tăng áp lực.
 - Thanh trừng bắt buộc, không có Bỏ qua, và cần được resolve trước Win Check.
 - Chu kỳ cố định: V6 Cắt bỏ, V7 Đảo chiến tuyến, V8 Ép lộ diện, V9 Khóa mạch.
+- Đảo chiến tuyến giữ nguyên card identity, owner và role; chỉ position ID đổi. Nếu các lựa chọn vị trí trùng nhau, cả batch fizzle và không reselect. Nếu lựa chọn đầu tiên khiến phía còn lại không còn cặp own/enemy nào không xung đột, engine auto-fizzle thay vì chờ vô hạn.
 
 ## 10. Câu hỏi mở ưu tiên cao
 
@@ -155,5 +176,5 @@ Dev nên biểu diễn hành động thành event có thứ tự ưu tiên, khô
 | OQ-02 | Thứ tự resolve toàn bộ kỹ năng | Game engine v0.1 |
 | OQ-03 | Bộ 10 lá cơ bản cuối cùng và số bản sao | Paper/Figma playable |
 | OQ-04 | Giới hạn dùng kỹ năng theo lá/trận/vòng | Paper playtest |
-| OQ-06 | Chi tiết effect và priority trong bốn luật Thanh trừng | Full match |
+| OQ-06 | Priority death reaction của Cắt bỏ và việc cycle có lặp từ V10 | Full match |
 | OQ-08 | Reconnect window cụ thể | Internal Alpha |

@@ -1,7 +1,7 @@
 # Game Flow v0.1
 
 - Phiên bản tài liệu: 0.1 — review draft 2
-- Ngày cập nhật: 27/08/2026
+- Ngày cập nhật: 01/09/2026
 - Chủ sở hữu: Game Designer / Product Owner
 - Trạng thái: Playtest/Review
 
@@ -154,7 +154,9 @@ Sau hành động hợp lệ của B, nếu chưa kết thúc thì tới Vote/H�
 
 #### Vote / Hội đồng từ Vòng 2
 
-Vote hiển thị thành bảng ở giữa màn hình, không dùng popup. Người chơi chọn lần lượt các lá phe dân còn sống đủ điều kiện của mình làm voter; click lần đầu chọn, click lần hai bỏ chọn. Bộ đếm hiển thị `0/3`, nút Xác nhận bị disable cho tới khi đủ đúng 3 lá, và nút Bỏ qua là lựa chọn hợp lệ. Sau khi đủ 3 voter, người chơi chọn mục tiêu đối thủ rồi xác nhận. Các voter phe dân được chọn lộ role; Dân làng có trọng số 2, role khác có trọng số 1. Vote vào Dân làng đối thủ vẫn là Treo cổ bình thường.
+Vote hiển thị thành bảng ở giữa màn hình, không dùng popup. Người chơi chọn lần lượt tối đa ba lá phe dân còn sống đủ điều kiện của mình làm voter; click lần đầu chọn, click lần hai bỏ chọn. UI hiển thị cả số nhân vật và tổng trọng số `x/3 phiếu`; mục tiêu và nút Xác nhận bị disable cho tới khi tổng trọng số đạt ít nhất 3. Dân làng có trọng số 2, role Dân khác có trọng số 1, nên Dân làng + 1 role Dân khác đã đủ. Nút Bỏ qua là lựa chọn hợp lệ. Khi xác nhận, các voter được chọn lộ role. Vote vào Dân làng đối thủ vẫn là Treo cổ bình thường.
+
+Một card đã dùng skill Ban ngày trong vòng hiện tại mang trạng thái exhausted và không còn đủ điều kiện làm voter trong Hội đồng cùng vòng. UI, BOT, commit validation, resolve revalidation và public view phải cùng dùng invariant này.
 
 #### Thanh trừng từ Vòng 6
 
@@ -170,9 +172,9 @@ Sau `DAWN_REVEAL` của đêm Vòng 5, trước action Ban ngày Vòng 6, trận
 - Source phải còn trên sân, thuộc người chơi và còn quyền dùng kỹ năng Ban ngày.
 - Target phải hợp lệ tại đúng version server chấp nhận.
 - Mỗi lá chỉ được kích hoạt kỹ năng tối đa một lần trong cùng một vòng, kể cả role có cả kỹ năng ngày và đêm.
-- Mỗi role có thể định nghĩa thêm `chargesPerMatch` và `revealOnUseNumber` riêng.
-- Mặc định `revealOnUseNumber = 1`: source lộ vai trò thật ngay khi kỹ năng đầu tiên được dùng thành công.
-- Role đặc biệt sau này có thể lộ ở lần dùng thứ 2 hoặc 3; khi đã lộ thì giữ trạng thái lộ đến hết trận.
+- Mỗi role có thể định nghĩa thêm `chargesPerMatch` và `revealRule` riêng.
+- Mặc định skill Ban ngày dùng `revealRule = onSuccess`; skill Ban đêm dùng `revealRule = neverOnNormalUse`. Ngoại lệ phải được khai báo theo action, như Tiên tri dùng `onExecutionResolve` cho lệnh kết liễu.
+- Khi đã lộ thì role giữ trạng thái lộ đến hết trận.
 - Số lần đã dùng và trạng thái đã lộ không được reset khi lá chết rồi hồi sinh.
 - Kết quả công khai được ghi vào timeline ngay sau resolve.
 
@@ -186,6 +188,14 @@ Sau `DAWN_REVEAL` của đêm Vòng 5, trước action Ban ngày Vòng 6, trận
 6. Kết quả đúng/sai và vai trò được đoán là thông tin công khai.
 
 Treo cổ không phải kỹ năng của một lá, nên không làm lộ lá nào của người thực hiện.
+
+Sau khi một án Treo cổ hợp lệ xác nhận đúng role và công khai role target nhưng trước khi loại target, server đi qua một reaction window trung tính. Nếu bên phòng thủ còn một Kẻ Thế Mạng sống và chưa dùng phản ứng, chủ sở hữu nhận `COUNCIL_REACTION_CHOICE` riêng với lựa chọn Có/Không; phía còn lại chỉ thấy trạng thái chờ. Presentation và thời lượng public của reaction window phải giống nhau dù có Kẻ Thế Mạng hay không, tránh làm lộ sự tồn tại của role qua timing.
+
+- Chọn Không: không tiêu phản ứng; Treo cổ target như thường.
+- Chọn Có: Kẻ Thế Mạng lộ và bị loại thay target; target sống nhưng vẫn ở trạng thái đã lộ; phản ứng bị tiêu vĩnh viễn.
+- Không mở reaction khi buộc tội sai, target chính là Kẻ Thế Mạng, Kẻ Thế Mạng đã chết/đã dùng, hoặc nguồn loại bỏ không phải Treo cổ.
+- Nếu cả hai bên có án Treo cổ hợp lệ, server thu và khóa kín cả hai reaction choice trước khi resolve; lựa chọn của bên này không được lộ cho bên kia giữa batch.
+- Resolve death reaction phát sinh từ cái chết của Kẻ Thế Mạng nếu có, rồi mới chạy `WIN_CHECK`.
 
 #### Bỏ lượt ngày
 
@@ -201,7 +211,7 @@ Mỗi người chọn đúng một action Ban đêm. **Bỏ lượt đêm đư�
 - Action đêm chưa tạo timeline công khai cho tới `DAWN_REVEAL`.
 - Người đã khóa không thể đổi action, kể cả khi đối thủ mất kết nối.
 - Nếu source bị loại bởi action có priority cao hơn, action đã khóa của source vẫn tiếp tục resolve từ snapshot lúc commit.
-- Việc dùng kỹ năng đêm vẫn tính vào giới hạn một lần/vòng. Nếu chạm ngưỡng lộ, source được công bố tại `DAWN_REVEAL`, không lộ giữa lúc B đang chọn.
+- Việc dùng kỹ năng đêm vẫn tính vào giới hạn một lần/vòng. Source không tự lộ tại `DAWN_REVEAL`; chỉ action có `revealRule` riêng mới công bố source. Tiên tri lộ tại Bình minh khi lệnh kết liễu resolve, kể cả nếu bị Bảo vệ chặn.
 
 Validation khi commit dựa trên state hiện tại. Nếu target trở thành không hợp lệ trong lúc resolve do action ưu tiên cao hơn, action sau **fizzle** và log ghi lý do; không yêu cầu chọn lại giữa đêm.
 
@@ -237,9 +247,11 @@ Luật resolve đã chốt:
 
 ### 5.6 `DAWN_REVEAL`
 
-Bình minh công bố event theo thứ tự resolve, nhưng chỉ lộ trường được phép công khai: lá bị loại/hồi sinh, effect công khai, source đã lộ, action fizzle và thay đổi board công khai.
+Bình minh công bố event theo thứ tự resolve, nhưng chỉ lộ trường được phép công khai: lá bị loại/hồi sinh, effect công khai, source có luật lộ riêng, action fizzle và thay đổi board công khai. Ma sói tấn công và Tiên tri soi thường không làm lộ source.
 
 Hai client nhận cùng một public timeline. Thông tin điều tra như kết quả Tiên tri chỉ xuất hiện trong private payload của chủ sở hữu.
+
+Target khiên chỉ hiển thị cho chủ sở hữu trong lúc Phòng thủ. Nếu block thành công, public timeline chỉ công bố vị trí được cứu; loại lệnh và source vẫn kín. Soi thường không tạo public replay/timeline item; chỉ lệnh kết liễu Tiên tri mới công khai source theo rule riêng.
 
 - Nếu đã có kết quả, sau reveal chuyển tới `MATCH_RESULT`.
 - Nếu chưa kết thúc, hoàn tất `ROUND_END`, tăng số vòng và quay lại `ROUND_START`.
@@ -262,15 +274,25 @@ Hai client nhận cùng một public timeline. Thông tin điều tra như kết
 ### 6.1 Quy tắc từng vòng
 
 1. **Vòng 6 — Cắt bỏ:** mỗi bên chọn một lá phe mình còn sống để loại; death reaction hợp lệ vẫn chạy.
-2. **Vòng 7 — Đảo chiến tuyến:** mỗi bên chọn một lá của mình để hoán đổi vị trí với một lá đối thủ; ownership và role giữ nguyên.
+2. **Vòng 7 — Đảo chiến tuyến:** mỗi bên chọn một lá của mình để hoán đổi vị trí với một lá đối thủ; card identity, ownership và role giữ nguyên, chỉ position ID đổi. Nếu bốn lựa chọn có vị trí trùng nhau, toàn bộ batch fizzle, không đổi vị trí và không yêu cầu chọn lại. Sau lựa chọn đầu tiên, nếu phía còn lại không còn một cặp own/enemy không trùng hai vị trí đã khóa, engine tự fizzle batch ngay để không chờ một response bất khả thi.
 3. **Vòng 8 — Ép lộ diện:** mỗi bên chọn một lá phe mình chưa lộ để công khai role.
-4. **Vòng 9 — Khóa mạch:** mỗi bên chọn một lá còn sống; lá đó không được dùng skill hoặc tham gia Vote trong vòng hiện tại.
+4. **Vòng 9 — Khóa mạch:** mỗi bên chọn một lá còn sống; lá đó không được dùng active skill hoặc tham gia Vote trong vòng hiện tại. Death reaction/passive đã đủ điều kiện vẫn hoạt động, gồm Kẻ Thế Mạng và Kẻ báo thù.
 
-Các chi tiết priority, target conflict và phản ứng khi một lựa chọn không còn hợp lệ phải được engine validate và ghi log.
+Engine validate mọi target tại commit. Swap conflict làm toàn batch fizzle và ghi log để không lộ lựa chọn qua một lượt reselect giữa pha kín. Các death reaction phát sinh từ Cắt bỏ vẫn cần chốt priority đầy đủ trong GD-06.
 
 ## 7. Kết thúc trận
 
-### 7.1 `WIN_CHECK`
+### 7.1 Final Duel
+
+Sau mỗi resolution, nếu chưa có bên hết bài nhưng mỗi bên còn đúng một lá, server chuyển tới `FINAL_DUEL` trước phase kế tiếp.
+
+- Hai bên khóa kín đúng một dự đoán role của lá cuối đối thủ; dự đoán đã khóa không được sửa.
+- Hai bên cùng đúng: hòa.
+- Chỉ một bên đúng: bên đó thắng.
+- Hai bên cùng sai: hòa.
+- Sau resolve, toàn bộ role hai board được công khai và trận chuyển tới `MATCH_RESULT`.
+
+### 7.2 `WIN_CHECK`
 
 Chạy sau mỗi action Ban ngày, toàn bộ batch Ban đêm, Thanh trừng có thể loại lá, nhận thua và khi reconnect window hết hạn.
 
@@ -278,13 +300,13 @@ Một người thua khi không còn lá trên sân, xác nhận Nhận thua ho�
 
 Win-check giữa đêm không công bố ngay; kết quả đi qua `DAWN_REVEAL` trước `MATCH_RESULT`, trừ nhận thua hoặc timeout kết nối cần kết thúc ngay.
 
-### 7.2 Nhận thua
+### 7.3 Nhận thua
 
 - Có thể mở từ menu trong trận và cần confirm hai bước.
 - Sau khi server chấp nhận, trận kết thúc ngay; action chưa resolve bị hủy.
 - Đối thủ thấy lý do `OPPONENT_SURRENDERED`.
 
-### 7.3 `MATCH_RESULT`
+### 7.4 `MATCH_RESULT`
 
 Hiển thị thắng/thua/hòa, lý do kết thúc, toàn bộ vai trò, timeline tóm tắt, thời lượng và số vòng. Nếu cả hai cùng hết bài trong một batch resolve, lý do là `DRAW_BOTH_BOARDS_EMPTY`.
 
@@ -293,6 +315,8 @@ Hiển thị thắng/thua/hòa, lý do kết thúc, toàn bộ vai trò, timelin
 - **Thoát:** rời room và về `HOME`.
 
 Nếu chỉ một người chọn Đấu lại, họ ở trạng thái chờ và có thể hủy. Nếu đối thủ rời, yêu cầu rematch hết hiệu lực.
+
+Trong prototype local một người đấu BOT, nút **Chơi lại** xem như BOT đồng ý ngay và tạo một state `LOADOUT_SETUP` mới; query QA hiện tại không được áp lại lên rematch state.
 
 ## 8. Reconnect và trạng thái bất thường
 
@@ -384,21 +408,24 @@ Flow đạt trạng thái “Xong” khi cả team đi qua được các scenari
 
 | Số lượng | Vai trò | Giới hạn đề xuất |
 |---:|---|---|
-| 5 | Dân làng | Không có skill; vẫn được Treo cổ |
-| 1 | Ma Sói | 1 lần/vòng, không giới hạn số vòng |
-| 1 | Tiên tri | Không countdown; mỗi đêm cạnh tranh một main order với skill giết; soi lần hai chỉ kết liễu phe bóng tối đã soi |
+| 1 | Dân làng | 2 phiếu Hội đồng; không có skill |
+| 2 | Ma Sói | Tấn công Ban đêm không làm lộ source |
+| 1 | Tiên tri | Soi thường giữ kín; lệnh kết liễu làm lộ source tại Bình minh kể cả nếu bị chặn |
 | 1 | Bảo vệ | Không giới hạn tổng số; không tự bảo vệ; cùng card không được bảo vệ hai đêm liên tiếp |
-| 1 | Phù thủy | Hồi sinh 1 lần + đầu độc 1 lần/trận; tổng cộng vẫn chỉ 1 action/vòng |
-| 1 | Thợ săn | Passive một lần/trận |
+| 1 | Phù thủy | Hồi sinh 1 lần + đầu độc 1 lần/trận; không dùng cả hai trong cùng vòng |
+| 1 | Xạ thủ | Bắn Ban ngày 1 lần/trận vào role đã lộ |
+| 1 | Kẻ báo thù | Đánh dấu Ban ngày; death reaction hết hạn ở Bình minh kế tiếp |
+| 1 | Mục sư | Thanh tẩy Ban ngày 1 lần/trận |
+| 1 | Kẻ Thế Mạng | Phe Hắc Ám; chết thay một án Treo cổ hợp lệ 1 lần/trận |
 
-Năm Dân làng tạo đủ “lá mồi” để suy luận nhưng chỉ có năm role đặc biệt cần học. Paper test đầu nên giữ `revealOnUseNumber = 1` cho mọi role; cơ chế lộ ở lần 2/3 được hỗ trợ trong rule nhưng để một role mới sau khi core loop đã ổn.
+Đặc tả reveal, target và edge case đầy đủ của bộ này nằm trong `roles-draft.md`. Bộ bài đã được chốt để sửa prototype nhưng chưa có human playtest chứng minh cân bằng.
 
 ### 13.2 Information map đề xuất
 
 - Action ngày, target và kết quả: công khai ngay.
-- Action đêm: chỉ công khai ở Bình minh.
-- Source chạm ngưỡng lộ: công khai ở Bình minh; không lộ trong lúc B chọn.
-- Kết quả Tiên tri: chỉ Tiên tri biết; đối thủ chỉ biết Tiên tri đã dùng skill và đã lộ nếu chạm ngưỡng.
+- Outcome action đêm: chỉ công khai phần được phép ở Bình minh.
+- Source action đêm: mặc định không công khai, kể cả ở Bình minh; ngoại lệ được ghi theo action.
+- Kết quả soi thường của Tiên tri: chỉ chủ sở hữu biết; đối thủ không biết Tiên tri nào đã dùng. Khi Tiên tri ra lệnh kết liễu, source lộ tại Bình minh dù target sống nhờ khiên.
 - Target của Bảo vệ: giữ riêng nếu không bị tấn công; nếu chặn thành công, Bình minh công bố vị trí được cứu nhưng không công bố loại đòn bị chặn.
 - Sau trận: lộ toàn bộ role, action và private result để người chơi hiểu màn đánh lừa.
 

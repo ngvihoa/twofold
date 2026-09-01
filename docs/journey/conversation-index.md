@@ -18,6 +18,7 @@ File này giúp team biết cuộc trò chuyện nào đã được chuyển th�
 | CONV-003 | 28/08/2026 | Các phiên Codex thể hiện qua Git history | Role Atlas, dữ liệu vai trò, monorepo, CLI và prototype playtest | Đã tổng hợp từ artifact/commit | Journey 28/08, role evolution, experiment log, verification log |
 | CONV-005 | 29/08/2026 | Thảo luận local playtest game-flow | Chốt nhịp Bình minh/Ngày/Vote/Đêm, Vote từ V2, Bảo vệ/Tiên tri/Dân làng và Thanh trừng từ V6; được đánh dấu case study về pacing | Đã tổng hợp | [Case study Thanh trừng](2026-08-29-case-study-thanh-trung-gameflow.md), Implementation 2026-08-29-002, game design v0.1, ADR-0001, task tracker |
 | CONV-004 | 29/08/2026 | Codex task hiện tại | Yêu cầu lưu các cuộc đối thoại và cách làm thành hành trình xây app | Đã tổng hợp | Journey 29/08 và bộ khung `docs/journey/` |
+| CONV-006 | 30/08/2026 | Thảo luận cân bằng 10 lá hiện tại | Chốt skill đêm mặc định không lộ source; Tiên tri chỉ lộ khi ra lệnh kết liễu; thay Sói Hộ Vệ bằng Kẻ Thế Mạng thuộc Phe Hắc Ám | Đã tổng hợp | ADR-0001, core gameplay, game flow, roles draft, role evolution, Implementation 2026-08-30-003 |
 
 ## Cách thêm một nguồn mới
 

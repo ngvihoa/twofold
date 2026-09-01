@@ -323,3 +323,75 @@ Game design/ADR ban đầu nói Tai họa bắt đầu **sau Vòng 6, tức Vòn
 | Sói Hộ Vệ | 1 | Hội đồng | 1 | Lộ nếu cứu thành công | Role mới đang thử |
 
 Snapshot này mô tả prototype, không tự động thay thế `roles-draft.md` hay ADR.
+
+## 14. Đồng bộ implementation ngày 30/08/2026
+
+Audit tại `75b104c` phát hiện snapshot engine trong monorepo vẫn dùng nhiều behavior cũ. Implementation `2026-08-30-001` đồng bộ lại theo ADR-0001:
+
+| Role/rule | Behavior sau đồng bộ | Bằng chứng automated |
+|---|---|---|
+| Dân làng | 2 phiếu trong Hội đồng; Dân làng + 1 role Dân khác đạt ngưỡng 3 phiếu | PASS |
+| Hội đồng | Mở từ Vòng 2 sau Day A/B; resolve xong sang Night | PASS |
+| Tiên tri | Không countdown; soi đầu gắn sáng/tối; sáng khóa target; tối soi hai để kết liễu | PASS |
+| Bảo vệ | Không giới hạn; cấm tự bảo vệ; không chặn soi đầu; chặn kết liễu và death reaction | PASS |
+| Phù thủy | Không được hồi sinh và đầu độc trong cùng vòng | PASS |
+| Xạ thủ | Source lộ khi bắn Ban ngày | PASS |
+| Kẻ báo thù | Death reaction bị khiên chặn khi Protection còn hiệu lực | PASS |
+
+Đây là trạng thái engine prototype sau implementation, thay thế phần “trạng thái hiện tại” của snapshot `b589667` cho các role/rule trên. Balance và browser behavior vẫn chưa được human playtest xác minh.
+
+## 15. Chốt reveal đêm và Kẻ Thế Mạng ngày 30/08/2026
+
+### Tiên tri
+
+- Trước: prototype làm lộ source Tiên tri ở bước stage night; game-design cũ dùng ngưỡng lộ mặc định ở lần dùng đầu.
+- Vấn đề: soi tạo thông tin riêng nhưng việc lộ source ngay trong đêm phá vai trò ẩn; đồng thời Tiên tri soi vô hạn, kết liễu và luôn ẩn sẽ quá mạnh.
+- Sau: soi thường không làm lộ Tiên tri. Lá Hắc Ám đã soi có thể bị kết liễu ở đêm sau; khi lệnh kết liễu resolve, Tiên tri lộ tại Bình minh kể cả nếu bị Bảo vệ chặn.
+- Trạng thái: **Đã implement trong prototype; automated regression PASS**. Soi thường và source tấn công/độc đêm không leak; kết liễu làm lộ Tiên tri kể cả khi bị chặn.
+
+### Kẻ Thế Mạng
+
+- Trước: Sói Hộ Vệ bí mật chọn trước một target để bảo kê trong pha Hội đồng; chỉ lộ nếu đoán trúng target bị Treo cổ.
+- Vấn đề: cơ chế chọn trước trùng ngôn ngữ Bảo vệ và yêu cầu một action phụ ngay cả khi không có án Treo cổ cần cứu.
+- Sau: đổi tên thành **Kẻ Thế Mạng**, thuộc Phe Hắc Ám. Khi một lá khác bên mình sắp bị Treo cổ hợp lệ, chủ sở hữu được hỏi kín Có/Không. Chọn Có làm Kẻ Thế Mạng lộ và chết thay; chọn Không không tiêu quyền. Chỉ dùng một lần/trận và không áp dụng cho nguồn loại bỏ khác.
+- Edge case đã chốt: reaction diễn ra sau khi án Treo xác nhận/lộ role target nhưng trước bước loại và `WIN_CHECK`; target được cứu vẫn nằm ngửa; không tự cứu chính mình; hồi sinh không hoàn lại quyền đã dùng; hai reaction cùng Hội đồng được khóa kín rồi resolve cùng batch.
+- Trạng thái: **Đã implement trong prototype; thay Sói Hộ Vệ; automated regression PASS**. UI/bot đã dùng reaction Có/Không thay cho preselection.
+
+## 16. Đồng bộ Thanh trừng ngày 31/08/2026
+
+P0.2 được implement lại thay vì port nguyên implementation lịch sử:
+
+- V6 Cắt bỏ, V7 Đảo chiến tuyến, V8 Ép lộ diện, V9 Khóa mạch chạy bắt buộc sau Bình minh và trước Ban ngày.
+- Mỗi card có `instanceId` và `owner` bất biến; position `id` có thể đổi ở V7.
+- Guard cooldown và ghi chú Tiên tri đi theo card identity qua Swap.
+- Khóa mạch chặn active skill và Vote trong vòng hiện tại.
+- Bốn lựa chọn Swap trùng vị trí làm cả batch fizzle để giữ bí mật lựa chọn.
+
+Automated suite: **24/24 pass**, gồm regression auto-fizzle khi không tồn tại response Swap, guard Final Duel ở trạng thái 1–1 và BOT Council pass khi đã tiêu quyền loại trực tiếp. Browser interaction xác nhận Cut V6, Swap V7 và Reveal V8 qua full flow; Lock V9 pass bằng fixture local deterministic. Chưa có human playtest full match hoặc số liệu balance.
+
+## 17. Harden exhausted/reaction/batch ngày 01/09/2026
+
+P0.3 làm rõ và implement hai invariant nối giữa role, Hội đồng và Khóa mạch:
+
+- Card đã dùng skill Ban ngày không thể dùng lại làm voter trong Hội đồng cùng vòng. Engine validate lúc submit và revalidate lúc resolve; BOT, UI và public status dùng cùng điều kiện.
+- Khóa mạch chỉ khóa active skill và Vote, không khóa death reaction. Kẻ Thế Mạng bị Khóa mạch vẫn có thể tự nguyện chết thay khi án Treo cổ hợp lệ mở reaction window.
+
+Suite tăng lên **30/30 pass**. Các characterization test cũng xác nhận hai lệnh đêm đã khóa cùng resolve dù source chết trong batch, Cắt bỏ hai lá cuối cho kết quả hòa, và hồi sinh Kẻ Thế Mạng không hoàn lại reaction đã dùng. Browser fixture V9 xác nhận A7 đã dùng Đánh dấu không còn voter action và A4 bị Khóa mạch vẫn chết thay thành công.
+
+## 18. P0.4 — Ranh giới public/private ngày 01/09/2026
+
+- Target khiên được chuyển khỏi public view sang private hand; đối thủ chỉ thấy bên kia đã khóa Phòng thủ.
+- Block thành công công bố vị trí được cứu nhưng giữ kín loại đòn và source.
+- Soi thường không ghi public timeline và không tạo opponent replay; ghi chú chỉ thuộc người dùng Tiên tri.
+- UI overlay khiên từ private payload cho owner, trong khi replay BOT hiển thị `Mục tiêu bí mật`.
+
+Ba red test ban đầu fail 0/3; sau fix toàn suite **33/33 pass** ở checkpoint P0.4. Browser fixture Night Privacy xác nhận A thấy khiên A2, B không lộ badge/target.
+
+## 19. P0.5 — Final Duel và kết thúc trận ngày 01/09/2026
+
+- Trạng thái 1–1 đi Final Duel sau Day, Council, Night hoặc Purge trước phase kế tiếp.
+- Mỗi seat chỉ khóa một dự đoán; cùng đúng/cùng sai hòa, một bên đúng thì thắng.
+- Một finalizer chung lộ toàn bộ role khi trận kết thúc.
+- `match.rematch` chỉ hợp lệ từ `ended` và tạo setup mới; UI Chơi lại dùng action này.
+
+Suite cuối **38/38 pass**. Browser fixture Final Duel xác nhận không còn `Bí danh`, result hiển thị đúng và Chơi lại trả về setup 20 lá sống.

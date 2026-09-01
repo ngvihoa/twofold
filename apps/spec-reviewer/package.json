@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "python3 -m http.server 4173",
     "start": "python3 -m http.server 4173",
-    "check": "node scripts/check-role-data.mjs",
+    "check": "node scripts/check-role-data.mjs && node --test game-flow-demo/*.test.mjs",
     "annotate:roles": "node scripts/annotate-role-gameplay.mjs",
     "demo:chat": "node game-flow-demo/cli.mjs"
   }

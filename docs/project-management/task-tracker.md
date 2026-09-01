@@ -13,9 +13,9 @@
 | GD-01 | Game Flow | Review và chốt Game Flow v0.1 | Game Designer/PO | Playtest/Review | Cả team mô tả được luồng từ mở web đến đấu lại |
 | GD-02 | Core Rule | Chốt hành động Ban ngày/Ban đêm, Vote từ Vòng 2 và pha Thanh trừng từ Vòng 6 | Game Designer/PO | Playtest/Review | Không còn nhánh chính mơ hồ trong một vòng |
 | GD-03 | Treo cổ | Paper test cơ chế chọn lá + đoán vai trò | Game Designer/PO | Cần kiểm chứng | Có kết luận giữ/sửa/bỏ và lý do |
-| GD-04 | Roles | Chọn một bộ 10 lá cơ bản duy nhất | Game Designer/PO | Tuần này | Có số lượng, kỹ năng, giới hạn và ví dụ resolve |
-| GD-05 | Information | Lập information map | Game Designer/PO | Tuần này | Mỗi state ghi rõ ai biết gì và khi nào lộ |
-| GD-06 | Edge cases | Chốt thứ tự resolve v0.1 | Game Designer/PO + Dev | Đang làm | Bao phủ protect/poison/revive/death/reaction/win check |
+| GD-04 | Roles | Chọn một bộ 10 lá cơ bản duy nhất | Game Designer/PO | Playtest/Review | Có số lượng, kỹ năng, giới hạn và ví dụ resolve |
+| GD-05 | Information | Lập information map | Game Designer/PO | Playtest/Review | Prototype đã khóa night shield/Seer public-private; còn field map multiplayer |
+| GD-06 | Edge cases | Chốt thứ tự resolve v0.1 | Game Designer/PO + Dev | Đang làm | Prototype core 38/38; còn chốt priority Thợ săn/Cắt bỏ và simultaneous death mở rộng |
 | UX-01 | Visual | Moodboard và 1–2 hướng visual | UI/UX Game | Tuần này | Team chọn được một hướng để prototype |
 | UX-02 | UX Flow | Screen/state inventory | UI/UX Game | Tuần này | Bao phủ toàn bộ state trong Game Flow |
 | UX-03 | Prototype | Prototype các state cốt lõi | UI/UX Game | Ý tưởng | Có thể click từ chọn bài qua một vòng và kết quả |
@@ -37,8 +37,8 @@
 | WEB-03 | 21/09 | Hidden/public state, action lock và bảng Vote trung tâm | Developer | Ý tưởng | WEB-02 |
 | WEB-04 | 05/10 | Chọn/gán 10 vai trò và countdown 3 giây | Developer + UI/UX | Ý tưởng | GD-04, UX-03 |
 | WEB-05 | 05/10 | Treo cổ, bộ role Alpha và resolution | Developer | Ý tưởng | TEST-01, GD-06 |
-| WEB-06 | 05/10 | Thắng/thua, nhận thua, reconnect | Developer | Ý tưởng | DEV-03 |
-| WEB-07 | 05/10 | Build pha Thanh trừng màu đỏ từ Vòng 6: Cắt bỏ, Đảo chiến tuyến, Ép lộ diện, Khóa mạch | Developer + Game Designer | Ý tưởng | Thiết kế 4 luật Thanh trừng |
+| WEB-06 | 05/10 | Thắng/thua, nhận thua, reconnect | Developer | Đang làm | Final Duel/result/rematch local 38/38; còn surrender + reconnect + consent multiplayer |
+| WEB-07 | 05/10 | Build pha Thanh trừng màu đỏ từ Vòng 6: Cắt bỏ, Đảo chiến tuyến, Ép lộ diện, Khóa mạch | Developer + Game Designer | Playtest/Review | Local suite 38/38 + browser V6–V9/reaction pass; còn human full-match/balance playtest |
 | WEB-08 | 05/10 | Kết quả, đấu lại, đối thủ khác | Developer + UI/UX | Ý tưởng | WEB-06 |
 | QA-01 | 19/10 | Test deterministic resolution và desync | Developer | Ý tưởng | Full match |
 | PT-01 | 19/10 | Tổ chức ít nhất 10 session với đồng nghiệp | Game Designer/PO | Ý tưởng | Build ổn định |
