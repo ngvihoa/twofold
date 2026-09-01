@@ -4,10 +4,8 @@ import {
   type CardId,
   type GamePlayerViewV2,
   type PlayerGameAction,
-  type PrivateCardViewV2,
-  type PublicCardViewV2,
 } from '@twofold/shared-types';
-import { AlertTriangle, LoaderCircle, Send, Shield, Swords } from 'lucide-react';
+import { AlertTriangle, LoaderCircle, RotateCcw, Shield } from 'lucide-react';
 import * as React from 'react';
 import {
   DAY_ACTION_ABILITY,
@@ -32,405 +30,397 @@ import {
 } from '../../features/game/action/game-action-model';
 import type { GameSessionError } from '../../features/game/session/game-session-machine';
 
-export interface PrototypeGameActionPanelProps {
+export interface PrototypeGameInteractionProviderProps {
   readonly view: GamePlayerViewV2;
   readonly pendingAction: PlayerGameAction | null;
   readonly error: GameSessionError | null;
   readonly canSubmit: boolean;
   readonly onSubmit: (action: PlayerGameAction) => void;
+  readonly children: React.ReactNode;
 }
 
-interface PhaseFormProps {
+type InteractionState =
+  | { readonly kind: 'IDLE' }
+  | { readonly kind: 'DAY_SOURCE'; readonly actionType: DayAbilityActionType }
+  | { readonly kind: 'DAY_TARGET'; readonly actionType: DayAbilityActionType; readonly sourceId: CardId }
+  | { readonly kind: 'NIGHT_SOURCE'; readonly abilityId: NightAbilityId }
+  | { readonly kind: 'NIGHT_TARGET'; readonly abilityId: NightAbilityId; readonly sourceId: CardId }
+  | { readonly kind: 'BLOOD_MOON_TARGET' }
+  | { readonly kind: 'DEFENSE_SOURCE' }
+  | { readonly kind: 'DEFENSE_TARGET'; readonly sourceId: CardId }
+  | { readonly kind: 'COUNCIL_VOTERS'; readonly voterIds: readonly CardId[] }
+  | { readonly kind: 'COUNCIL_TARGET'; readonly voterIds: readonly CardId[] }
+  | { readonly kind: 'COUNCIL_GUESS'; readonly voterIds: readonly CardId[]; readonly targetId: CardId }
+  | { readonly kind: 'REACTION_SOURCE' }
+  | { readonly kind: 'REACTION_TARGET'; readonly sourceId: CardId }
+  | { readonly kind: 'PURGE_OWN' }
+  | { readonly kind: 'PURGE_OPPONENT'; readonly ownTargetId: CardId };
+
+interface GameInteractionContextValue {
   readonly view: GamePlayerViewV2;
-  readonly disabled: boolean;
-  readonly onSubmit: (action: PlayerGameAction) => void;
+  readonly pendingAction: PlayerGameAction | null;
+  readonly error: GameSessionError | null;
+  readonly canSubmit: boolean;
+  readonly interaction: InteractionState;
+  readonly selectableCardIds: ReadonlySet<CardId>;
+  readonly selectedCardIds: ReadonlySet<CardId>;
+  readonly selectCard: (cardId: CardId) => void;
+  readonly setInteraction: React.Dispatch<React.SetStateAction<InteractionState>>;
+  readonly submit: (action: PlayerGameAction) => void;
 }
 
-type SelectableCard = PrivateCardViewV2 | PublicCardViewV2;
+const GameInteractionContext = React.createContext<GameInteractionContextValue | null>(null);
 
-const CONTROL_CLASS =
-  'w-full rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2 text-xs text-slate-100 focus:border-indigo-500 focus:outline-none disabled:opacity-40';
-const BUTTON_CLASS =
-  'inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40';
-
-function CardSelect({
-  cards,
-  value,
-  onChange,
-  placeholder,
-  disabled = false,
-}: {
-  readonly cards: readonly SelectableCard[];
-  readonly value: string;
-  readonly onChange: (value: CardId) => void;
-  readonly placeholder: string;
-  readonly disabled?: boolean;
-}) {
-  return (
-    <select
-      className={CONTROL_CLASS}
-      value={value}
-      disabled={disabled}
-      onChange={(event) => onChange(event.target.value as CardId)}
-      aria-label={placeholder}
-    >
-      <option value="">{placeholder}</option>
-      {cards.map((card) => {
-        const role =
-          card.role && typeof card.role === 'object' ? card.role.id : card.role;
-        return (
-          <option key={card.id} value={card.id}>
-            {card.id}{role ? ` · ${role}` : ''}
-          </option>
-        );
-      })}
-    </select>
-  );
-}
-
-/**
- * Command dock mô phỏng prototype; chỉ emit typed command về session actor.
- *
- * Component không resolve rule và không optimistic-update authoritative view.
- */
-export function PrototypeGameActionPanel({
+/** Owns the prototype's click-through card selection flow for one phase. */
+export function PrototypeGameInteractionProvider({
   view,
   pendingAction,
   error,
   canSubmit,
   onSubmit,
-}: PrototypeGameActionPanelProps) {
-  const disabled = !canSubmit;
+  children,
+}: PrototypeGameInteractionProviderProps) {
+  const [interaction, setInteraction] = React.useState<InteractionState>({ kind: 'IDLE' });
+  const submit = React.useCallback((action: PlayerGameAction) => {
+    if (!canSubmit) return;
+    setInteraction({ kind: 'IDLE' });
+    onSubmit(action);
+  }, [canSubmit, onSubmit]);
+  const selectableCardIds = getSelectableCardIds(view, interaction, canSubmit);
+  const selectedCardIds = getSelectedCardIds(interaction);
+
+  const selectCard = React.useCallback((cardId: CardId) => {
+    if (!selectableCardIds.has(cardId) || !canSubmit) return;
+    switch (interaction.kind) {
+      case 'DAY_SOURCE':
+        setInteraction({ kind: 'DAY_TARGET', actionType: interaction.actionType, sourceId: cardId });
+        return;
+      case 'DAY_TARGET':
+        submit(createDayAbilityAction(view.self.id, interaction.actionType, interaction.sourceId, cardId));
+        return;
+      case 'NIGHT_SOURCE':
+        setInteraction({ kind: 'NIGHT_TARGET', abilityId: interaction.abilityId, sourceId: cardId });
+        return;
+      case 'NIGHT_TARGET':
+        submit(createNightAbilityAction(view.self.id, interaction.abilityId, interaction.sourceId, cardId));
+        return;
+      case 'BLOOD_MOON_TARGET':
+        submit(createBloodMoonAction(view.self.id, cardId));
+        return;
+      case 'DEFENSE_SOURCE':
+        setInteraction({ kind: 'DEFENSE_TARGET', sourceId: cardId });
+        return;
+      case 'DEFENSE_TARGET':
+        submit(createDefenseProtectAction(view.self.id, interaction.sourceId, cardId));
+        return;
+      case 'COUNCIL_VOTERS': {
+        const selected = interaction.voterIds.includes(cardId)
+          ? interaction.voterIds.filter((id) => id !== cardId)
+          : interaction.voterIds.length < 3
+            ? [...interaction.voterIds, cardId]
+            : interaction.voterIds;
+        setInteraction({ kind: 'COUNCIL_VOTERS', voterIds: selected });
+        return;
+      }
+      case 'COUNCIL_TARGET': {
+        const target = view.opponent.board.find((card) => card.id === cardId);
+        if (target?.state.visibility === 'REVEALED') {
+          submit(createCouncilAccusationAction(view.self.id, cardId, null, interaction.voterIds));
+        } else {
+          setInteraction({ kind: 'COUNCIL_GUESS', voterIds: interaction.voterIds, targetId: cardId });
+        }
+        return;
+      }
+      case 'REACTION_SOURCE':
+        setInteraction({ kind: 'REACTION_TARGET', sourceId: cardId });
+        return;
+      case 'REACTION_TARGET':
+        submit(createCouncilReactionAction(view.self.id, interaction.sourceId, cardId));
+        return;
+      case 'PURGE_OWN': {
+        const rule = getPurgeRuleForRound(view.round);
+        if (rule === 'SWAP') {
+          setInteraction({ kind: 'PURGE_OPPONENT', ownTargetId: cardId });
+          return;
+        }
+        if (rule === 'CUT') {
+          submit(createPurgeAction(view.self.id, { rule, targetId: cardId }));
+          return;
+        }
+        if (rule === 'REVEAL') {
+          submit(createPurgeAction(view.self.id, { rule, targetId: cardId }));
+          return;
+        }
+        submit(createPurgeAction(view.self.id, { rule: 'LOCK', targetId: cardId }));
+        return;
+      }
+      case 'PURGE_OPPONENT':
+        submit(createPurgeAction(view.self.id, {
+          rule: 'SWAP',
+          ownTargetId: interaction.ownTargetId,
+          opponentTargetId: cardId,
+        }));
+        return;
+      case 'IDLE':
+      case 'COUNCIL_GUESS':
+        return;
+    }
+  }, [canSubmit, interaction, selectableCardIds, submit, view]);
+
   return (
-    <section
-      aria-label="Mệnh lệnh hiện tại"
-      className="mx-auto flex w-full max-w-2xl min-h-0 flex-col gap-4 rounded-xl border border-slate-700/70 bg-slate-950/85 p-4 shadow-2xl shadow-black/30"
-    >
-      <header className="border-b border-slate-800 pb-3 text-center">
-        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-300">
-          Mệnh lệnh hiện tại
-        </p>
-        <h2 className="mt-1 text-base font-bold text-slate-100">{view.phase.type}</h2>
-        <p className="mt-1 text-xs text-slate-400">Vòng {view.round}</p>
-      </header>
+    <GameInteractionContext.Provider value={{
+      view, pendingAction, error, canSubmit, interaction,
+      selectableCardIds, selectedCardIds, selectCard, setInteraction, submit,
+    }}>
+      {children}
+    </GameInteractionContext.Provider>
+  );
+}
 
-      {error ? (
-        <div role="alert" className="flex gap-2 rounded-lg bg-rose-950/40 p-3 text-xs text-rose-200">
-          <AlertTriangle className="h-4 w-4 shrink-0" />
-          <span>{error.code ?? error.kind}: {error.message}</span>
+/** Card-facing selection state shared by both board rows. */
+export function usePrototypeCardInteraction() {
+  const context = useGameInteraction();
+  return {
+    selectableCardIds: context.selectableCardIds,
+    selectedCardIds: context.selectedCardIds,
+    selectCard: context.selectCard,
+  };
+}
+
+/** Compact phase prompt; all source/target picking happens directly on cards. */
+export function PrototypeGameActionPanel() {
+  const context = useGameInteraction();
+  const { view, pendingAction, error } = context;
+  return (
+    <section aria-label="Mệnh lệnh hiện tại" className="mx-auto w-full max-w-3xl rounded-2xl border border-white/20 bg-white/10 px-4 py-3 shadow-xl shadow-black/20 backdrop-blur-md">
+      <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-center">
+        <div>
+          <p className="text-[9px] font-black uppercase tracking-[0.22em] text-amber-200">Vòng {view.round}</p>
+          <h2 className="text-sm font-black text-white">{phaseTitle(view.phase.type)}</h2>
         </div>
-      ) : null}
-
-      {pendingAction ? (
-        <div className="flex items-center gap-2 rounded-lg bg-indigo-950/50 p-3 text-xs text-indigo-200">
-          <LoaderCircle className="h-4 w-4 animate-spin" />
-          Đang chờ server xác nhận {pendingAction.type}…
-        </div>
-      ) : null}
-
-      <div className="min-h-0 flex-1">
-        <PhaseActionForm
-          key={view.phase.type}
-          view={view}
-          disabled={disabled}
-          onSubmit={onSubmit}
-        />
+        <PhaseControls context={context} />
       </div>
+      {error ? (
+        <p role="alert" className="mt-2 flex items-center justify-center gap-2 text-xs text-rose-100">
+          <AlertTriangle className="h-4 w-4" /> {error.code ?? error.kind}: {error.message}
+        </p>
+      ) : null}
+      {pendingAction ? (
+        <p className="mt-2 flex items-center justify-center gap-2 text-xs text-indigo-100">
+          <LoaderCircle className="h-4 w-4 animate-spin" /> Server đang xác nhận {pendingAction.type}…
+        </p>
+      ) : null}
     </section>
   );
 }
 
-function PhaseActionForm(props: PhaseFormProps) {
-  switch (props.view.phase.type) {
+function PhaseControls({ context }: { readonly context: GameInteractionContextValue }) {
+  const { view, interaction, canSubmit, submit, setInteraction } = context;
+  const disabled = !canSubmit;
+  const cancel = () => setInteraction({ kind: 'IDLE' });
+
+  if (interaction.kind !== 'IDLE') {
+    if (interaction.kind === 'COUNCIL_GUESS') {
+      return (
+        <div className="flex max-w-2xl flex-wrap items-center justify-center gap-1.5">
+          <Prompt text={`Đoán role của ${interaction.targetId}`} />
+          {Object.values(CardRole).map((role) => (
+            <ActionButton key={role} label={role} disabled={disabled} onClick={() => submit(
+              createCouncilAccusationAction(view.self.id, interaction.targetId, role, interaction.voterIds)
+            )} />
+          ))}
+          <CancelButton onClick={cancel} />
+        </div>
+      );
+    }
+    if (interaction.kind === 'COUNCIL_VOTERS') {
+      return (
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <Prompt text={`Chọn đúng 3 voter trên hàng của bạn · ${interaction.voterIds.length}/3`} />
+          <ActionButton label="Chọn mục tiêu" disabled={disabled || interaction.voterIds.length !== 3} onClick={() => setInteraction({ kind: 'COUNCIL_TARGET', voterIds: interaction.voterIds })} />
+          <CancelButton onClick={cancel} />
+        </div>
+      );
+    }
+    return (
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        <Prompt text={interactionPrompt(interaction)} />
+        <CancelButton onClick={cancel} />
+      </div>
+    );
+  }
+
+  switch (view.phase.type) {
     case 'DAY_A':
-    case 'DAY_B':
-      return <DayActionForm {...props} />;
-    case 'COUNCIL_PLAN':
-      return <CouncilActionForm {...props} />;
-    case 'NIGHT_PLAN':
-      return <NightActionForm {...props} />;
+    case 'DAY_B': {
+      if (view.activePlayer !== view.self.id) return <Prompt text="Đang chờ lượt Ban ngày của đối thủ" />;
+      const actions = [
+        ['SHOOT', 'Xạ thủ bắn'], ['MARK', 'Đánh dấu báo thù'],
+        ['PURIFY', 'Thanh tẩy'], ['REVIVE', 'Hồi sinh'],
+      ] as const;
+      return (
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <Prompt text="Chọn kỹ năng, sau đó nhấp source và target đang phát sáng" />
+          {actions.map(([actionType, label]) => (
+            <ActionButton key={actionType} label={label} disabled={disabled || getAbilitySources(view, DAY_ACTION_ABILITY[actionType]).length === 0} onClick={() => setInteraction({ kind: 'DAY_SOURCE', actionType })} />
+          ))}
+          <ActionButton label="Bỏ lượt" tone="quiet" disabled={disabled} onClick={() => submit(createDayPassAction(view.self.id))} />
+        </div>
+      );
+    }
+    case 'NIGHT_PLAN': {
+      const actions = [
+        [AbilityId.WEREWOLF_ATTACK, 'Ma sói tấn công'],
+        [AbilityId.SEER_INSPECT, 'Tiên tri soi'],
+        [AbilityId.WITCH_POISON, 'Phù thủy dùng độc'],
+      ] as const;
+      const bloodMoon = view.self.specialAbilities.find((ability) => ability.abilityId === 'BLOOD_MOON');
+      const bloodMoonReady = Boolean(bloodMoon && view.round >= bloodMoon.unlockRound && view.round >= bloodMoon.readyRound);
+      if (view.self.submissions.night) return <Prompt text="Lệnh đêm đã khóa · đang chờ đối thủ" />;
+      return (
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <Prompt text="Chọn nguồn lệnh rồi nhấp mục tiêu đối thủ" />
+          {actions.map(([abilityId, label]) => (
+            <ActionButton key={abilityId} label={label} disabled={disabled || getAbilitySources(view, abilityId).length === 0} onClick={() => setInteraction({ kind: 'NIGHT_SOURCE', abilityId })} />
+          ))}
+          <ActionButton label="Blood Moon" disabled={disabled || !bloodMoonReady} onClick={() => setInteraction({ kind: 'BLOOD_MOON_TARGET' })} />
+          <ActionButton label="Bỏ lượt" tone="quiet" disabled={disabled} onClick={() => submit(createNightPassAction(view.self.id))} />
+        </div>
+      );
+    }
     case 'DUSK_DEFENSE':
-      return <DefenseActionForm {...props} />;
-    case 'PURGE_PLAN':
-      return <PurgeActionForm {...props} />;
+      if (view.self.submissions.defense) return <Prompt text="Khiên đã khóa · đang chờ đối thủ" />;
+      return (
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <Prompt text="Chọn Bảo vệ rồi nhấp một lá khác bên mình" />
+          <ActionButton icon={<Shield className="h-3.5 w-3.5" />} label="Đặt khiên" disabled={disabled || getAbilitySources(view, AbilityId.GUARD_PROTECT).length === 0} onClick={() => setInteraction({ kind: 'DEFENSE_SOURCE' })} />
+          <ActionButton label="Không đặt khiên" tone="quiet" disabled={disabled} onClick={() => submit(createDefensePassAction(view.self.id))} />
+        </div>
+      );
+    case 'COUNCIL_PLAN':
+      if (!view.self.submissions.council.accusation) {
+        return <div className="flex flex-wrap items-center justify-center gap-2"><Prompt text="Lập Hội đồng bằng ba lá phe mình" /><ActionButton label="Chọn 3 người" disabled={disabled} onClick={() => setInteraction({ kind: 'COUNCIL_VOTERS', voterIds: [] })} /><ActionButton label="Bỏ qua Hội đồng" tone="quiet" disabled={disabled} onClick={() => submit(createCouncilPassAction(view.self.id))} /></div>;
+      }
+      if (!view.self.submissions.council.reaction) {
+        const canRescue = getAbilitySources(view, AbilityId.WOLF_GUARD_RESCUE).length > 0;
+        return <div className="flex flex-wrap items-center justify-center gap-2"><Prompt text="Phản ứng Sói Hộ Vệ độc lập với cáo buộc" /><ActionButton label="Bảo kê" disabled={disabled || !canRescue} onClick={() => setInteraction({ kind: 'REACTION_SOURCE' })} /><ActionButton label="Không bảo kê" tone="quiet" disabled={disabled} onClick={() => submit(createCouncilReactionPassAction(view.self.id))} /></div>;
+      }
+      return <Prompt text="Hội đồng đã khóa · đang chờ đối thủ" />;
+    case 'PURGE_PLAN': {
+      if (view.self.submissions.purge) return <Prompt text="Thanh trừng đã khóa · đang chờ đối thủ" />;
+      const rule = getPurgeRuleForRound(view.round);
+      const ownTargets = getPurgeOwnTargets(view, rule);
+      const canSkip = (rule === 'REVEAL' && ownTargets.length === 0) || (rule === 'SWAP' && (ownTargets.length === 0 || view.opponent.board.every((card) => !isLivingCard(card))));
+      return (
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <Prompt text={`Thanh trừng ${rule} · chọn trực tiếp lá phát sáng`} />
+          {canSkip ? <ActionButton label="Xác nhận không có mục tiêu" disabled={disabled} onClick={() => submit(rule === 'SWAP' ? createPurgeAction(view.self.id, { rule, ownTargetId: null, opponentTargetId: null }) : createPurgeAction(view.self.id, { rule: 'REVEAL', targetId: null }))} /> : <ActionButton label="Bắt đầu chọn" disabled={disabled} onClick={() => setInteraction({ kind: 'PURGE_OWN' })} />}
+        </div>
+      );
+    }
     case 'FINAL_DUEL':
-      return <FinalDuelActionForm {...props} />;
-    case 'SETUP':
-      return <WaitingPanel message="Setup dùng panel sắp xếp riêng." />;
+      if (view.self.submissions.finalGuess) return <Prompt text="Dự đoán đã khóa · đang chờ kết quả" />;
+      return <div className="flex max-w-2xl flex-wrap items-center justify-center gap-1.5"><Prompt text="Đoán role cuối của đối thủ" />{Object.values(CardRole).map((role) => <ActionButton key={role} label={role} disabled={disabled} onClick={() => submit(createFinalGuessAction(view.self.id, role))} />)}</div>;
     case 'COUNCIL_RESOLUTION':
     case 'NIGHT_RESOLUTION':
     case 'DAWN':
     case 'PURGE_RESOLUTION':
-      return <WaitingPanel message="Server đang resolve phase; không có action để submit." />;
+      return <Prompt text="Server đang công bố kết quả · thao tác tạm khóa" />;
+    case 'SETUP':
+      return <Prompt text="Sắp xếp và khóa bộ bài ở khu vực Setup" />;
     case 'ENDED':
-      return <WaitingPanel message="Trận đấu đã kết thúc." />;
+      return <Prompt text="Trận đấu đã kết thúc" />;
   }
 }
 
-function DayActionForm({ view, disabled, onSubmit }: PhaseFormProps) {
-  const [kind, setKind] = React.useState<'PASS' | DayAbilityActionType>('PASS');
-  const [sourceId, setSourceId] = React.useState<CardId | ''>('');
-  const [targetId, setTargetId] = React.useState<CardId | ''>('');
-  const myTurn = view.activePlayer === view.self.id;
-  const sources = kind === 'PASS' ? [] : getAbilitySources(view, DAY_ACTION_ABILITY[kind]);
-  const targets = kind === 'REVIVE'
-    ? view.self.board.filter((card) => !isLivingCard(card))
-    : view.opponent.board.filter(
-        (card) => isLivingCard(card) && (kind !== 'SHOOT' || card.state.visibility === 'REVEALED')
-      );
-
-  const submit = (event: React.FormEvent) => {
-    event.preventDefault();
-    if (kind === 'PASS') return onSubmit(createDayPassAction(view.self.id));
-    if (!sourceId || !targetId) return;
-    onSubmit(createDayAbilityAction(view.self.id, kind, sourceId, targetId));
-  };
-
-  if (!myTurn) return <WaitingPanel message="Đang chờ Day turn của đối thủ." />;
-  return (
-    <form className="space-y-3" onSubmit={submit}>
-      <label className="block text-xs text-slate-400">
-        Hành động
-        <select
-          className={`${CONTROL_CLASS} mt-1`}
-          value={kind}
-          disabled={disabled}
-          onChange={(event) => {
-            setKind(event.target.value as 'PASS' | DayAbilityActionType);
-            setSourceId('');
-            setTargetId('');
-          }}
-        >
-          <option value="PASS">Bỏ lượt</option>
-          <option value="SHOOT">Xạ thủ bắn</option>
-          <option value="MARK">Đánh dấu báo thù</option>
-          <option value="PURIFY">Thanh tẩy</option>
-          <option value="REVIVE">Hồi sinh</option>
-        </select>
-      </label>
-      {kind !== 'PASS' ? (
-        <>
-          <CardSelect cards={sources} value={sourceId} onChange={setSourceId} placeholder="Chọn source" disabled={disabled} />
-          <CardSelect cards={targets} value={targetId} onChange={setTargetId} placeholder="Chọn target" disabled={disabled} />
-        </>
-      ) : null}
-      <SubmitButton disabled={disabled || (kind !== 'PASS' && (!sourceId || !targetId))} label="Gửi Day action" />
-    </form>
-  );
+function getSelectableCardIds(view: GamePlayerViewV2, interaction: InteractionState, canSubmit: boolean): ReadonlySet<CardId> {
+  if (!canSubmit) return new Set();
+  switch (interaction.kind) {
+    case 'DAY_SOURCE': return cardIdSet(getAbilitySources(view, DAY_ACTION_ABILITY[interaction.actionType]));
+    case 'DAY_TARGET': return cardIdSet(interaction.actionType === 'REVIVE' ? view.self.board.filter((card) => !isLivingCard(card)) : view.opponent.board.filter((card) => isLivingCard(card) && (interaction.actionType !== 'SHOOT' || card.state.visibility === 'REVEALED')));
+    case 'NIGHT_SOURCE': return cardIdSet(getAbilitySources(view, interaction.abilityId));
+    case 'NIGHT_TARGET': return cardIdSet(view.opponent.board.filter(isLivingCard));
+    case 'BLOOD_MOON_TARGET': return cardIdSet(view.opponent.board.filter((card) => isLivingCard(card) && card.state.visibility === 'REVEALED'));
+    case 'DEFENSE_SOURCE': return cardIdSet(getAbilitySources(view, AbilityId.GUARD_PROTECT));
+    case 'DEFENSE_TARGET': {
+      const source = view.self.board.find((card) => card.id === interaction.sourceId);
+      const guard = source?.role.abilities.find((ability) => ability.abilityId === AbilityId.GUARD_PROTECT);
+      const lastTarget = guard && 'lastTarget' in guard ? guard.lastTarget?.instanceId : null;
+      return cardIdSet(view.self.board.filter((card) =>
+        isLivingCard(card)
+        && card.id !== interaction.sourceId
+        && card.instanceId !== lastTarget
+      ));
+    }
+    case 'COUNCIL_VOTERS': return cardIdSet(view.self.board.filter((card) => isLivingCard(card) && !card.effects.some((effect) => effect.kind === 'COUNCIL_LOCK' || effect.kind === 'PURGE_LOCK')));
+    case 'COUNCIL_TARGET': return cardIdSet(view.opponent.board.filter(isLivingCard));
+    case 'REACTION_SOURCE': return cardIdSet(getAbilitySources(view, AbilityId.WOLF_GUARD_RESCUE));
+    case 'REACTION_TARGET': return cardIdSet(view.self.board.filter(isLivingCard));
+    case 'PURGE_OWN': return cardIdSet(getPurgeOwnTargets(view, getPurgeRuleForRound(view.round)));
+    case 'PURGE_OPPONENT': return cardIdSet(view.opponent.board.filter(isLivingCard));
+    case 'IDLE':
+    case 'COUNCIL_GUESS': return new Set();
+  }
 }
 
-function CouncilActionForm({ view, disabled, onSubmit }: PhaseFormProps) {
-  return (
-    <div className="space-y-5">
-      <CouncilAccusationForm view={view} disabled={disabled} onSubmit={onSubmit} />
-      <div className="border-t border-slate-800" />
-      <CouncilReactionForm view={view} disabled={disabled} onSubmit={onSubmit} />
-    </div>
-  );
+function getSelectedCardIds(interaction: InteractionState): ReadonlySet<CardId> {
+  switch (interaction.kind) {
+    case 'DAY_TARGET':
+    case 'NIGHT_TARGET':
+    case 'DEFENSE_TARGET':
+    case 'REACTION_TARGET': return new Set([interaction.sourceId]);
+    case 'COUNCIL_VOTERS':
+    case 'COUNCIL_TARGET': return new Set(interaction.voterIds);
+    case 'COUNCIL_GUESS': return new Set([...interaction.voterIds, interaction.targetId]);
+    case 'PURGE_OPPONENT': return new Set([interaction.ownTargetId]);
+    default: return new Set();
+  }
 }
 
-function CouncilAccusationForm({ view, disabled, onSubmit }: PhaseFormProps) {
-  const [targetId, setTargetId] = React.useState<CardId | ''>('');
-  const [guess, setGuess] = React.useState<CardRole>(CardRole.WEREWOLF);
-  const [voters, setVoters] = React.useState<readonly [string, string, string]>(['', '', '']);
-  const submitted = view.self.submissions.council.accusation !== null;
-  const targets = view.opponent.board.filter(isLivingCard);
-  const voterOptions = view.self.board.filter(
-    (card) => isLivingCard(card) && !card.effects.some((effect) => effect.kind === 'COUNCIL_LOCK' || effect.kind === 'PURGE_LOCK')
-  );
-  const target = view.opponent.board.find((card) => card.id === targetId);
-  const validVoters = voters.every(Boolean) && new Set(voters).size === 3;
-
-  if (submitted) return <SubmittedPanel label="Council accusation đã gửi" />;
-  return (
-    <form
-      className="space-y-3"
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (!targetId || !validVoters) return;
-        onSubmit(
-          createCouncilAccusationAction(
-            view.self.id,
-            targetId,
-            target?.state.visibility === 'REVEALED' ? null : guess,
-            voters as readonly CardId[]
-          )
-        );
-      }}
-    >
-      <h3 className="text-xs font-bold text-slate-200">Cáo buộc</h3>
-      <CardSelect cards={targets} value={targetId} onChange={setTargetId} placeholder="Chọn target" disabled={disabled} />
-      {target?.state.visibility !== 'REVEALED' ? (
-        <RoleSelect value={guess} onChange={setGuess} disabled={disabled} />
-      ) : null}
-      {voters.map((voterId, index) => (
-        <CardSelect
-          key={index}
-          cards={voterOptions}
-          value={voterId}
-          onChange={(value) => setVoters((current) => current.map((item, itemIndex) => itemIndex === index ? value : item) as [string, string, string])}
-          placeholder={`Voter ${index + 1}`}
-          disabled={disabled}
-        />
-      ))}
-      <div className="flex gap-2">
-        <button type="button" className={BUTTON_CLASS} disabled={disabled} onClick={() => onSubmit(createCouncilPassAction(view.self.id))}>Pass</button>
-        <SubmitButton disabled={disabled || !targetId || !validVoters} label="Gửi cáo buộc" />
-      </div>
-    </form>
-  );
+function getPurgeOwnTargets(view: GamePlayerViewV2, rule: ReturnType<typeof getPurgeRuleForRound>) {
+  return view.self.board.filter((card) => isLivingCard(card) && (rule !== 'REVEAL' || card.state.visibility === 'HIDDEN'));
 }
 
-function CouncilReactionForm({ view, disabled, onSubmit }: PhaseFormProps) {
-  const [sourceId, setSourceId] = React.useState<CardId | ''>('');
-  const [targetId, setTargetId] = React.useState<CardId | ''>('');
-  const submitted = view.self.submissions.council.reaction !== null;
-  const sources = getAbilitySources(view, AbilityId.WOLF_GUARD_RESCUE);
-  const targets = view.self.board.filter(isLivingCard);
-
-  if (submitted) return <SubmittedPanel label="Council reaction đã gửi" />;
-  return (
-    <form
-      className="space-y-3"
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (!sourceId || !targetId) return;
-        onSubmit(createCouncilReactionAction(view.self.id, sourceId, targetId));
-      }}
-    >
-      <h3 className="text-xs font-bold text-slate-200">Phản ứng Sói Hộ Vệ</h3>
-      <CardSelect cards={sources} value={sourceId} onChange={setSourceId} placeholder="Chọn Sói Hộ Vệ" disabled={disabled} />
-      <CardSelect cards={targets} value={targetId} onChange={setTargetId} placeholder="Chọn target phe mình" disabled={disabled} />
-      <div className="flex gap-2">
-        <button type="button" className={BUTTON_CLASS} disabled={disabled} onClick={() => onSubmit(createCouncilReactionPassAction(view.self.id))}>Pass</button>
-        <SubmitButton disabled={disabled || !sourceId || !targetId} label="Gửi phản ứng" />
-      </div>
-    </form>
-  );
+function cardIdSet(cards: readonly { readonly id: CardId }[]): ReadonlySet<CardId> {
+  return new Set(cards.map((card) => card.id));
 }
 
-function NightActionForm({ view, disabled, onSubmit }: PhaseFormProps) {
-  const [kind, setKind] = React.useState<'PASS' | 'BLOOD_MOON' | NightAbilityId>('PASS');
-  const [sourceId, setSourceId] = React.useState<CardId | ''>('');
-  const [targetId, setTargetId] = React.useState<CardId | ''>('');
-  if (view.self.submissions.night !== null) return <SubmittedPanel label="Night order đã gửi" />;
-
-  const abilitySources = kind === 'PASS' || kind === 'BLOOD_MOON' ? [] : getAbilitySources(view, kind);
-  const targets = view.opponent.board.filter(
-    (card) => isLivingCard(card) && (kind !== 'BLOOD_MOON' || card.state.visibility === 'REVEALED')
-  );
-  const bloodMoon = view.self.specialAbilities.find((ability) => ability.abilityId === 'BLOOD_MOON');
-  const bloodMoonReady = Boolean(bloodMoon && view.round >= bloodMoon.unlockRound && view.round >= bloodMoon.readyRound);
-
-  return (
-    <form
-      className="space-y-3"
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (kind === 'PASS') return onSubmit(createNightPassAction(view.self.id));
-        if (!targetId) return;
-        if (kind === 'BLOOD_MOON') return onSubmit(createBloodMoonAction(view.self.id, targetId));
-        if (!sourceId) return;
-        onSubmit(createNightAbilityAction(view.self.id, kind, sourceId, targetId));
-      }}
-    >
-      <select className={CONTROL_CLASS} value={kind} disabled={disabled} onChange={(event) => { setKind(event.target.value as typeof kind); setSourceId(''); setTargetId(''); }}>
-        <option value="PASS">Bỏ lượt</option>
-        <option value={AbilityId.WEREWOLF_ATTACK}>Ma sói tấn công</option>
-        <option value={AbilityId.SEER_INSPECT}>Tiên tri soi</option>
-        <option value={AbilityId.WITCH_POISON}>Phù thủy dùng độc</option>
-        <option value="BLOOD_MOON" disabled={!bloodMoonReady}>Blood Moon</option>
-      </select>
-      {kind !== 'PASS' && kind !== 'BLOOD_MOON' ? (
-        <CardSelect cards={abilitySources} value={sourceId} onChange={setSourceId} placeholder="Chọn source" disabled={disabled} />
-      ) : null}
-      {kind !== 'PASS' ? <CardSelect cards={targets} value={targetId} onChange={setTargetId} placeholder="Chọn target" disabled={disabled} /> : null}
-      <SubmitButton disabled={disabled || (kind !== 'PASS' && (!targetId || (kind !== 'BLOOD_MOON' && !sourceId)))} label="Gửi Night order" />
-    </form>
-  );
+function useGameInteraction(): GameInteractionContextValue {
+  const context = React.useContext(GameInteractionContext);
+  if (!context) throw new Error('Prototype game interaction requires its provider.');
+  return context;
 }
 
-function DefenseActionForm({ view, disabled, onSubmit }: PhaseFormProps) {
-  const [sourceId, setSourceId] = React.useState<CardId | ''>('');
-  const [targetId, setTargetId] = React.useState<CardId | ''>('');
-  if (view.self.submissions.defense !== null) return <SubmittedPanel label="Defense order đã gửi" />;
-  const sources = getAbilitySources(view, AbilityId.GUARD_PROTECT);
-  const targets = view.self.board.filter((card) => isLivingCard(card) && card.id !== sourceId);
-  return (
-    <form className="space-y-3" onSubmit={(event) => { event.preventDefault(); if (sourceId && targetId) onSubmit(createDefenseProtectAction(view.self.id, sourceId, targetId)); }}>
-      <CardSelect cards={sources} value={sourceId} onChange={(value) => { setSourceId(value); if (value === targetId) setTargetId(''); }} placeholder="Chọn Bảo vệ" disabled={disabled} />
-      <CardSelect cards={targets} value={targetId} onChange={setTargetId} placeholder="Chọn target phe mình" disabled={disabled} />
-      <div className="flex gap-2">
-        <button type="button" className={BUTTON_CLASS} disabled={disabled} onClick={() => onSubmit(createDefensePassAction(view.self.id))}>Pass</button>
-        <SubmitButton disabled={disabled || !sourceId || !targetId} label="Đặt bảo vệ" icon="shield" />
-      </div>
-    </form>
-  );
+function interactionPrompt(interaction: InteractionState): string {
+  switch (interaction.kind) {
+    case 'DAY_SOURCE':
+    case 'NIGHT_SOURCE': return 'Bước 1 · Chọn lá nguồn đang phát sáng';
+    case 'DAY_TARGET':
+    case 'NIGHT_TARGET': return `Bước 2 · ${interaction.sourceId} đã chọn, nhấp lá mục tiêu`;
+    case 'BLOOD_MOON_TARGET': return 'Chọn một role đối thủ đã lộ';
+    case 'DEFENSE_SOURCE': return 'Bước 1 · Chọn Bảo vệ đang phát sáng';
+    case 'DEFENSE_TARGET': return `Bước 2 · Chọn lá nhận khiên từ ${interaction.sourceId}`;
+    case 'COUNCIL_TARGET': return 'Đủ 3 voter · chọn một lá đối thủ';
+    case 'REACTION_SOURCE': return 'Chọn Sói Hộ Vệ đang phát sáng';
+    case 'REACTION_TARGET': return `Chọn lá được ${interaction.sourceId} bảo kê`;
+    case 'PURGE_OWN': return 'Chọn một lá phe mình đang phát sáng';
+    case 'PURGE_OPPONENT': return `${interaction.ownTargetId} đã chọn · chọn lá đối thủ để SWAP`;
+    default: return '';
+  }
 }
 
-function PurgeActionForm({ view, disabled, onSubmit }: PhaseFormProps) {
-  const rule = getPurgeRuleForRound(view.round);
-  const [ownTargetId, setOwnTargetId] = React.useState<CardId | ''>('');
-  const [opponentTargetId, setOpponentTargetId] = React.useState<CardId | ''>('');
-  if (view.self.submissions.purge !== null) return <SubmittedPanel label="Purge order đã gửi" />;
-  const ownTargets = view.self.board.filter(
-    (card) => isLivingCard(card) && (rule !== 'REVEAL' || card.state.visibility === 'HIDDEN')
-  );
-  const opponentTargets = view.opponent.board.filter(isLivingCard);
-  const canSkip = (rule === 'REVEAL' && ownTargets.length === 0) || (rule === 'SWAP' && (ownTargets.length === 0 || opponentTargets.length === 0));
-  const valid = rule === 'SWAP' ? Boolean(ownTargetId && opponentTargetId) : Boolean(ownTargetId) || canSkip;
-
-  return (
-    <form
-      className="space-y-3"
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (!valid) return;
-        if (rule === 'SWAP') return onSubmit(createPurgeAction(view.self.id, { rule, ownTargetId: ownTargetId || null, opponentTargetId: opponentTargetId || null }));
-        if (rule === 'REVEAL') return onSubmit(createPurgeAction(view.self.id, { rule, targetId: ownTargetId || null }));
-        if (!ownTargetId) return;
-        if (rule === 'CUT') {
-          return onSubmit(createPurgeAction(view.self.id, { rule, targetId: ownTargetId }));
-        }
-        onSubmit(createPurgeAction(view.self.id, { rule: 'LOCK', targetId: ownTargetId }));
-      }}
-    >
-      <p className="rounded-lg bg-amber-950/30 p-3 text-xs text-amber-200">Purge rule: <strong>{rule}</strong></p>
-      <CardSelect cards={ownTargets} value={ownTargetId} onChange={setOwnTargetId} placeholder="Chọn card phe mình" disabled={disabled} />
-      {rule === 'SWAP' ? <CardSelect cards={opponentTargets} value={opponentTargetId} onChange={setOpponentTargetId} placeholder="Chọn card đối thủ" disabled={disabled} /> : null}
-      <SubmitButton disabled={disabled || !valid} label={canSkip && !ownTargetId ? 'Bỏ qua Purge' : `Gửi ${rule}`} />
-    </form>
-  );
+function phaseTitle(phase: GamePlayerViewV2['phase']['type']): string {
+  return ({ SETUP: 'Chuẩn bị đội hình', DAY_A: 'Ban ngày · lượt A', DAY_B: 'Ban ngày · lượt B', COUNCIL_PLAN: 'Hội đồng treo cổ', COUNCIL_RESOLUTION: 'Công bố Hội đồng', NIGHT_PLAN: 'Khóa lệnh đêm', DUSK_DEFENSE: 'Chạng vạng · đặt khiên', NIGHT_RESOLUTION: 'Phán xét trong đêm', DAWN: 'Bình minh hé lộ', PURGE_PLAN: 'Thanh trừng', PURGE_RESOLUTION: 'Công bố Thanh trừng', FINAL_DUEL: 'Final Duel', ENDED: 'Kết thúc' } as const)[phase];
 }
 
-function FinalDuelActionForm({ view, disabled, onSubmit }: PhaseFormProps) {
-  const [guess, setGuess] = React.useState<CardRole>(CardRole.WEREWOLF);
-  if (view.self.submissions.finalGuess !== null) return <SubmittedPanel label="Final guess đã gửi" />;
-  return (
-    <form className="space-y-3" onSubmit={(event) => { event.preventDefault(); onSubmit(createFinalGuessAction(view.self.id, guess)); }}>
-      <RoleSelect value={guess} onChange={setGuess} disabled={disabled} />
-      <SubmitButton disabled={disabled} label="Gửi dự đoán cuối" icon="swords" />
-    </form>
-  );
+function Prompt({ text }: { readonly text: string }) {
+  return <strong className="text-xs leading-relaxed text-white">{text}</strong>;
 }
 
-function RoleSelect({ value, onChange, disabled }: { readonly value: CardRole; readonly onChange: (role: CardRole) => void; readonly disabled: boolean }) {
-  return (
-    <select className={CONTROL_CLASS} value={value} disabled={disabled} onChange={(event) => onChange(event.target.value as CardRole)} aria-label="Chọn role">
-      {Object.values(CardRole).map((role) => <option key={role} value={role}>{role}</option>)}
-    </select>
-  );
+function ActionButton({ label, onClick, disabled, tone = 'primary', icon }: { readonly label: string; readonly onClick: () => void; readonly disabled: boolean; readonly tone?: 'primary' | 'quiet'; readonly icon?: React.ReactNode }) {
+  return <button type="button" disabled={disabled} onClick={onClick} className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-black transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-35 ${tone === 'primary' ? 'border-amber-200/35 bg-amber-300/20 text-amber-50 hover:bg-amber-300/30' : 'border-white/15 bg-black/15 text-slate-200 hover:bg-white/10'}`}>{icon}{label}</button>;
 }
 
-function SubmitButton({ disabled, label, icon = 'send' }: { readonly disabled: boolean; readonly label: string; readonly icon?: 'send' | 'shield' | 'swords' }) {
-  const Icon = icon === 'shield' ? Shield : icon === 'swords' ? Swords : Send;
-  return <button type="submit" disabled={disabled} className={BUTTON_CLASS}><Icon className="h-4 w-4" />{label}</button>;
-}
-
-function WaitingPanel({ message }: { readonly message: string }) {
-  return <p className="rounded-lg border border-slate-800 bg-slate-950/40 p-4 text-xs leading-relaxed text-slate-400">{message}</p>;
-}
-
-function SubmittedPanel({ label }: { readonly label: string }) {
-  return <p className="rounded-lg border border-emerald-500/20 bg-emerald-950/20 p-3 text-xs text-emerald-300">{label}. Đang chờ đối thủ/server.</p>;
+function CancelButton({ onClick }: { readonly onClick: () => void }) {
+  return <button type="button" onClick={onClick} className="inline-flex items-center gap-1 rounded-full border border-white/15 px-3 py-1.5 text-[10px] font-bold text-slate-200 hover:bg-white/10"><RotateCcw className="h-3 w-3" /> Chọn lại</button>;
 }

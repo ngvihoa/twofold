@@ -31,6 +31,8 @@ export interface GameSessionInput {
   readonly transport: GameTransport;
   /** Session cũ cần khôi phục, nếu client đã có reconnect token. */
   readonly reconnectSessionId?: string;
+  /** Persist hoặc xóa reconnect token tại browser boundary. */
+  readonly onSessionIdChange?: (sessionId: string | null) => void;
 }
 
 /** Lỗi gần nhất mà UI session có thể trình bày cho người chơi. */
@@ -123,9 +125,10 @@ function toMachineEvent(message: ServerWsMessage): GameSessionEvent {
 /**
  * Callback actor làm cầu nối hai chiều giữa XState và `GameTransport`.
  *
- * Actor subscribe raw transport notifications, validate mọi inbound message
- * trước khi gửi về parent machine, đồng thời nhận command connect/disconnect/
- * send từ parent. Cleanup luôn unsubscribe và đóng transport.
+ * Actor subscribe raw transport notifications, mở initial connection ngay khi
+ * XState start actor, validate mọi inbound message trước khi gửi về parent,
+ * đồng thời nhận command reconnect/disconnect/send. Cleanup luôn unsubscribe
+ * và đóng transport.
  */
 const transportActor = fromCallback<TransportCommand, { transport: GameTransport }>(
   ({ input, receive, sendBack }) => {
@@ -157,6 +160,17 @@ const transportActor = fromCallback<TransportCommand, { transport: GameTransport
       }
     });
 
+    // The callback actor is started by XState, so the initial connection no
+    // longer depends on React parent/child effect ordering during navigation.
+    try {
+      input.transport.connect();
+    } catch (error) {
+      sendBack({
+        type: 'TRANSPORT.ERROR',
+        message: describeUnknownError(error),
+      });
+    }
+
     receive((command) => {
       try {
         if (command.type === 'CONNECT') input.transport.connect();
@@ -186,8 +200,8 @@ const transportActor = fromCallback<TransportCommand, { transport: GameTransport
  * server mới nhất.
  *
  * State lifecycle:
- * `idle -> connecting -> connected -> reconnecting`, hoặc `closed` khi client
- * chủ động disconnect.
+ * `connecting -> connected -> reconnecting`, hoặc `closed` khi client chủ động
+ * disconnect. Child transport tự mở connection khi actor được XState start.
  */
 export const gameSessionMachine = setup({
   types: {
@@ -202,7 +216,7 @@ export const gameSessionMachine = setup({
   },
 }).createMachine({
   id: 'gameSession',
-  initial: 'idle',
+  initial: 'connecting',
   context: ({ input }) => ({
     ...input,
     assignedPlayerId: null,
@@ -217,13 +231,31 @@ export const gameSessionMachine = setup({
     input: ({ context }) => ({ transport: context.transport }),
   },
   on: {
+    'TRANSPORT.OPEN': {
+      actions: sendTo('transport', ({ context }) => ({
+        type: 'SEND',
+        message: ClientWsMessageSchema.parse({
+          type: 'JOIN_ROOM',
+          payload: {
+            roomId: context.roomId,
+            playerName: context.playerName,
+            ...(context.sessionId
+              ? { reconnectSessionId: context.sessionId }
+              : {}),
+          },
+        }),
+      })),
+    },
     'SERVER.ROOM_JOINED': {
       target: '.connected',
-      actions: assign({
-        assignedPlayerId: ({ event }) => event.payload.assignedPlayerId,
-        sessionId: ({ event }) => event.payload.sessionId,
-        error: null,
-      }),
+      actions: [
+        ({ context, event }) => context.onSessionIdChange?.(event.payload.sessionId),
+        assign({
+          assignedPlayerId: ({ event }) => event.payload.assignedPlayerId,
+          sessionId: ({ event }) => event.payload.sessionId,
+          error: null,
+        }),
+      ],
     },
     'SERVER.GAME_STATE_UPDATE': {
       actions: assign({
@@ -242,15 +274,35 @@ export const gameSessionMachine = setup({
         }),
       }),
     },
-    'SERVER.ERROR': {
-      actions: assign({
-        error: ({ event }) => ({
-          kind: 'PROTOCOL' as const,
-          code: event.payload.code,
-          message: event.payload.message,
+    'SERVER.ERROR': [
+      {
+        guard: ({ context, event }) =>
+          event.payload.code === 'INVALID_SESSION' && context.sessionId !== null,
+        actions: [
+          ({ context }) => context.onSessionIdChange?.(null),
+          assign({ sessionId: null, error: null }),
+          sendTo('transport', ({ context }) => ({
+            type: 'SEND',
+            message: ClientWsMessageSchema.parse({
+              type: 'JOIN_ROOM',
+              payload: {
+                roomId: context.roomId,
+                playerName: context.playerName,
+              },
+            }),
+          })),
+        ],
+      },
+      {
+        actions: assign({
+          error: ({ event }) => ({
+            kind: 'PROTOCOL' as const,
+            code: event.payload.code,
+            message: event.payload.message,
+          }),
         }),
-      }),
-    },
+      },
+    ],
     'SERVER.PONG': {},
     'PROTOCOL.ERROR': {
       actions: assign({
@@ -281,33 +333,7 @@ export const gameSessionMachine = setup({
     CLEAR_ERROR: { actions: assign({ error: null }) },
   },
   states: {
-    idle: {
-      on: {
-        CONNECT: {
-          target: 'connecting',
-          actions: sendTo('transport', { type: 'CONNECT' }),
-        },
-      },
-    },
-    connecting: {
-      on: {
-        'TRANSPORT.OPEN': {
-          actions: sendTo('transport', ({ context }) => ({
-            type: 'SEND',
-            message: ClientWsMessageSchema.parse({
-              type: 'JOIN_ROOM',
-              payload: {
-                roomId: context.roomId,
-                playerName: context.playerName,
-                ...(context.sessionId
-                  ? { reconnectSessionId: context.sessionId }
-                  : {}),
-              },
-            }),
-          })),
-        },
-      },
-    },
+    connecting: {},
     connected: {
       on: {
         SUBMIT_ACTION: {
@@ -338,6 +364,7 @@ export const gameSessionMachine = setup({
     },
     closed: {
       on: {
+        'TRANSPORT.OPEN': {},
         'TRANSPORT.CLOSED': {},
         'TRANSPORT.ERROR': {},
         CONNECT: {

@@ -13,6 +13,7 @@ import {
   gameSessionMachine,
   selectCanSubmit,
   selectPhase,
+  type GameSessionInput,
 } from './game-session-machine';
 
 class FakeGameTransport implements GameTransport {
@@ -63,16 +64,19 @@ function createView(round = 1) {
   return serializePlayerView({ ...game, round }, PlayerId.PLAYER_A);
 }
 
-function startSession(transport: FakeGameTransport) {
+function startSession(
+  transport: FakeGameTransport,
+  input: Partial<Omit<GameSessionInput, 'transport'>> = {}
+) {
   const actor = createActor(gameSessionMachine, {
     input: {
       roomId: 'room-41',
       playerName: 'Alice',
       transport,
+      ...input,
     },
   });
   actor.start();
-  actor.send({ type: 'CONNECT' });
   return actor;
 }
 
@@ -218,6 +222,52 @@ describe('gameSessionMachine', () => {
     expect(transport.connectCount).toBe(2);
     expect(actor.getSnapshot().context.sessionId).toBe('session-41-next');
     expect(actor.getSnapshot().context.view?.round).toBe(4);
+    actor.stop();
+  });
+
+  it('persists the assigned session and retries fresh when a stored token expired', () => {
+    const transport = new FakeGameTransport();
+    const changedSessionIds: Array<string | null> = [];
+    const actor = startSession(transport, {
+      reconnectSessionId: 'stale-session',
+      onSessionIdChange: (sessionId) => changedSessionIds.push(sessionId),
+    });
+
+    transport.emit({ type: 'OPEN' });
+    expect(transport.sent.at(-1)).toEqual({
+      type: 'JOIN_ROOM',
+      payload: {
+        roomId: 'room-41',
+        playerName: 'Alice',
+        reconnectSessionId: 'stale-session',
+      },
+    });
+
+    transport.emit({
+      type: 'MESSAGE',
+      message: {
+        type: 'ERROR',
+        payload: { code: 'INVALID_SESSION', message: 'Session đã hết hạn.' },
+      },
+    });
+    expect(changedSessionIds).toEqual([null]);
+    expect(transport.sent.at(-1)).toEqual({
+      type: 'JOIN_ROOM',
+      payload: { roomId: 'room-41', playerName: 'Alice' },
+    });
+
+    transport.emit({
+      type: 'MESSAGE',
+      message: {
+        type: 'ROOM_JOINED',
+        payload: {
+          roomId: 'room-41',
+          assignedPlayerId: PlayerId.PLAYER_A,
+          sessionId: 'fresh-session',
+        },
+      },
+    });
+    expect(changedSessionIds).toEqual([null, 'fresh-session']);
     actor.stop();
   });
 

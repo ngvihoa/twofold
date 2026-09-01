@@ -1,6 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router';
 import * as React from 'react';
 import { BrowserGameTransport } from '../../features/game/session/browser-game-transport';
+import {
+  readGameSessionId,
+  writeGameSessionId,
+} from '../../features/game/session/game-session-storage';
 import { GameSessionRuntime } from './-GameSessionRuntime';
 
 export const Route = createFileRoute('/play/$id')({
@@ -19,6 +23,14 @@ function GameRouteComponent() {
   const { id: roomId } = Route.useParams();
   const { name, reconnectSessionId } = Route.useSearch();
   const endpoint = (import.meta.env.VITE_GAME_WS_URL as string | undefined) ?? '/api/ws';
+  const effectiveSessionId = React.useMemo(
+    () => reconnectSessionId ?? readGameSessionId(roomId),
+    [reconnectSessionId, roomId]
+  );
+  const persistSessionId = React.useCallback(
+    (sessionId: string | null) => writeGameSessionId(roomId, sessionId),
+    [roomId]
+  );
   const transport = React.useMemo(
     () => new BrowserGameTransport(endpoint),
     [endpoint]
@@ -28,7 +40,8 @@ function GameRouteComponent() {
     <GameSessionRuntime
       roomId={roomId}
       playerName={name}
-      reconnectSessionId={reconnectSessionId}
+      reconnectSessionId={effectiveSessionId ?? undefined}
+      onSessionIdChange={persistSessionId}
       transport={transport}
     />
   );

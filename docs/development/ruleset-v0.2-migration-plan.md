@@ -955,9 +955,9 @@ browser.
 - `gameSessionMachine` sở hữu connection lifecycle và snapshot
   `GamePlayerViewV2` mới nhất. Snapshot server luôn authoritative; machine không
   tự resolve rule hoặc tự suy ra phase tiếp theo.
-- Connection lifecycle gồm `idle → connecting → connected → reconnecting`, với
-  nhánh terminal `closed`. Lỗi protocol/transport được giữ trong context để UI
-  hiển thị và có thể reconnect.
+- Connection lifecycle bắt đầu tại `connecting`, sau đó đi qua `connected →
+  reconnecting`, với nhánh terminal `closed`. Lỗi protocol/transport được giữ
+  trong context để UI hiển thị và có thể reconnect.
 - Việc submit action chỉ gửi `PlayerGameAction`; UI có thể biết action đang chờ
   acknowledgement nhưng không optimistic-update board/phase.
 - Mỗi `GAME_STATE_UPDATE` thay thế snapshot hiện tại. Snapshot sau reconnect
@@ -1072,13 +1072,14 @@ thức sau này mà không nhầm với model/action contract có thể tái s�
 - Self board render private role/ability/effect; opponent board chỉ render role
   khi public view đã reveal.
 - Lifecycle `ALIVE/DEAD` và visibility `HIDDEN/REVEALED` được trình bày độc lập.
-- Action panel switch theo discriminated `view.phase.type`; resolution/Dawn/
-  Ended chỉ hiển thị trạng thái, không tạo action.
+- Command dock switch theo discriminated `view.phase.type`; nó chỉ báo step và
+  action khả dụng. Source/target được chọn trực tiếp trên card đang phát sáng;
+  resolution/Dawn/Ended chỉ hiển thị trạng thái, không tạo action.
 - Day, Council accusation/reaction, Night, Defense, Purge và Final Duel đều chỉ
   build `PlayerGameAction`; không resolve outcome hoặc mutate player view.
 - UI chỉ lọc điều kiện hiển nhiên có sẵn trong filtered view. Điều kiện rule sâu
   vẫn do authoritative pipeline validate và trả `ACTION_REJECTED`.
-- Pending action và submission state khóa đúng form tương ứng; phase/board chỉ
+- Pending action và submission state khóa đúng interaction tương ứng; phase/board chỉ
   đổi khi session nhận snapshot mới.
 - PR này chưa derive history wording và chưa chạy animation queue; hai phần đó
   thuộc PR 4.5.
@@ -1091,6 +1092,9 @@ Acceptance criteria PR 4.4:
 - [x] Render self/opponent card đúng private/public visibility invariant.
 - [x] Có typed action builder cho mọi action variant sau Setup.
 - [x] Action panel cover Day, Council, Night, Defense, Purge và Final Duel.
+- [x] Card click xử lý source/target selection; command dock không dùng select form.
+- [x] Card đã biết role dùng artwork prototype; hidden opponent giữ card back.
+- [x] Arena và battlefield có palette riêng cho Day/Dusk/Night/Dawn/Purge.
 - [x] Resolution/Dawn/Ended không cho submit gameplay action.
 - [x] Pending/submitted/rejected state có presentation rõ ràng.
 - [x] Unit/render tests và web typecheck/build pass.
@@ -1102,6 +1106,12 @@ Acceptance criteria PR 4.4:
 > `GamePlayerViewV2`, còn command dock chỉ tạo `PlayerGameAction` đã qua shared
 > schema và chờ snapshot authoritative từ server. `pnpm --filter @twofold/web
 > check` pass đủ 33 tests, typecheck, client build và SSR build.
+
+UI review correction ngày 01/09/2026 thay select form bằng interaction trực
+tiếp trên card, phục hồi role artwork và tăng độ sáng palette theo phase. Guard
+không được tự bảo vệ và không được lặp lại cùng card instance ở hai vòng liên
+tiếp. Rule này đã đồng bộ giữa prototype, `game-core` và tài liệu game design.
+Check hiện tại pass 43 web tests và 81 game-core tests.
 
 #### PR 4 transport vertical slice — `/api/ws`
 
@@ -1118,8 +1128,13 @@ trước PR 4.5.
 - Reconnect token có thể attach socket mới vào đúng seat và snapshot hiện tại.
 - Actor lifecycle sở hữu transport cleanup; `disconnect()` giải phóng socket
   đồng bộ để React development remount không kẹt ở socket `CONNECTING` cũ.
-- `SURRENDER`/`REMATCH_REQUEST` trả `NOT_IMPLEMENTED`; session token phía client
-  chưa persist qua refresh.
+- Callback transport tự gọi `connect()` khi XState start child actor. React
+  component không gửi initial `CONNECT`, tránh mất command do child effect chạy
+  trước effect start actor của `@xstate/react` khi client-side navigation.
+- Reconnect token được lưu versioned theo `roomId` trong `sessionStorage` để F5
+  cùng tab giữ đúng seat mà không lộ token trong URL. `INVALID_SESSION` sẽ xóa
+  token cũ và thử fresh join một lần.
+- `SURRENDER`/`REMATCH_REQUEST` trả `NOT_IMPLEMENTED`.
 - Room/session mất khi process restart. Multi-replica cần sticky routing hoặc
   shared store và không thuộc vertical slice này.
 
@@ -1132,7 +1147,7 @@ Acceptance criteria:
 - [x] Reconnect giữ session/seat và thay socket cũ.
 - [x] Vite dev smoke test thật xác nhận A/B join và không lộ hidden role.
 - [x] Production smoke test xác nhận SSR, static asset và hai WebSocket peer.
-- [x] 40 web tests, typecheck và production client/SSR build pass.
+- [x] 43 web tests, typecheck và production client/SSR build pass.
 
 #### Các lát tiếp theo của PR 4
 

@@ -1,5 +1,4 @@
 import type { GameTransport } from '../../features/game/session/game-transport';
-import * as React from 'react';
 import { GamePresentationActorContext } from '../../features/game/presentation/game-presentation-context';
 import { GameSessionActorContext } from '../../features/game/session/game-session-context';
 import {
@@ -16,6 +15,7 @@ export interface GameSessionRuntimeProps {
   readonly roomId: string;
   readonly playerName: string;
   readonly reconnectSessionId?: string;
+  readonly onSessionIdChange?: (sessionId: string | null) => void;
   readonly transport: GameTransport;
 }
 
@@ -30,6 +30,9 @@ export function GameSessionRuntime(props: GameSessionRuntimeProps) {
           transport: props.transport,
           ...(props.reconnectSessionId
             ? { reconnectSessionId: props.reconnectSessionId }
+            : {}),
+          ...(props.onSessionIdChange
+            ? { onSessionIdChange: props.onSessionIdChange }
             : {}),
         },
       }}
@@ -48,10 +51,6 @@ function GameSessionContent() {
   const pendingAction = GameSessionActorContext.useSelector(selectPendingAction);
   const error = GameSessionActorContext.useSelector(selectSessionError);
   const canSubmit = GameSessionActorContext.useSelector(selectCanSubmit);
-
-  React.useEffect(() => {
-    actor.send({ type: 'CONNECT' });
-  }, [actor]);
 
   const retryConnection = () => {
     actor.send({

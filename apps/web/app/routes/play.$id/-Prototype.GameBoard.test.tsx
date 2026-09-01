@@ -8,7 +8,10 @@ import {
 } from '@twofold/game-core';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { PrototypeGameActionPanel } from './-Prototype.GameActionPanel';
+import {
+  PrototypeGameActionPanel,
+  PrototypeGameInteractionProvider,
+} from './-Prototype.GameActionPanel';
 import { PrototypeGameBoard } from './-Prototype.GameBoard';
 import { PrototypeGameCard } from './-Prototype.GameCard';
 
@@ -46,8 +49,12 @@ describe('PrototypeGameBoard', () => {
 
     expect(html.match(/data-card-id=/gu)).toHaveLength(20);
     expect(html).toContain('data-prototype-layout="arena-side-rail"');
+    expect(html).toContain('data-prototype-scene="day"');
     expect(html).toContain('Mệnh lệnh hiện tại');
     expect(html).toContain('Lịch sử trận đấu');
+    expect(html).toContain('/characters/dan-lang.png');
+    expect(html).not.toContain('<form');
+    expect(html).not.toContain('<select');
     expect(html.indexOf('Đối thủ')).toBeLessThan(html.indexOf('Mệnh lệnh hiện tại'));
     expect(html.indexOf('Mệnh lệnh hiện tại')).toBeLessThan(html.indexOf('Tay của bạn'));
   });
@@ -62,6 +69,9 @@ describe('PrototypeGameBoard', () => {
           state: { life: 'DEAD', visibility: 'HIDDEN' },
           role: null,
         }}
+        selectable={false}
+        selected={false}
+        onSelect={vi.fn()}
       />
     );
 
@@ -72,13 +82,13 @@ describe('PrototypeGameBoard', () => {
   });
 
   it.each([
-    ['DAY_A', 1, 'Gửi Day action'],
-    ['COUNCIL_PLAN', 2, 'Cáo buộc'],
-    ['NIGHT_PLAN', 2, 'Gửi Night order'],
-    ['DUSK_DEFENSE', 2, 'Đặt bảo vệ'],
-    ['PURGE_PLAN', 6, 'Purge rule'],
-    ['FINAL_DUEL', 6, 'Gửi dự đoán cuối'],
-    ['DAWN', 2, 'không có action để submit'],
+    ['DAY_A', 1, 'Xạ thủ bắn'],
+    ['COUNCIL_PLAN', 2, 'Chọn 3 người'],
+    ['NIGHT_PLAN', 2, 'Ma sói tấn công'],
+    ['DUSK_DEFENSE', 2, 'Đặt khiên'],
+    ['PURGE_PLAN', 6, 'Thanh trừng CUT'],
+    ['FINAL_DUEL', 6, CardRole.WEREWOLF],
+    ['DAWN', 2, 'thao tác tạm khóa'],
   ] as const)('renders the %s phase action surface', (phase, round, expected) => {
     const view = GamePlayerViewV2Schema.parse({
       ...createView(),
@@ -87,13 +97,15 @@ describe('PrototypeGameBoard', () => {
       activePlayer: phase === 'DAY_A' ? PlayerId.PLAYER_A : null,
     });
     const html = renderToStaticMarkup(
-      <PrototypeGameActionPanel
+      <PrototypeGameInteractionProvider
         view={view}
         pendingAction={null}
         error={null}
         canSubmit
         onSubmit={vi.fn()}
-      />
+      >
+        <PrototypeGameActionPanel />
+      </PrototypeGameInteractionProvider>
     );
     expect(html).toContain(expected);
   });

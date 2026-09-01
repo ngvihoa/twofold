@@ -5,7 +5,11 @@ import type {
 } from '@twofold/shared-types';
 import { History, Moon, Shield, Skull, Sun, Trophy } from 'lucide-react';
 import type { GameSessionError } from '../../features/game/session/game-session-machine';
-import { PrototypeGameActionPanel } from './-Prototype.GameActionPanel';
+import {
+  PrototypeGameActionPanel,
+  PrototypeGameInteractionProvider,
+  usePrototypeCardInteraction,
+} from './-Prototype.GameActionPanel';
 import { PrototypeGameCard } from './-Prototype.GameCard';
 
 export interface PrototypeGameBoardProps {
@@ -26,10 +30,26 @@ type PrototypeScene = 'day' | 'dusk' | 'night' | 'dawn' | 'purge';
  * duy nhất và component không resolve gameplay rule.
  */
 export function PrototypeGameBoard(props: PrototypeGameBoardProps) {
-  const { view } = props;
+  const phaseKey = `${props.view.round}:${props.view.phase.type}`;
+  return (
+    <PrototypeGameInteractionProvider
+      key={phaseKey}
+      view={props.view}
+      pendingAction={props.pendingAction}
+      error={props.error}
+      canSubmit={props.canSubmit}
+      onSubmit={props.onSubmit}
+    >
+      <PrototypeGameArena view={props.view} />
+    </PrototypeGameInteractionProvider>
+  );
+}
+
+function PrototypeGameArena({ view }: { readonly view: GamePlayerViewV2 }) {
   const scene = getPrototypeScene(view.phase.type);
   const selfAlive = countLivingCards(view.self.board);
   const opponentAlive = countLivingCards(view.opponent.board);
+  const interaction = usePrototypeCardInteraction();
 
   return (
     <div
@@ -48,21 +68,22 @@ export function PrototypeGameBoard(props: PrototypeGameBoardProps) {
             icon={<Skull className="h-4 w-4 text-rose-400" />}
           >
             {view.opponent.board.map((card) => (
-              <PrototypeGameCard key={card.id} kind="opponent" card={card} />
+              <PrototypeGameCard
+                key={card.id}
+                kind="opponent"
+                card={card}
+                selectable={interaction.selectableCardIds.has(card.id)}
+                selected={interaction.selectedCardIds.has(card.id)}
+                onSelect={interaction.selectCard}
+              />
             ))}
           </PrototypeBoardSection>
 
-          <section className="relative flex min-h-0 items-center justify-center overflow-y-auto rounded-xl border border-white/10 bg-[radial-gradient(circle_at_center,_rgba(148,163,184,0.12),_transparent_34%),linear-gradient(90deg,transparent_49.8%,rgba(255,255,255,0.07)_50%,transparent_50.2%),linear-gradient(180deg,rgba(30,41,59,0.75),rgba(2,6,23,0.92))] p-3 sm:p-5">
+          <section className={`relative flex min-h-0 items-center justify-center overflow-y-auto rounded-xl border p-3 sm:p-5 ${getBattlefieldClass(scene)}`}>
             <div className="pointer-events-none absolute inset-x-6 top-1/2 border-t border-dashed border-white/10" />
             <div className="relative z-10 w-full">
               {view.result ? <PrototypeResult view={view} /> : null}
-              <PrototypeGameActionPanel
-                view={view}
-                pendingAction={props.pendingAction}
-                error={props.error}
-                canSubmit={props.canSubmit}
-                onSubmit={props.onSubmit}
-              />
+              <PrototypeGameActionPanel />
             </div>
           </section>
 
@@ -73,7 +94,14 @@ export function PrototypeGameBoard(props: PrototypeGameBoardProps) {
             icon={<Shield className="h-4 w-4 text-sky-300" />}
           >
             {view.self.board.map((card) => (
-              <PrototypeGameCard key={card.id} kind="self" card={card} />
+              <PrototypeGameCard
+                key={card.id}
+                kind="self"
+                card={card}
+                selectable={interaction.selectableCardIds.has(card.id)}
+                selected={interaction.selectedCardIds.has(card.id)}
+                onSelect={interaction.selectCard}
+              />
             ))}
           </PrototypeBoardSection>
         </main>
@@ -202,14 +230,29 @@ function getPrototypeScene(phase: GamePlayerViewV2['phase']['type']): PrototypeS
 function getSceneClass(scene: PrototypeScene): string {
   switch (scene) {
     case 'purge':
-      return 'bg-[radial-gradient(circle_at_50%_-10%,#5c1f27_0%,#241218_38%,#09070a_82%)]';
+      return 'bg-[radial-gradient(circle_at_50%_-10%,#ad4d59_0%,#552531_42%,#1d0d15_88%)]';
     case 'dusk':
-      return 'bg-[radial-gradient(circle_at_50%_-10%,#4a3547_0%,#1d1c28_38%,#090b12_82%)]';
+      return 'bg-[radial-gradient(circle_at_50%_-10%,#a66475_0%,#51405f_42%,#171b31_88%)]';
     case 'night':
-      return 'bg-[radial-gradient(circle_at_50%_-10%,#1e3154_0%,#101725_38%,#05070c_82%)]';
+      return 'bg-[radial-gradient(circle_at_50%_-10%,#426fa8_0%,#213b68_42%,#0a1830_88%)]';
     case 'dawn':
-      return 'bg-[radial-gradient(circle_at_50%_-10%,#8b6b3d_0%,#332a22_38%,#0d1015_82%)]';
+      return 'bg-[radial-gradient(circle_at_50%_-10%,#efc16f_0%,#936c43_40%,#293947_88%)]';
     case 'day':
-      return 'bg-[radial-gradient(circle_at_50%_-10%,#60543b_0%,#24231f_38%,#0d0f12_82%)]';
+      return 'bg-[radial-gradient(circle_at_50%_-10%,#d5b36e_0%,#71613c_40%,#25313b_88%)]';
+  }
+}
+
+function getBattlefieldClass(scene: PrototypeScene): string {
+  switch (scene) {
+    case 'purge':
+      return 'border-rose-200/20 bg-[radial-gradient(circle_at_center,rgba(221,84,93,.3)_0_18%,transparent_19%),linear-gradient(180deg,rgba(103,37,47,.76),rgba(39,15,23,.88))]';
+    case 'dusk':
+      return 'border-fuchsia-100/15 bg-[radial-gradient(circle_at_center,rgba(202,128,175,.24)_0_18%,transparent_19%),linear-gradient(180deg,rgba(85,62,95,.76),rgba(29,28,53,.88))]';
+    case 'night':
+      return 'border-blue-100/15 bg-[radial-gradient(circle_at_center,rgba(90,139,218,.28)_0_18%,transparent_19%),linear-gradient(180deg,rgba(39,67,113,.82),rgba(10,25,51,.9))]';
+    case 'dawn':
+      return 'border-amber-100/30 bg-[radial-gradient(circle_at_center,rgba(255,224,151,.42)_0_18%,transparent_19%),linear-gradient(180deg,rgba(141,104,65,.78),rgba(42,56,67,.88))]';
+    case 'day':
+      return 'border-amber-100/20 bg-[radial-gradient(circle_at_center,rgba(244,206,119,.32)_0_18%,transparent_19%),linear-gradient(180deg,rgba(111,96,60,.76),rgba(37,49,59,.88))]';
   }
 }

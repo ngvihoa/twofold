@@ -1,12 +1,32 @@
-import type {
-  PrivateCardViewV2,
-  PublicCardViewV2,
+import {
+  CardRole,
+  type CardId,
+  type PrivateCardViewV2,
+  type PublicCardViewV2,
 } from '@twofold/shared-types';
 import { Eye, EyeOff, Shield, Skull } from 'lucide-react';
 
 export type PrototypeGameCardProps =
-  | { readonly kind: 'self'; readonly card: PrivateCardViewV2 }
-  | { readonly kind: 'opponent'; readonly card: PublicCardViewV2 };
+  | ({ readonly kind: 'self'; readonly card: PrivateCardViewV2 } & CardInteractionProps)
+  | ({ readonly kind: 'opponent'; readonly card: PublicCardViewV2 } & CardInteractionProps);
+
+interface CardInteractionProps {
+  readonly selectable: boolean;
+  readonly selected: boolean;
+  readonly onSelect: (cardId: CardId) => void;
+}
+
+const ROLE_ART: Record<CardRole, string> = {
+  [CardRole.VILLAGER]: '/characters/dan-lang.png',
+  [CardRole.WEREWOLF]: '/characters/ma-soi-thuong.png',
+  [CardRole.SEER]: '/characters/tien-tri.png',
+  [CardRole.GUARD]: '/characters/bao-ve.png',
+  [CardRole.WITCH]: '/characters/phu-thuy.webp',
+  [CardRole.SHOOTER]: '/characters/xa-thu.webp',
+  [CardRole.AVENGER]: '/characters/ke-bao-thu.png',
+  [CardRole.PRIEST]: '/characters/muc-su.png',
+  [CardRole.WOLF_GUARD]: '/characters/soi-ho-ve.webp',
+};
 
 /** Render card theo visual prototype mà không suy diễn hidden role. */
 export function PrototypeGameCard(props: PrototypeGameCardProps) {
@@ -24,10 +44,16 @@ export function PrototypeGameCard(props: PrototypeGameCardProps) {
       : [];
 
   return (
-    <article
+    <button
+      type="button"
       data-card-id={card.id}
       aria-label={`${card.id}${role ? ` ${role}` : ' role ẩn'}`}
-      className={`group relative flex min-h-32 flex-col overflow-hidden rounded-lg border p-2 shadow-lg shadow-black/30 transition-[transform,box-shadow,opacity] hover:-translate-y-1 ${
+      aria-pressed={props.selected}
+      disabled={!props.selectable}
+      onClick={() => props.onSelect(card.id)}
+      className={`group relative flex min-h-36 flex-col overflow-hidden rounded-lg border p-1.5 text-left shadow-lg shadow-black/25 transition-[transform,box-shadow,opacity,filter] ${
+        props.selectable ? 'cursor-pointer ring-2 ring-amber-200/80 hover:-translate-y-2 hover:brightness-110' : 'cursor-default'
+      } ${props.selected ? 'z-10 -translate-y-1 ring-4 ring-cyan-200 shadow-cyan-200/40' : ''} ${
         dead
           ? 'border-slate-700 bg-slate-950/80 opacity-45 grayscale'
           : props.kind === 'self'
@@ -45,11 +71,24 @@ export function PrototypeGameCard(props: PrototypeGameCardProps) {
         </span>
       </div>
 
-      <div className="my-2 flex flex-1 flex-col items-center justify-center gap-1 rounded border border-black/40 bg-black/25 px-1 text-center">
-        <strong className={role ? 'text-[11px] leading-tight text-amber-50' : 'font-serif text-2xl text-slate-400'}>
-          {role ?? '?'}
-        </strong>
-        <span className="font-mono text-[9px] text-slate-500">{card.instanceId}</span>
+      <div className="relative my-1.5 flex min-h-20 flex-1 overflow-hidden rounded border border-black/35 bg-black/20 text-center">
+        {role ? (
+          <img
+            src={ROLE_ART[role]}
+            alt={`Minh họa ${role}`}
+            loading="lazy"
+            decoding="async"
+            className="h-full min-h-20 w-full object-cover object-top"
+          />
+        ) : (
+          <div className="grid min-h-20 w-full place-items-center bg-[radial-gradient(circle,#334155_0_18%,#172033_19%_40%,#101827_41%)] font-serif text-3xl text-slate-300">
+            TF
+          </div>
+        )}
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent px-1 pb-1 pt-5">
+          <strong className="block truncate text-[10px] leading-tight text-amber-50">{role ?? 'ROLE ẨN'}</strong>
+          <span className="font-mono text-[8px] text-slate-300">{card.instanceId}</span>
+        </div>
       </div>
 
       <div className="space-y-1 text-[8px] text-slate-400">
@@ -70,6 +109,6 @@ export function PrototypeGameCard(props: PrototypeGameCardProps) {
           </p>
         ) : null}
       </div>
-    </article>
+    </button>
   );
 }

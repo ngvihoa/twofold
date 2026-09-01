@@ -32,9 +32,10 @@ production `srvx` entry. Room store gọi `game-core` trên server rồi gửi
 `GamePlayerViewV2` đã lọc riêng cho từng player; frontend không resolve rule.
 
 Room và reconnect session hiện được giữ trong memory của một process. Restart
-server sẽ mất room; multi-replica cần sticky routing hoặc shared store. Server
-đã chấp nhận reconnect token nhưng client chưa persist token qua refresh.
-`SURRENDER` và `REMATCH_REQUEST` hiện trả `NOT_IMPLEMENTED`.
+server sẽ mất room; multi-replica cần sticky routing hoặc shared store. Client
+lưu reconnect token theo room trong `sessionStorage`, nên refresh cùng tab giữ
+đúng seat; token không được đưa vào URL. `SURRENDER` và `REMATCH_REQUEST` hiện
+trả `NOT_IMPLEMENTED`.
 
 ## Mục tiêu phát hành
 
