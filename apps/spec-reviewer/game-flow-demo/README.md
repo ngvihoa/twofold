@@ -38,6 +38,12 @@ P0.8 ghi action stream kèm canonical state digest rồi replay từ cùng seed.
 npm run fuzz:game --workspace=@twofold/spec-reviewer -- --count=500 --replay-count=200 --prefix=local
 ```
 
+P0.9 project transcript theo `public`, `A` và `B`: owner giữ payload của mình; action commit kín của đối thủ chỉ còn envelope; seed và authoritative digest không được xuất ra:
+
+```bash
+npm run fuzz:game --workspace=@twofold/spec-reviewer -- --count=500 --recipient-count=50 --prefix=local
+```
+
 ### Bản web trực quan
 
 Chạy reviewer bằng Vite:

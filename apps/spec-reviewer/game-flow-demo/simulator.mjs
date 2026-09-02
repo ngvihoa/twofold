@@ -1,4 +1,4 @@
-import { availableRoleGuesses, createGame, dispatch, purgeRule, publicView, ROLE_DEFS } from "./engine.mjs";
+import { availableRoleGuesses, createGame, dispatch, privateView, purgeRule, publicView, ROLE_DEFS } from "./engine.mjs";
 
 const PHASES = new Set([
   "setup-A", "setup-B", "purge", "day-A", "day-B", "council", "council-reaction",
@@ -56,6 +56,20 @@ export function stateDigest(state) {
     hash = BigInt.asUintN(64, hash * 0x100000001b3n);
   }
   return `fnv1a64:${hash.toString(16).padStart(16, "0")}`;
+}
+
+export function recipientStateDigest(state, recipient = "public") {
+  const publicState = publicView(state);
+  if (recipient === "public") return stateDigest(publicState);
+  if (!['A', 'B'].includes(recipient)) throw new Error("Recipient phải là public, A hoặc B.");
+  return stateDigest({ public: publicState, private: privateView(state, recipient) });
+}
+
+export function projectActionForRecipient(action, recipient = "public") {
+  if (!['public', 'A', 'B'].includes(recipient)) throw new Error("Recipient phải là public, A hoặc B.");
+  if (action.seat === recipient || action.type === "day.submit") return structuredClone(action);
+  if (action.seat) return { type: action.type, seat: action.seat, committed: true };
+  return { type: action.type };
 }
 
 function skillSource(state, seat, role) {
@@ -299,6 +313,71 @@ export function replayGame(seed, events) {
     }
   }
   return { seed, events: events.length, state, digest: stateDigest(state) };
+}
+
+export function projectTranscript(seed, events, recipient = "public") {
+  if (!['public', 'A', 'B'].includes(recipient)) throw new Error("Recipient phải là public, A hoặc B.");
+  let state = createGame(seed);
+  const projectedEvents = [];
+  for (let index = 0; index < events.length; index += 1) {
+    const action = events[index].action || events[index];
+    try {
+      state = dispatch(state, action);
+    } catch (error) {
+      throw new Error(`Transcript projection event ${index} bị từ chối: ${error.message}`, { cause: error });
+    }
+    assertSimulationInvariants(state);
+    const authoritativeDigest = stateDigest(state);
+    if (events[index].digest && events[index].digest !== authoritativeDigest) {
+      throw new Error(`Transcript projection divergence tại event ${index}.`);
+    }
+    projectedEvents.push({
+      index,
+      action: projectActionForRecipient(action, recipient),
+      publicDigest: recipientStateDigest(state, "public"),
+      digest: recipientStateDigest(state, recipient),
+    });
+  }
+  return { recipient, events: projectedEvents, digest: recipientStateDigest(state, recipient) };
+}
+
+function isCommittedEnvelope(action, projected) {
+  return projected.type === action.type
+    && projected.seat === action.seat
+    && projected.committed === true
+    && Object.keys(projected).length === 3;
+}
+
+export function fuzzRecipientTranscripts({ count = 50, prefix = "p09", maxSteps = 250 } = {}) {
+  let events = 0;
+  let hiddenActions = 0;
+  let leaks = 0;
+  for (let index = 0; index < count; index += 1) {
+    const recorded = simulateGame(`${prefix}-${index}`, { maxSteps });
+    const projections = {
+      public: projectTranscript(recorded.seed, recorded.events, "public"),
+      A: projectTranscript(recorded.seed, recorded.events, "A"),
+      B: projectTranscript(recorded.seed, recorded.events, "B"),
+    };
+    if (Object.hasOwn(projections.public, "seed") || Object.hasOwn(projections.A, "seed") || Object.hasOwn(projections.B, "seed")) leaks += 1;
+    events += recorded.events.length;
+    for (let eventIndex = 0; eventIndex < recorded.events.length; eventIndex += 1) {
+      const action = recorded.events[eventIndex].action;
+      const publicEvent = projections.public.events[eventIndex];
+      const aEvent = projections.A.events[eventIndex];
+      const bEvent = projections.B.events[eventIndex];
+      if (publicEvent.publicDigest !== aEvent.publicDigest || publicEvent.publicDigest !== bEvent.publicDigest) leaks += 1;
+      if (action.seat && action.type !== "day.submit") {
+        hiddenActions += 1;
+        const ownerEvent = action.seat === "A" ? aEvent : bEvent;
+        const opponentEvent = action.seat === "A" ? bEvent : aEvent;
+        if (canonicalSerialize(ownerEvent.action) !== canonicalSerialize(action)) leaks += 1;
+        if (!isCommittedEnvelope(action, opponentEvent.action) || !isCommittedEnvelope(action, publicEvent.action)) leaks += 1;
+      }
+      if (Object.hasOwn(publicEvent, "authoritativeDigest") || Object.hasOwn(aEvent, "authoritativeDigest") || Object.hasOwn(bEvent, "authoritativeDigest")) leaks += 1;
+    }
+  }
+  return { games: count, events, hiddenActions, leaks };
 }
 
 export function fuzzReplays({ count = 200, prefix = "p08", maxSteps = 250 } = {}) {

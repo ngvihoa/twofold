@@ -1,5 +1,17 @@
 # Nhật ký kiểm tra
 
+## 02/09/2026 — P0.9 recipient transcript/digest projection
+
+- Bốn TDD red signal: thiếu recipient digest, action projector, transcript projector và recipient fuzz capability.
+- Public digest chỉ hash `publicView`; A/B digest hash public + đúng `privateView` của seat.
+- Action projector deny-by-default: owner giữ payload; Day public; action có seat khác chỉ còn `{type, seat, committed}`.
+- Recipient transcript không trả seed hoặc authoritative full-state digest.
+- Regression 50 full match PASS.
+- Audit 200 seed `p09-audit-*`: **15.581 event**, **11.190 hidden action**, leak 0.
+- CLI smoke `--count=20 --recipient-count=20`: 1.623 event, 1.168 hidden action, leak 0.
+
+Giới hạn: local/in-memory; chưa kiểm serialization, traffic/timing side-channel hoặc typed resolved public outcome events.
+
 ## 02/09/2026 — P0.8 deterministic event replay/state digest
 
 - Ba TDD red signal: thiếu `replayGame`; replay chưa reject digest lệch; thiếu `fuzzReplays`.

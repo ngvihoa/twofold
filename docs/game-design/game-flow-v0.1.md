@@ -55,6 +55,9 @@ Sau mọi hành động có thể kết thúc trận, hệ thống chạy `WIN_C
 - Mỗi command cần có `commandId` để retry không tạo hành động trùng.
 - Mỗi state có `version`; command gửi từ state cũ bị từ chối và client phải đồng bộ lại.
 - Mất kết nối không tự đổi phase hoặc hủy hành động đã khóa.
+- Authoritative action transcript chứa payload đầy đủ chỉ tồn tại ở server/internal tooling; không gửi raw transcript, match seed hoặc full-state digest cho client.
+- Payload theo recipient được project từ public state và private state của đúng seat. Action commit kín của đối thủ chỉ phát trạng thái đã khóa; resolved outcome công khai được phát bằng event riêng theo information map.
+- Public checksum/digest chỉ được tính từ public view. Checksum của A/B có thể thêm private view của đúng seat nhưng không được hash hidden state của đối thủ.
 
 ## 4. Trước trận
 
