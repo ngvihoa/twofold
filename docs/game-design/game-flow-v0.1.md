@@ -59,6 +59,20 @@ Sau mọi hành động có thể kết thúc trận, hệ thống chạy `WIN_C
 - Payload theo recipient được project từ public state và private state của đúng seat. Action commit kín của đối thủ chỉ phát trạng thái đã khóa; resolved outcome công khai được phát bằng event riêng theo information map.
 - Public checksum/digest chỉ được tính từ public view. Checksum của A/B có thể thêm private view của đúng seat nhưng không được hash hidden state của đối thủ.
 
+Catalog resolved outcome của prototype:
+
+| Event | Khi phát | Payload công khai |
+|---|---|---|
+| `card.revealed` | Một role chuyển từ úp sang lộ | position, identity, owner, role, faction |
+| `card.eliminated` | Card bị loại sau resolve | thông tin card đã công khai; không có source/cause kín |
+| `card.saved` | Một loại bỏ ban đêm bị chặn | position, identity, owner; không có role, source hoặc loại lệnh |
+| `card.revived` | Phù thủy hồi sinh thành công | thông tin card vốn đã lộ khi chết |
+| `council.resolved` / `council.passed` | Cả hai bên đã khóa Hội đồng | target, role đoán, tổng phiếu và kết quả; hoặc seat bỏ qua |
+| `purge.resolved` | Batch Thanh trừng resolve hoặc fizzle | rule và trạng thái; không phát lựa chọn kín |
+| `match.ended` | Kết quả trận được chốt | winner và reason |
+
+Mọi event có `sequence`, `type` và `round`. Catalog này là contract prototype để kiểm information boundary, chưa phải wire schema versioned cho multiplayer.
+
 ## 4. Trước trận
 
 ### 4.1 `HOME`

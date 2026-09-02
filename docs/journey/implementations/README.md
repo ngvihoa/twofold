@@ -23,6 +23,7 @@ Ví dụ:
 
 | ID | Ngày | Implementation | Trạng thái | Commit/PR |
 |---|---:|---|---|---|
+| [2026-09-02-003](2026-09-02-003-add-typed-public-outcomes.md) | 02/09/2026 | Thêm typed public outcomes và đóng P0.10 | Hoàn thành; 200 trận/11.125 outcome, leak 0 | Chờ commit |
 | [2026-09-02-002](2026-09-02-002-project-recipient-transcripts.md) | 02/09/2026 | Project recipient transcript và digest P0.9 | Hoàn thành; 200 trận/11.190 hidden action, leak 0 | `48eb3f5` |
 | [2026-09-02-001](2026-09-02-001-add-deterministic-event-replay.md) | 02/09/2026 | Thêm deterministic event replay và state digest P0.8 | Hoàn thành; 200 trận/15.665 event không divergence | `d548a63` |
 | [2026-09-01-005](2026-09-01-005-fuzz-invalid-actions-atomically.md) | 01/09/2026 | Fuzz invalid action và atomic rejection P0.7 | Hoàn thành; 200 seed/76.991 rejection pass | `a861d6f` |

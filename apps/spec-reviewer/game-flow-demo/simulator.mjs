@@ -255,6 +255,11 @@ export function assertSimulationInvariants(state) {
     }
   }
   const view = publicView(state);
+  for (let index = 0; index < state.publicEvents.length; index += 1) {
+    const outcome = state.publicEvents[index];
+    if (outcome.sequence !== index) throw new Error(`Public outcome sequence lệch tại ${index}.`);
+    if (!isValidPublicOutcome(outcome)) throw new Error(`Public outcome schema không hợp lệ: ${outcome.type}.`);
+  }
   for (const seat of ["A", "B"]) {
     if (view.alive[seat] !== living(state, seat).length) throw new Error(`Public alive ${seat} lệch state.`);
   }
@@ -321,6 +326,7 @@ export function projectTranscript(seed, events, recipient = "public") {
   const projectedEvents = [];
   for (let index = 0; index < events.length; index += 1) {
     const action = events[index].action || events[index];
+    const outcomeStart = state.publicEvents.length;
     try {
       state = dispatch(state, action);
     } catch (error) {
@@ -334,6 +340,7 @@ export function projectTranscript(seed, events, recipient = "public") {
     projectedEvents.push({
       index,
       action: projectActionForRecipient(action, recipient),
+      outcomes: structuredClone(state.publicEvents.slice(outcomeStart)),
       publicDigest: recipientStateDigest(state, "public"),
       digest: recipientStateDigest(state, recipient),
     });
@@ -348,8 +355,28 @@ function isCommittedEnvelope(action, projected) {
     && Object.keys(projected).length === 3;
 }
 
+const PUBLIC_OUTCOME_FIELDS = new Map([
+  ["card.revealed", ["sequence", "type", "round", "position", "instanceId", "owner", "role", "faction"]],
+  ["card.eliminated", ["sequence", "type", "round", "position", "instanceId", "owner", "role", "faction"]],
+  ["card.revived", ["sequence", "type", "round", "position", "instanceId", "owner", "role", "faction"]],
+  ["card.saved", ["sequence", "type", "round", "position", "instanceId", "owner"]],
+  ["council.resolved", ["sequence", "type", "round", "attackerSeat", "target", "guess", "votePower", "success"]],
+  ["council.passed", ["sequence", "type", "round", "seat"]],
+  ["purge.resolved", ["sequence", "type", "round", "rule", "status"]],
+  ["match.ended", ["sequence", "type", "round", "winner", "reason"]],
+]);
+
+function isValidPublicOutcome(outcome) {
+  const fields = PUBLIC_OUTCOME_FIELDS.get(outcome.type);
+  if (!fields) return false;
+  return Object.keys(outcome).sort().join("|") === [...fields].sort().join("|")
+    && Number.isInteger(outcome.sequence)
+    && Number.isInteger(outcome.round);
+}
+
 export function fuzzRecipientTranscripts({ count = 50, prefix = "p09", maxSteps = 250 } = {}) {
   let events = 0;
+  let outcomes = 0;
   let hiddenActions = 0;
   let leaks = 0;
   for (let index = 0; index < count; index += 1) {
@@ -367,6 +394,12 @@ export function fuzzRecipientTranscripts({ count = 50, prefix = "p09", maxSteps 
       const aEvent = projections.A.events[eventIndex];
       const bEvent = projections.B.events[eventIndex];
       if (publicEvent.publicDigest !== aEvent.publicDigest || publicEvent.publicDigest !== bEvent.publicDigest) leaks += 1;
+      outcomes += publicEvent.outcomes.length;
+      if (canonicalSerialize(publicEvent.outcomes) !== canonicalSerialize(aEvent.outcomes)
+        || canonicalSerialize(publicEvent.outcomes) !== canonicalSerialize(bEvent.outcomes)) leaks += 1;
+      for (const outcome of publicEvent.outcomes) {
+        if (!isValidPublicOutcome(outcome)) leaks += 1;
+      }
       if (action.seat && action.type !== "day.submit") {
         hiddenActions += 1;
         const ownerEvent = action.seat === "A" ? aEvent : bEvent;
@@ -377,7 +410,7 @@ export function fuzzRecipientTranscripts({ count = 50, prefix = "p09", maxSteps 
       if (Object.hasOwn(publicEvent, "authoritativeDigest") || Object.hasOwn(aEvent, "authoritativeDigest") || Object.hasOwn(bEvent, "authoritativeDigest")) leaks += 1;
     }
   }
-  return { games: count, events, hiddenActions, leaks };
+  return { games: count, events, outcomes, hiddenActions, leaks };
 }
 
 export function fuzzReplays({ count = 200, prefix = "p08", maxSteps = 250 } = {}) {

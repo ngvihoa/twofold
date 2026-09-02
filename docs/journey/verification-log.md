@@ -1,5 +1,16 @@
 # Nhật ký kiểm tra
 
+## 02/09/2026 — P0.10 typed public outcomes và Phase 0 exit
+
+- Năm TDD slice khóa Council resolve, Day reveal/eliminate, Night saved privacy, Witch revive và Purge batch completion; match end được mở rộng bằng terminal event.
+- `publicView.events` dùng sequence tăng dần và allowlist 8 loại event; recipient transcript chỉ gắn outcome delta do transition vừa resolve.
+- `card.saved` không chứa role/source/kind; Council/Purge không phát outcome khi mới có lựa chọn kín đầu tiên.
+- Full engine/simulator suite: **54/54 pass**.
+- Audit 200 seed `p10-outcome-audit-recipient-*`: **15.306 transition**, **11.125 typed outcome**, **10.995 hidden action**, schema/recipient leak 0.
+- Phase 0 đóng ở P0.10; chuyển sang P1 authoritative room/transport. Không mở P0.11 nếu không phát hiện blocker hồi quy.
+
+Giới hạn: local/in-memory; chưa kiểm serialization/wire-version, command idempotency, hai client thật, reconnect, timing/traffic side-channel hoặc human balance playtest.
+
 ## 02/09/2026 — P0.9 recipient transcript/digest projection
 
 - Bốn TDD red signal: thiếu recipient digest, action projector, transcript projector và recipient fuzz capability.

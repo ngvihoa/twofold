@@ -101,9 +101,25 @@ test("projected transcript carries only recipient action payload and recipient d
   assert.ok(publicOnly.events.every((event) => !Object.hasOwn(event, "authoritativeDigest")));
 });
 
+test("projected transcripts carry identical typed public outcome deltas", () => {
+  const recorded = simulateGame("p10-public-outcomes");
+  const publicOnly = projectTranscript(recorded.seed, recorded.events, "public");
+  const forA = projectTranscript(recorded.seed, recorded.events, "A");
+  const forB = projectTranscript(recorded.seed, recorded.events, "B");
+  const outcomes = publicOnly.events.flatMap((event) => event.outcomes);
+
+  assert.ok(outcomes.length > 0);
+  assert.equal(outcomes.at(-1).type, "match.ended");
+  for (let index = 0; index < publicOnly.events.length; index += 1) {
+    assert.deepEqual(publicOnly.events[index].outcomes, forA.events[index].outcomes);
+    assert.deepEqual(publicOnly.events[index].outcomes, forB.events[index].outcomes);
+  }
+});
+
 test("50 full matches keep recipient transcript boundaries intact", () => {
   const result = fuzzRecipientTranscripts({ count: 50, prefix: "p09-recipient-fuzz" });
   assert.equal(result.games, 50);
   assert.ok(result.hiddenActions >= 1_000);
+  assert.ok(result.outcomes >= 500);
   assert.equal(result.leaks, 0);
 });

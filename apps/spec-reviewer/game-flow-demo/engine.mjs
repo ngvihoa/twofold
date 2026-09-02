@@ -87,6 +87,7 @@ export function createGame(seed = "twofold-01") {
     },
     councilBatch: null,
     result: null,
+    publicEvents: [],
     log: ["Hai bên bí mật xếp thứ tự 10 lá trước khi lên bàn."],
   };
 }
@@ -96,6 +97,10 @@ const clone = (state) => structuredClone(state);
 function addLog(state, message) {
   state.log.push(message);
   state.log = state.log.slice(-10);
+}
+
+function addPublicEvent(state, type, payload = {}) {
+  state.publicEvents.push({ sequence: state.publicEvents.length, type, round: state.round, ...payload });
 }
 
 function assertSeat(seat) {
@@ -127,8 +132,28 @@ export function availableRoleGuesses(state, targetSeat) {
   return Object.keys(ROLE_DEFS).filter((role) => remaining[role] > 0);
 }
 
-function reveal(card) {
+function publicCardPayload(card) {
+  return {
+    position: card.id,
+    instanceId: card.instanceId,
+    owner: card.owner,
+    role: card.role,
+    faction: ROLE_DEFS[card.role].faction,
+  };
+}
+
+function reveal(state, card) {
+  if (card.revealed) return;
   card.revealed = true;
+  addPublicEvent(state, "card.revealed", publicCardPayload(card));
+}
+
+function publishSavedCard(state, card) {
+  addPublicEvent(state, "card.saved", {
+    position: card.id,
+    instanceId: card.instanceId,
+    owner: card.owner,
+  });
 }
 
 function eliminate(state, card, cause) {
@@ -138,7 +163,8 @@ function eliminate(state, card, cause) {
   if (card.role === "avenger") owner.revengeTarget = null;
   card.alive = false;
   card.shielded = false;
-  reveal(card);
+  reveal(state, card);
+  addPublicEvent(state, "card.eliminated", publicCardPayload(card));
   addLog(state, `${card.id} chết do ${cause}. Role: ${ROLE_DEFS[card.role].name}.`);
   if (revengeTarget) {
     const target = cardById(state, revengeTarget);
@@ -148,13 +174,14 @@ function eliminate(state, card, cause) {
 }
 
 function revealAll(state) {
-  for (const card of ["A", "B"].flatMap((seat) => state.players[seat].board)) reveal(card);
+  for (const card of ["A", "B"].flatMap((seat) => state.players[seat].board)) reveal(state, card);
 }
 
 function finishMatch(state, result) {
   state.phase = "ended";
   state.result = result;
   revealAll(state);
+  addPublicEvent(state, "match.ended", { winner: result.winner, reason: result.reason });
   addLog(state, result.winner ? `${result.winner} thắng: ${result.reason}.` : `Hòa: ${result.reason}.`);
 }
 
@@ -227,6 +254,7 @@ function resolvePurge(state) {
     const selectedIds = choices.flatMap((choice) => [choice.target, choice.swapTarget]);
     if (new Set(selectedIds).size !== selectedIds.length) {
       addLog(state, "Đảo chiến tuyến xung đột mục tiêu; toàn bộ batch fizzle và không card nào đổi vị trí.");
+      addPublicEvent(state, "purge.resolved", { rule, status: "fizzled" });
       finishPurge(state);
       return;
     }
@@ -248,6 +276,7 @@ function resolvePurge(state) {
       state.players[seat].notes = state.players[seat].notes.map((note) => note.replace(/[AB]\d+/g, (id) => notePositionChanges.get(id) || id));
     }
     addLog(state, "Đảo chiến tuyến resolve đồng thời; bốn card đổi vị trí nhưng identity, owner và role không đổi.");
+    addPublicEvent(state, "purge.resolved", { rule, status: "resolved" });
     finishPurge(state);
     return;
   }
@@ -256,11 +285,12 @@ function resolvePurge(state) {
     if (choice.target === null) continue;
     const card = cardById(state, choice.target);
     if (rule === "cut") eliminate(state, card, `Cắt bỏ Vòng ${state.round}`);
-    if (rule === "reveal") reveal(card);
+    if (rule === "reveal") reveal(state, card);
     if (rule === "lock") card.purgeLockedRound = state.round;
   }
   if (rule === "reveal") addLog(state, "Ép lộ diện đã công khai các target được chọn.");
   if (rule === "lock") addLog(state, "Khóa mạch đã vô hiệu skill và quyền Vote của các target trong vòng hiện tại.");
+  addPublicEvent(state, "purge.resolved", { rule, status: "resolved" });
   finishPurge(state);
 }
 
@@ -295,6 +325,7 @@ function submitPurge(state, action) {
     const hasEnemyChoice = livingCards(state, action.seat).some((card) => !reservedIds.has(card.id));
     if (!hasOwnChoice || !hasEnemyChoice) {
       addLog(state, `${responder} không còn lựa chọn không xung đột; batch Đảo chiến tuyến tự fizzle.`);
+      addPublicEvent(state, "purge.resolved", { rule, status: "fizzled" });
       finishPurge(state);
       return;
     }
@@ -319,7 +350,7 @@ function resolveCouncilBatch(state) {
     if (outcome.reaction.use) {
       const substitute = cardById(state, outcome.reaction.source);
       substitute.uses.sacrifice -= 1;
-      reveal(substitute);
+      reveal(state, substitute);
       pendingDeaths.push({ target: substitute, cause: `chết thay ${target.id}` });
       addLog(state, `${substitute.id} lộ diện và chấp nhận chết thay ${target.id}; ${target.id} sống nhưng vẫn lộ role.`);
     } else {
@@ -343,19 +374,27 @@ function prepareCouncilResolution(state) {
   for (const seat of ["A", "B"]) {
     const submission = state.players[seat].council;
     if (submission.kind === "pass") {
+      addPublicEvent(state, "council.passed", { seat });
       addLog(state, `${seat} bỏ qua Hội đồng.`);
       continue;
     }
     const voters = submission.voters.map((id) => cardById(state, id));
     const validVotes = voters.filter((card) => card.alive && card.owner === seat && ROLE_DEFS[card.role].faction === "village" && !card.dayExhausted && card.voteCooldown === 0 && card.purgeLockedRound !== state.round);
-    for (const voter of validVotes) reveal(voter);
+    for (const voter of validVotes) reveal(state, voter);
     const target = cardById(state, submission.target);
     const votePower = councilVotePower(validVotes);
     const correct = votePower >= 3 && target.alive && target.owner === otherSeat(seat) && (target.revealed || target.role === submission.guess);
+    addPublicEvent(state, "council.resolved", {
+      attackerSeat: seat,
+      target: target.id,
+      guess: submission.guess,
+      votePower,
+      success: correct,
+    });
 
     if (correct) {
       const defenderSeat = otherSeat(seat);
-      reveal(target);
+      reveal(state, target);
       outcomes.push({ attackerSeat: seat, defenderSeat, target: target.id, votePower, reaction: null });
       addLog(state, `${seat} đạt ${votePower} phiếu và buộc tội đúng ${target.id}. Role target đã lộ; Hội đồng chờ reaction kín.`);
     } else {
@@ -456,7 +495,7 @@ function submitDay(state, action) {
     source.uses.bullet -= 1;
     source.dayExhausted = true;
     player.eliminationSpent = true;
-    reveal(source);
+    reveal(state, source);
     eliminate(state, target, `phát bắn từ Xạ thủ ẩn của ${action.seat}`);
     advanceDay(state, action.seat);
     return;
@@ -467,7 +506,7 @@ function submitDay(state, action) {
     if (source.dayExhausted) throw new Error("Kẻ báo thù đã tham gia bỏ phiếu trong vòng này.");
     const target = cardById(state, action.target);
     if (!target.alive || target.owner !== otherSeat(action.seat)) throw new Error("Mục tiêu báo thù không hợp lệ.");
-    reveal(source);
+    reveal(state, source);
     source.dayExhausted = true;
     player.revengeTarget = target.id;
     addLog(state, `${source.id} công khai đánh dấu ${target.id}. Nếu chết trước bình minh, mục tiêu sẽ chết theo.`);
@@ -485,7 +524,7 @@ function submitDay(state, action) {
     source.uses.holyWater -= 1;
     source.dayExhausted = true;
     player.eliminationSpent = true;
-    reveal(source);
+    reveal(state, source);
     if (ROLE_DEFS[target.role].faction === "werewolf") eliminate(state, target, `nước thánh của ${source.id}`);
     else eliminate(state, source, `thanh tẩy nhầm ${target.id}`);
     advanceDay(state, action.seat);
@@ -500,8 +539,9 @@ function submitDay(state, action) {
     if (target.alive || target.owner !== action.seat) throw new Error("Chỉ hồi sinh được lá đã chết bên mình.");
     source.uses.revive -= 1;
     source.dayExhausted = true;
-    reveal(source);
+    reveal(state, source);
     target.alive = true;
+    addPublicEvent(state, "card.revived", publicCardPayload(target));
     addLog(state, `${action.seat} dùng Phù thủy hồi sinh ${target.id}. Role hồi sinh vẫn công khai.`);
     advanceDay(state, action.seat);
     return;
@@ -596,7 +636,10 @@ function resolveNight(state) {
     if (action.kind === "bloodmoon") {
       state.players[seat].eliminationSpent = true;
       state.players[seat].bloodMoonReadyRound = state.round + SPECIAL_CARD.cooldownRounds;
-      if (target.shielded) addLog(state, `${target.id} được khiên chặn đòn ${SPECIAL_CARD.name} của ${seat}.`);
+      if (target.shielded) {
+        publishSavedCard(state, target);
+        addLog(state, `${target.id} được khiên chặn đòn ${SPECIAL_CARD.name} của ${seat}.`);
+      }
       else pendingDeaths.push({ target, cause: `${SPECIAL_CARD.name} của ${seat}` });
       continue;
     }
@@ -606,8 +649,11 @@ function resolveNight(state) {
     if (action.kind === "inspect") {
       source.uses.seer -= 1;
       if (target.seerInspected === "dark") {
-        reveal(source);
-        if (target.shielded) addLog(state, `${target.id} được khiên chặn đòn kết liễu của Tiên tri ${seat}.`);
+        reveal(state, source);
+        if (target.shielded) {
+          publishSavedCard(state, target);
+          addLog(state, `${target.id} được khiên chặn đòn kết liễu của Tiên tri ${seat}.`);
+        }
         else pendingDeaths.push({ target, cause: `Tiên tri kết liễu ${target.id}` });
       } else {
         target.seerInspected = ROLE_DEFS[target.role].faction === "werewolf" ? "dark" : "light";
@@ -619,6 +665,7 @@ function resolveNight(state) {
     state.players[seat].eliminationSpent = true;
     if (action.kind === "poison") source.uses.poison -= 1;
     if (target.shielded) {
+      publishSavedCard(state, target);
       addLog(state, `${target.id} được khiên cứu khỏi một hiệu ứng loại bỏ ban đêm; loại lệnh vẫn được giữ kín.`);
     } else {
       pendingDeaths.push({ target, cause: action.kind === "attack" ? `Ma sói của ${seat}` : `độc của ${seat}` });
@@ -738,6 +785,7 @@ export function publicView(state) {
     purge: state.round >= 6 ? { active: state.phase === "purge", rule: purgeRule(state.round) } : null,
     board,
     result: state.result,
+    events: structuredClone(state.publicEvents),
     log: [...state.log],
   };
 }
