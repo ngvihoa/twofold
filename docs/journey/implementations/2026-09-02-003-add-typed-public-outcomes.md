@@ -6,7 +6,7 @@
 - Owner/Agent: Codex
 - Branch: `codex/chat-playtest-prototype`
 - Commit trước khi làm: `189eaeb`
-- Commit implementation: Chờ commit
+- Commit implementation: `c75a3c6`
 - Conversation/task source: CONV-006 — hoàn tất toàn bộ Phase 0 rồi commit/push
 - Trạng thái: Hoàn thành prototype, chờ liên kết commit
 
@@ -94,7 +94,7 @@ All 3 workspace checks passed
 - Root cause: Xác định — test khóa nhầm số sequence tuyệt đối thay vì chỉ khóa thứ tự/boundary.
 - Fix/decision: giữ sequence engine đúng và cho assertion dùng sequence thực; outcome vẫn chỉ xuất hiện sau cả hai commit.
 - Verify lại: PASS trong suite 54/54.
-- Commit fix: Chờ commit.
+- Commit fix: `c75a3c6`.
 
 ## Quyết định sau implementation
 
@@ -132,7 +132,7 @@ All 3 workspace checks passed
 - Docs/ADR: demo README, game flow, verification log, task tracker, Phase 0 closure.
 - Screenshot/video: Không áp dụng; không đổi UI.
 - Test report: record này và `docs/journey/verification-log.md`.
-- Commit/PR: Chờ commit.
+- Commit/PR: `c75a3c6`.
 
 ## Bước tiếp theo
 
