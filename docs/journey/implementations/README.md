@@ -23,6 +23,9 @@ Ví dụ:
 
 | ID | Ngày | Implementation | Trạng thái | Commit/PR |
 |---|---:|---|---|---|
+| [2026-09-02-003](2026-09-02-003-add-typed-public-outcomes.md) | 02/09/2026 | Thêm typed public outcomes và đóng P0.10 | Hoàn thành; 200 trận/11.125 outcome, leak 0 | `c75a3c6` |
+| [2026-09-02-002](2026-09-02-002-project-recipient-transcripts.md) | 02/09/2026 | Project recipient transcript và digest P0.9 | Hoàn thành; 200 trận/11.190 hidden action, leak 0 | `48eb3f5` |
+| [2026-09-02-001](2026-09-02-001-add-deterministic-event-replay.md) | 02/09/2026 | Thêm deterministic event replay và state digest P0.8 | Hoàn thành; 200 trận/15.665 event không divergence | `d548a63` |
 | [2026-09-01-005](2026-09-01-005-fuzz-invalid-actions-atomically.md) | 01/09/2026 | Fuzz invalid action và atomic rejection P0.7 | Hoàn thành; 200 seed/76.991 rejection pass | `a861d6f` |
 | [2026-09-01-004](2026-09-01-004-add-seeded-full-match-fuzzing.md) | 01/09/2026 | Thêm seeded full-match fuzzing P0.6 | Hoàn thành; 500 regression + 5.000 audit pass | `63c2a19` |
 | [2026-09-01-003](2026-09-01-003-final-duel-match-result-rematch.md) | 01/09/2026 | Hoàn tất Final Duel, reveal kết quả và rematch local | Hoàn thành prototype; suite 38/38 + browser pass | `7180595` |

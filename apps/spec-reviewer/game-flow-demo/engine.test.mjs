@@ -126,6 +126,30 @@ test("Three non-Villager Village roles also reach the Council threshold", () => 
   assert.match(state.log.join("\n"), /đạt 3 phiếu/);
 });
 
+test("Council publishes a typed resolved outcome only after both seats lock", () => {
+  let state = createGame("typed-council-outcome");
+  state.round = 2;
+  state.phase = "council";
+  const voters = villageVoters(state, "A").slice(0, 2);
+  const target = cardWithRole(state, "B", "wolf");
+
+  state = submitCorrectCouncil(state, "A", target, voters);
+  assert.equal(publicView(state).events.length, 0);
+
+  state = dispatch(state, { type: "council.submit", seat: "B", kind: "pass" });
+  const outcome = publicView(state).events.find((event) => event.type === "council.resolved" && event.attackerSeat === "A");
+  assert.deepEqual(outcome, {
+    sequence: outcome.sequence,
+    type: "council.resolved",
+    round: 2,
+    attackerSeat: "A",
+    target: target.id,
+    guess: "wolf",
+    votePower: 3,
+    success: true,
+  });
+});
+
 test("Guard has no charge countdown and cannot protect itself", () => {
   const state = createGame("guard-self");
   state.phase = "dusk-defense";
@@ -285,6 +309,34 @@ test("a successful shield publishes the saved position but not the blocked attac
   assert.doesNotMatch(publicLog, /cắn|độc|Ma sói|Phù thủy/);
 });
 
+test("a blocked night elimination publishes a typed saved outcome without source or kind", () => {
+  const state = createGame("typed-night-save");
+  state.phase = "night-plan";
+  const guard = cardWithRole(state, "A", "guard");
+  const target = cardWithRole(state, "A", "villager");
+  const wolf = cardWithRole(state, "B", "wolf");
+
+  const resolved = resolveNight(
+    state,
+    { kind: "pass" },
+    { kind: "attack", source: wolf.id, target: target.id },
+    { source: guard.id, target: target.id },
+    { pass: true },
+  );
+  const saved = publicView(resolved).events.find((event) => event.type === "card.saved");
+  assert.deepEqual(saved, {
+    sequence: 0,
+    type: "card.saved",
+    round: 1,
+    position: target.id,
+    instanceId: target.instanceId,
+    owner: "A",
+  });
+  assert.equal(Object.hasOwn(saved, "source"), false);
+  assert.equal(Object.hasOwn(saved, "kind"), false);
+  assert.equal(Object.hasOwn(saved, "role"), false);
+});
+
 test("Seer reveals at Dawn when an execution resolves even if Guard blocks it", () => {
   let state = createGame("seer-execution-reveal");
   state.phase = "night-plan";
@@ -373,6 +425,23 @@ test("Shooter reveals after using its Day skill", () => {
   assert.equal(state.players.A.board.find((card) => card.id === shooter.id).revealed, true);
 });
 
+test("Day resolution publishes typed reveal and elimination outcomes", () => {
+  let state = createGame("typed-day-outcomes");
+  state.phase = "day-A";
+  const shooter = cardWithRole(state, "A", "shooter");
+  const targets = state.players.B.board.slice(0, 2);
+  targets.forEach((card) => { card.revealed = true; });
+
+  state = dispatch(state, { type: "day.submit", seat: "A", kind: "shoot", source: shooter.id, target: targets[0].id });
+  assert.deepEqual(
+    publicView(state).events.map((event) => ({ type: event.type, position: event.position, role: event.role })),
+    [
+      { type: "card.revealed", position: shooter.id, role: "shooter" },
+      { type: "card.eliminated", position: targets[0].id, role: targets[0].role },
+    ],
+  );
+});
+
 test("Witch cannot revive and poison in the same round", () => {
   let state = createGame("witch-once-per-round");
   state.phase = "day-A";
@@ -395,6 +464,28 @@ test("Witch cannot revive and poison in the same round", () => {
     () => dispatch(state, { type: "night.submit", seat: "A", kind: "poison", source: witch.id, target: enemy.id }),
     /đã dùng kỹ năng trong vòng này/,
   );
+});
+
+test("Witch revival publishes a typed revived outcome", () => {
+  let state = createGame("typed-revive-outcome");
+  state.phase = "day-A";
+  const witch = cardWithRole(state, "A", "witch");
+  const target = state.players.A.board.find((card) => card.id !== witch.id);
+  target.alive = false;
+  target.revealed = true;
+
+  state = dispatch(state, { type: "day.submit", seat: "A", kind: "revive", source: witch.id, target: target.id });
+  const revived = publicView(state).events.find((event) => event.type === "card.revived");
+  assert.deepEqual(revived, {
+    sequence: 1,
+    type: "card.revived",
+    round: 1,
+    position: target.id,
+    instanceId: target.instanceId,
+    owner: "A",
+    role: target.role,
+    faction: ROLE_DEFS[target.role].faction,
+  });
 });
 
 test("a card that used a Day skill cannot also vote in Council during the same round", () => {
@@ -624,6 +715,14 @@ test("normal match end reveals all roles and rematch returns to fresh setup", ()
 
   assert.equal(state.phase, "ended");
   assert.equal([...publicView(state).board.A, ...publicView(state).board.B].every((card) => card.role !== "?"), true);
+  const endedEvent = publicView(state).events.at(-1);
+  assert.deepEqual(endedEvent, {
+    sequence: endedEvent.sequence,
+    type: "match.ended",
+    round: 1,
+    winner: "A",
+    reason: "B hết bài",
+  });
 
   const rematch = dispatch(state, { type: "match.rematch", seed: "match-rematch-02" });
   assert.equal(rematch.phase, "setup-A");
@@ -734,6 +833,26 @@ test("Round 7 Swap conflict fizzles the whole hidden batch", () => {
   for (const card of allCards(state)) assert.equal(card.id, positionsBefore.get(card.instanceId));
   assert.match(state.log.join("\n"), /xung đột.*fizzle/);
   assert.equal(state.phase, "day-A");
+});
+
+test("Purge publishes one typed resolution only after the hidden batch resolves", () => {
+  let state = createGame("purge-typed-resolution");
+  state.round = 7;
+  state.phase = "purge";
+  const ownA = state.players.A.board[0];
+  const ownB = state.players.B.board[0];
+
+  state = dispatch(state, { type: "purge.submit", seat: "A", target: ownA.id, swapTarget: ownB.id });
+  assert.equal(publicView(state).events.find((event) => event.type === "purge.resolved"), undefined);
+
+  state = dispatch(state, { type: "purge.submit", seat: "B", target: ownB.id, swapTarget: ownA.id });
+  assert.deepEqual(publicView(state).events.find((event) => event.type === "purge.resolved"), {
+    sequence: 0,
+    type: "purge.resolved",
+    round: 7,
+    rule: "swap",
+    status: "fizzled",
+  });
 });
 
 test("Round 7 Swap auto-fizzles when A has one card and B has no disjoint response", () => {

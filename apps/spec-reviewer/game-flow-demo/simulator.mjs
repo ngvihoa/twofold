@@ -1,4 +1,4 @@
-import { availableRoleGuesses, createGame, dispatch, purgeRule, publicView, ROLE_DEFS } from "./engine.mjs";
+import { availableRoleGuesses, createGame, dispatch, privateView, purgeRule, publicView, ROLE_DEFS } from "./engine.mjs";
 
 const PHASES = new Set([
   "setup-A", "setup-B", "purge", "day-A", "day-B", "council", "council-reaction",
@@ -30,6 +30,46 @@ function randomFromSeed(seed) {
 
 function choose(random, values) {
   return values[Math.floor(random() * values.length)];
+}
+
+function canonicalSerialize(value) {
+  if (value === null) return "null";
+  if (value === Infinity) return "number:Infinity";
+  if (value === -Infinity) return "number:-Infinity";
+  if (Number.isNaN(value)) return "number:NaN";
+  if (typeof value === "number") return `number:${value}`;
+  if (typeof value === "boolean") return `boolean:${value}`;
+  if (typeof value === "string") return `string:${JSON.stringify(value)}`;
+  if (Array.isArray(value)) return `array:[${value.map(canonicalSerialize).join(",")}]`;
+  if (typeof value === "object") {
+    const entries = Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalSerialize(value[key])}`);
+    return `object:{${entries.join(",")}}`;
+  }
+  return `${typeof value}:${String(value)}`;
+}
+
+export function stateDigest(state) {
+  const canonical = canonicalSerialize(state);
+  let hash = 0xcbf29ce484222325n;
+  for (let index = 0; index < canonical.length; index += 1) {
+    hash ^= BigInt(canonical.charCodeAt(index));
+    hash = BigInt.asUintN(64, hash * 0x100000001b3n);
+  }
+  return `fnv1a64:${hash.toString(16).padStart(16, "0")}`;
+}
+
+export function recipientStateDigest(state, recipient = "public") {
+  const publicState = publicView(state);
+  if (recipient === "public") return stateDigest(publicState);
+  if (!['A', 'B'].includes(recipient)) throw new Error("Recipient phải là public, A hoặc B.");
+  return stateDigest({ public: publicState, private: privateView(state, recipient) });
+}
+
+export function projectActionForRecipient(action, recipient = "public") {
+  if (!['public', 'A', 'B'].includes(recipient)) throw new Error("Recipient phải là public, A hoặc B.");
+  if (action.seat === recipient || action.type === "day.submit") return structuredClone(action);
+  if (action.seat) return { type: action.type, seat: action.seat, committed: true };
+  return { type: action.type };
 }
 
 function skillSource(state, seat, role) {
@@ -215,6 +255,11 @@ export function assertSimulationInvariants(state) {
     }
   }
   const view = publicView(state);
+  for (let index = 0; index < state.publicEvents.length; index += 1) {
+    const outcome = state.publicEvents[index];
+    if (outcome.sequence !== index) throw new Error(`Public outcome sequence lệch tại ${index}.`);
+    if (!isValidPublicOutcome(outcome)) throw new Error(`Public outcome schema không hợp lệ: ${outcome.type}.`);
+  }
   for (const seat of ["A", "B"]) {
     if (view.alive[seat] !== living(state, seat).length) throw new Error(`Public alive ${seat} lệch state.`);
   }
@@ -231,13 +276,14 @@ export function simulateGame(seed, { maxSteps = 250 } = {}) {
   const random = randomFromSeed(`${seed}:policy`);
   let state = createGame(seed);
   const trace = [];
+  const events = [];
   const phases = new Set();
   const actions = new Set();
   for (let step = 0; step < maxSteps; step += 1) {
     assertSimulationInvariants(state);
     phases.add(state.phase);
     if (state.phase === "ended") {
-      return { seed, steps: step, round: state.round, result: state.result, state, trace, coverage: { phases: [...phases], actions: [...actions] } };
+      return { seed, steps: step, round: state.round, result: state.result, state, trace, events, digest: stateDigest(state), coverage: { phases: [...phases], actions: [...actions] } };
     }
     const action = chooseSimulationAction(state, random);
     actions.add(`${action.type}:${action.kind || "default"}`);
@@ -247,11 +293,139 @@ export function simulateGame(seed, { maxSteps = 250 } = {}) {
     } catch (error) {
       throw new Error(`Seed ${seed}, step ${step}, V${state.round} ${state.phase}, action ${JSON.stringify(action)}: ${error.message}`, { cause: error });
     }
+    events.push({ action: structuredClone(action), digest: stateDigest(state) });
     trace.push({ step, round: state.round, phase: state.phase, action });
     if (trace.length > 20) trace.shift();
     if (JSON.stringify(state) === before) throw new Error(`Seed ${seed}, step ${step}: action không làm state tiến triển.`);
   }
   throw new Error(`Seed ${seed} vượt ${maxSteps} transition. Trace: ${JSON.stringify(trace)}`);
+}
+
+export function replayGame(seed, events) {
+  let state = createGame(seed);
+  for (let index = 0; index < events.length; index += 1) {
+    const action = events[index].action || events[index];
+    try {
+      state = dispatch(state, action);
+    } catch (error) {
+      throw new Error(`Replay event ${index} bị từ chối: ${error.message}`, { cause: error });
+    }
+    assertSimulationInvariants(state);
+    const actualDigest = stateDigest(state);
+    const expectedDigest = events[index].digest;
+    if (expectedDigest && actualDigest !== expectedDigest) {
+      throw new Error(`Replay divergence tại event ${index}: expected ${expectedDigest}, actual ${actualDigest}.`);
+    }
+  }
+  return { seed, events: events.length, state, digest: stateDigest(state) };
+}
+
+export function projectTranscript(seed, events, recipient = "public") {
+  if (!['public', 'A', 'B'].includes(recipient)) throw new Error("Recipient phải là public, A hoặc B.");
+  let state = createGame(seed);
+  const projectedEvents = [];
+  for (let index = 0; index < events.length; index += 1) {
+    const action = events[index].action || events[index];
+    const outcomeStart = state.publicEvents.length;
+    try {
+      state = dispatch(state, action);
+    } catch (error) {
+      throw new Error(`Transcript projection event ${index} bị từ chối: ${error.message}`, { cause: error });
+    }
+    assertSimulationInvariants(state);
+    const authoritativeDigest = stateDigest(state);
+    if (events[index].digest && events[index].digest !== authoritativeDigest) {
+      throw new Error(`Transcript projection divergence tại event ${index}.`);
+    }
+    projectedEvents.push({
+      index,
+      action: projectActionForRecipient(action, recipient),
+      outcomes: structuredClone(state.publicEvents.slice(outcomeStart)),
+      publicDigest: recipientStateDigest(state, "public"),
+      digest: recipientStateDigest(state, recipient),
+    });
+  }
+  return { recipient, events: projectedEvents, digest: recipientStateDigest(state, recipient) };
+}
+
+function isCommittedEnvelope(action, projected) {
+  return projected.type === action.type
+    && projected.seat === action.seat
+    && projected.committed === true
+    && Object.keys(projected).length === 3;
+}
+
+const PUBLIC_OUTCOME_FIELDS = new Map([
+  ["card.revealed", ["sequence", "type", "round", "position", "instanceId", "owner", "role", "faction"]],
+  ["card.eliminated", ["sequence", "type", "round", "position", "instanceId", "owner", "role", "faction"]],
+  ["card.revived", ["sequence", "type", "round", "position", "instanceId", "owner", "role", "faction"]],
+  ["card.saved", ["sequence", "type", "round", "position", "instanceId", "owner"]],
+  ["council.resolved", ["sequence", "type", "round", "attackerSeat", "target", "guess", "votePower", "success"]],
+  ["council.passed", ["sequence", "type", "round", "seat"]],
+  ["purge.resolved", ["sequence", "type", "round", "rule", "status"]],
+  ["match.ended", ["sequence", "type", "round", "winner", "reason"]],
+]);
+
+function isValidPublicOutcome(outcome) {
+  const fields = PUBLIC_OUTCOME_FIELDS.get(outcome.type);
+  if (!fields) return false;
+  return Object.keys(outcome).sort().join("|") === [...fields].sort().join("|")
+    && Number.isInteger(outcome.sequence)
+    && Number.isInteger(outcome.round);
+}
+
+export function fuzzRecipientTranscripts({ count = 50, prefix = "p09", maxSteps = 250 } = {}) {
+  let events = 0;
+  let outcomes = 0;
+  let hiddenActions = 0;
+  let leaks = 0;
+  for (let index = 0; index < count; index += 1) {
+    const recorded = simulateGame(`${prefix}-${index}`, { maxSteps });
+    const projections = {
+      public: projectTranscript(recorded.seed, recorded.events, "public"),
+      A: projectTranscript(recorded.seed, recorded.events, "A"),
+      B: projectTranscript(recorded.seed, recorded.events, "B"),
+    };
+    if (Object.hasOwn(projections.public, "seed") || Object.hasOwn(projections.A, "seed") || Object.hasOwn(projections.B, "seed")) leaks += 1;
+    events += recorded.events.length;
+    for (let eventIndex = 0; eventIndex < recorded.events.length; eventIndex += 1) {
+      const action = recorded.events[eventIndex].action;
+      const publicEvent = projections.public.events[eventIndex];
+      const aEvent = projections.A.events[eventIndex];
+      const bEvent = projections.B.events[eventIndex];
+      if (publicEvent.publicDigest !== aEvent.publicDigest || publicEvent.publicDigest !== bEvent.publicDigest) leaks += 1;
+      outcomes += publicEvent.outcomes.length;
+      if (canonicalSerialize(publicEvent.outcomes) !== canonicalSerialize(aEvent.outcomes)
+        || canonicalSerialize(publicEvent.outcomes) !== canonicalSerialize(bEvent.outcomes)) leaks += 1;
+      for (const outcome of publicEvent.outcomes) {
+        if (!isValidPublicOutcome(outcome)) leaks += 1;
+      }
+      if (action.seat && action.type !== "day.submit") {
+        hiddenActions += 1;
+        const ownerEvent = action.seat === "A" ? aEvent : bEvent;
+        const opponentEvent = action.seat === "A" ? bEvent : aEvent;
+        if (canonicalSerialize(ownerEvent.action) !== canonicalSerialize(action)) leaks += 1;
+        if (!isCommittedEnvelope(action, opponentEvent.action) || !isCommittedEnvelope(action, publicEvent.action)) leaks += 1;
+      }
+      if (Object.hasOwn(publicEvent, "authoritativeDigest") || Object.hasOwn(aEvent, "authoritativeDigest") || Object.hasOwn(bEvent, "authoritativeDigest")) leaks += 1;
+    }
+  }
+  return { games: count, events, outcomes, hiddenActions, leaks };
+}
+
+export function fuzzReplays({ count = 200, prefix = "p08", maxSteps = 250 } = {}) {
+  let events = 0;
+  let maxEvents = 0;
+  for (let index = 0; index < count; index += 1) {
+    const recorded = simulateGame(`${prefix}-${index}`, { maxSteps });
+    const replayed = replayGame(recorded.seed, recorded.events);
+    if (replayed.digest !== recorded.digest) {
+      throw new Error(`Replay ${recorded.seed} có final digest lệch: expected ${recorded.digest}, actual ${replayed.digest}.`);
+    }
+    events += recorded.events.length;
+    maxEvents = Math.max(maxEvents, recorded.events.length);
+  }
+  return { games: count, events, maxEvents, divergences: 0 };
 }
 
 export function fuzzGames({ count = 500, prefix = "p06", maxSteps = 250 } = {}) {

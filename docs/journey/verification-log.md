@@ -1,5 +1,39 @@
 # Nhật ký kiểm tra
 
+## 02/09/2026 — P0.10 typed public outcomes và Phase 0 exit
+
+- Năm TDD slice khóa Council resolve, Day reveal/eliminate, Night saved privacy, Witch revive và Purge batch completion; match end được mở rộng bằng terminal event.
+- `publicView.events` dùng sequence tăng dần và allowlist 8 loại event; recipient transcript chỉ gắn outcome delta do transition vừa resolve.
+- `card.saved` không chứa role/source/kind; Council/Purge không phát outcome khi mới có lựa chọn kín đầu tiên.
+- Full engine/simulator suite: **54/54 pass**.
+- Audit 200 seed `p10-outcome-audit-recipient-*`: **15.306 transition**, **11.125 typed outcome**, **10.995 hidden action**, schema/recipient leak 0.
+- Phase 0 của spec reviewer đóng ở P0.10; handoff qua migration audit/runtime P1 theo policy hiện hành. Không mở P0.11 nếu không phát hiện blocker hồi quy.
+
+Giới hạn: local/in-memory; chưa kiểm serialization/wire-version, command idempotency, hai client thật, reconnect, timing/traffic side-channel hoặc human balance playtest.
+
+## 02/09/2026 — P0.9 recipient transcript/digest projection
+
+- Bốn TDD red signal: thiếu recipient digest, action projector, transcript projector và recipient fuzz capability.
+- Public digest chỉ hash `publicView`; A/B digest hash public + đúng `privateView` của seat.
+- Action projector deny-by-default: owner giữ payload; Day public; action có seat khác chỉ còn `{type, seat, committed}`.
+- Recipient transcript không trả seed hoặc authoritative full-state digest.
+- Regression 50 full match PASS.
+- Audit 200 seed `p09-audit-*`: **15.581 event**, **11.190 hidden action**, leak 0.
+- CLI smoke `--count=20 --recipient-count=20`: 1.623 event, 1.168 hidden action, leak 0.
+
+Giới hạn: local/in-memory; chưa kiểm serialization, traffic/timing side-channel hoặc typed resolved public outcome events.
+
+## 02/09/2026 — P0.8 deterministic event replay/state digest
+
+- Ba TDD red signal: thiếu `replayGame`; replay chưa reject digest lệch; thiếu `fuzzReplays`.
+- Full-match transcript lưu accepted action và canonical full-state digest sau từng transition.
+- Replay dùng lại public `dispatch`, fail-fast với event index + expected/actual digest.
+- Targeted round-trip và divergence test PASS; digest sửa ở giữa transcript được phát hiện đúng event 34.
+- Replay audit 200 seed `p08-audit-*`: **15.665/15.665 event trùng digest**, max 132 event/trận, divergence 0.
+- CLI smoke `--count=20 --replay-count=20`: 1.497 event, divergence 0.
+
+Giới hạn: cùng runtime/code version; chưa kiểm tra persistence, backward compatibility, packet reorder/duplication hoặc public/private per-recipient digest.
+
 ## 01/09/2026 — P0.7 invalid-action atomic rejection
 
 - TDD red: `simulator.mjs` chưa export `fuzzInvalidActions`; test fail ở ESM import như expected.

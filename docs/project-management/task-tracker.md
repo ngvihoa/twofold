@@ -14,7 +14,7 @@
 | GD-02 | Core Rule | Chốt hành động Ban ngày/Ban đêm, Vote từ Vòng 2 và pha Thanh trừng từ Vòng 6 | Game Designer/PO | Playtest/Review | Không còn nhánh chính mơ hồ trong một vòng |
 | GD-03 | Treo cổ | Paper test cơ chế chọn lá + đoán vai trò | Game Designer/PO | Cần kiểm chứng | Có kết luận giữ/sửa/bỏ và lý do |
 | GD-04 | Roles | Chọn một bộ 10 lá cơ bản duy nhất | Game Designer/PO | Playtest/Review | Có số lượng, kỹ năng, giới hạn và ví dụ resolve |
-| GD-05 | Information | Lập information map | Game Designer/PO | Playtest/Review | Prototype đã khóa night shield/Seer public-private; còn field map multiplayer |
+| GD-05 | Information | Lập information map | Game Designer/PO | Playtest/Review | P0.10 typed outcome map + 11.125 outcome audit leak 0; còn multiplayer transport và human review |
 | GD-06 | Edge cases | Chốt thứ tự resolve v0.1 | Game Designer/PO + Dev | Đang làm | Prototype core 38/38; còn chốt priority Thợ săn/Cắt bỏ và simultaneous death mở rộng |
 | UX-01 | Visual | Moodboard và 1–2 hướng visual | UI/UX Game | Tuần này | Team chọn được một hướng để prototype |
 | UX-02 | UX Flow | Screen/state inventory | UI/UX Game | Tuần này | Bao phủ toàn bộ state trong Game Flow |
@@ -41,7 +41,7 @@
 | WEB-06 | 05/10 | Thắng/thua, nhận thua, reconnect | Developer | Đang làm | Final Duel/result/rematch local 38/38; còn surrender + reconnect + consent multiplayer |
 | WEB-07 | 05/10 | Build pha Thanh trừng màu đỏ từ Vòng 6: Cắt bỏ, Đảo chiến tuyến, Ép lộ diện, Khóa mạch | Developer + Game Designer | Playtest/Review | Local suite 38/38 + browser V6–V9/reaction pass; còn human full-match/balance playtest |
 | WEB-08 | 05/10 | Kết quả, đấu lại, đối thủ khác | Developer + UI/UX | Ý tưởng | WEB-06 |
-| QA-01 | 19/10 | Test deterministic resolution và desync | Developer | Đang làm | P0.6–P0.7: 5.000 valid seed + 76.991 atomic rejection pass; còn event replay/desync hai client |
+| QA-01 | 19/10 | Test deterministic resolution và desync | Developer | Đang làm | Phase 0 P0.6–P0.10: 54/54, replay + 10.995 hidden action/11.125 outcome leak 0; còn serialization/transport/desync hai client |
 | PT-01 | 19/10 | Tổ chức ít nhất 10 session với đồng nghiệp | Game Designer/PO | Ý tưởng | Build ổn định |
 | PT-02 | 19/10 | Tổng hợp comprehension/completion/duration/rematch | Game Designer/PO | Ý tưởng | PT-01 |
 | UX-05 | 19/10 | Sửa các điểm chặn hiểu luật | UI/UX Game | Ý tưởng | PT-01 |

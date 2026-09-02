@@ -18,6 +18,7 @@ Mục tiêu không phải chép nguyên transcript. Mỗi entry cần giúp mộ
 | [28/08/2026](2026-08-28-tu-tai-lieu-den-prototype.md) | Từ tài liệu sang công cụ và prototype | Role Atlas, monorepo, CLI, state machine và nhiều vòng playtest UI |
 | [29/08/2026 — Case study Thanh trừng](2026-08-29-case-study-thanh-trung-gameflow.md) | Thay đổi nhịp Game Flow | Từ Day/Night + Tai họa rời rạc sang Bình minh → Thanh trừng → Ngày → Vote → Đêm; đánh dấu làm case study về pacing và reveal economy |
 | [29/08/2026](2026-08-29-xay-he-thong-luu-tru-hanh-trinh.md) | Biến lịch sử thành tài sản của team | Thiết lập conversation index, build journal và quy trình cập nhật |
+| [02/09/2026 — Đóng Phase 0](2026-09-02-dong-phase-0.md) | Từ luật prototype tới contract kiểm chứng được | P0.1–P0.10 hoàn tất; 54/54 test và typed outcome audit leak 0; sẵn sàng vào authoritative room P1 |
 
 ## Các tài liệu hỗ trợ
 
@@ -57,3 +58,4 @@ Mục tiêu không phải chép nguyên transcript. Mỗi entry cần giúp mộ
 - State machine tại `b589667` đã được chạy smoke test lại ngày 29/08/2026: 11/11 case pass.
 - Dataset Role Atlas đã được kiểm tra lại ngày 29/08/2026: 92 role, 5 phe, 80 ảnh.
 - Ngày 29/08/2026 repo đang có một đợt tái cấu trúc monorepo chưa hoàn tất; journal không can thiệp vào đợt thay đổi đó.
+- Ngày 02/09/2026 Phase 0 của spec reviewer đóng tại P0.10; bước tiếp theo là migration audit với runtime/P1 track hiện có, không phải mở thêm P0 mặc định hay tự tuyên bố parity.

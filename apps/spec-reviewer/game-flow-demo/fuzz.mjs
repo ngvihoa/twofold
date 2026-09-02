@@ -1,4 +1,4 @@
-import { fuzzGames, fuzzInvalidActions } from "./simulator.mjs";
+import { fuzzGames, fuzzInvalidActions, fuzzRecipientTranscripts, fuzzReplays } from "./simulator.mjs";
 
 const args = process.argv.slice(2);
 const option = (name, fallback) => {
@@ -18,6 +18,8 @@ const nonNegativeInteger = (name, fallback) => {
 
 const count = positiveInteger("count", 500);
 const invalidCount = nonNegativeInteger("invalid-count", 0);
+const replayCount = nonNegativeInteger("replay-count", 0);
+const recipientCount = nonNegativeInteger("recipient-count", 0);
 const maxSteps = positiveInteger("max-steps", 250);
 const prefix = option("prefix", "p06-cli");
 const startedAt = performance.now();
@@ -30,6 +32,8 @@ const winners = runs.reduce((totals, run) => {
   return totals;
 }, {});
 const invalid = invalidCount > 0 ? fuzzInvalidActions({ count: invalidCount, prefix: `${prefix}-invalid`, maxSteps }) : null;
+const replay = replayCount > 0 ? fuzzReplays({ count: replayCount, prefix: `${prefix}-replay`, maxSteps }) : null;
+const recipients = recipientCount > 0 ? fuzzRecipientTranscripts({ count: recipientCount, prefix: `${prefix}-recipient`, maxSteps }) : null;
 
 console.log(JSON.stringify({
   games: runs.length,
@@ -38,6 +42,8 @@ console.log(JSON.stringify({
   maxRound: Math.max(...runs.map((run) => run.round)),
   winners,
   invalid,
+  replay,
+  recipients,
   coverage: { phases: [...phases].sort(), actions: [...actions].sort() },
   durationMs: Math.round(performance.now() - startedAt),
 }, null, 2));

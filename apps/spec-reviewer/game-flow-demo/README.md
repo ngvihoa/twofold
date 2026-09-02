@@ -32,6 +32,26 @@ P0.7 có thể fuzz thêm action sai và replay action đã khóa. Mọi rejecti
 npm run fuzz:game --workspace=@twofold/spec-reviewer -- --count=500 --invalid-count=200 --prefix=local
 ```
 
+P0.8 ghi action stream kèm canonical state digest rồi replay từ cùng seed. Digest lệch sẽ báo đúng event đầu tiên:
+
+```bash
+npm run fuzz:game --workspace=@twofold/spec-reviewer -- --count=500 --replay-count=200 --prefix=local
+```
+
+P0.9 project transcript theo `public`, `A` và `B`: owner giữ payload của mình; action commit kín của đối thủ chỉ còn envelope; seed và authoritative digest không được xuất ra:
+
+```bash
+npm run fuzz:game --workspace=@twofold/spec-reviewer -- --count=500 --recipient-count=50 --prefix=local
+```
+
+P0.10 gắn các outcome công khai có kiểu vào từng transition của recipient transcript. Audit kiểm allowlist field, sequence, cùng một outcome cho `public`/`A`/`B`, và không để save ban đêm lộ source hay loại lệnh:
+
+```bash
+npm run fuzz:game --workspace=@twofold/spec-reviewer -- --count=1 --recipient-count=200 --prefix=p10-outcome-audit
+```
+
+Catalog prototype hiện có: `card.revealed`, `card.eliminated`, `card.saved`, `card.revived`, `council.resolved`, `council.passed`, `purge.resolved`, `match.ended`. Đây là event sau resolve; hidden command vẫn dùng committed envelope của P0.9.
+
 ### Bản web trực quan
 
 Chạy reviewer bằng Vite:
