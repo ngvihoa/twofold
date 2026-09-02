@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { fuzzGames, fuzzInvalidActions, simulateGame } from "./simulator.mjs";
+import { fuzzGames, fuzzInvalidActions, fuzzReplays, replayGame, simulateGame, stateDigest } from "./simulator.mjs";
 
 test("seeded full-match simulator is deterministic", () => {
   const first = simulateGame("p06-deterministic");
@@ -32,4 +32,29 @@ test("invalid-action fuzz rejects atomically across reachable states", () => {
   assert.equal(result.games, 200);
   assert.ok(result.rejections >= 5_000);
   assert.ok(result.phases.includes("ended"));
+});
+
+test("recorded action stream replays to the same final state digest", () => {
+  const recorded = simulateGame("p08-replay");
+  const replayed = replayGame(recorded.seed, recorded.events);
+  assert.equal(replayed.digest, recorded.digest);
+  assert.equal(replayed.digest, stateDigest(recorded.state));
+});
+
+test("replay reports the exact event whose expected state digest diverges", () => {
+  const recorded = simulateGame("p08-divergence");
+  const altered = structuredClone(recorded.events);
+  const changedIndex = Math.floor(altered.length / 2);
+  altered[changedIndex].digest = "fnv1a64:0000000000000000";
+  assert.throws(
+    () => replayGame(recorded.seed, altered),
+    new RegExp(`Replay divergence tại event ${changedIndex}`),
+  );
+});
+
+test("200 recorded matches replay without state digest divergence", () => {
+  const result = fuzzReplays({ count: 200, prefix: "p08-replay-fuzz" });
+  assert.equal(result.games, 200);
+  assert.ok(result.events >= 5_000);
+  assert.equal(result.divergences, 0);
 });

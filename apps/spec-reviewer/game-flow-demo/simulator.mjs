@@ -32,6 +32,32 @@ function choose(random, values) {
   return values[Math.floor(random() * values.length)];
 }
 
+function canonicalSerialize(value) {
+  if (value === null) return "null";
+  if (value === Infinity) return "number:Infinity";
+  if (value === -Infinity) return "number:-Infinity";
+  if (Number.isNaN(value)) return "number:NaN";
+  if (typeof value === "number") return `number:${value}`;
+  if (typeof value === "boolean") return `boolean:${value}`;
+  if (typeof value === "string") return `string:${JSON.stringify(value)}`;
+  if (Array.isArray(value)) return `array:[${value.map(canonicalSerialize).join(",")}]`;
+  if (typeof value === "object") {
+    const entries = Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalSerialize(value[key])}`);
+    return `object:{${entries.join(",")}}`;
+  }
+  return `${typeof value}:${String(value)}`;
+}
+
+export function stateDigest(state) {
+  const canonical = canonicalSerialize(state);
+  let hash = 0xcbf29ce484222325n;
+  for (let index = 0; index < canonical.length; index += 1) {
+    hash ^= BigInt(canonical.charCodeAt(index));
+    hash = BigInt.asUintN(64, hash * 0x100000001b3n);
+  }
+  return `fnv1a64:${hash.toString(16).padStart(16, "0")}`;
+}
+
 function skillSource(state, seat, role) {
   return state.players[seat].board.find((card) => card.alive && card.role === role && card.purgeLockedRound !== state.round);
 }
@@ -231,13 +257,14 @@ export function simulateGame(seed, { maxSteps = 250 } = {}) {
   const random = randomFromSeed(`${seed}:policy`);
   let state = createGame(seed);
   const trace = [];
+  const events = [];
   const phases = new Set();
   const actions = new Set();
   for (let step = 0; step < maxSteps; step += 1) {
     assertSimulationInvariants(state);
     phases.add(state.phase);
     if (state.phase === "ended") {
-      return { seed, steps: step, round: state.round, result: state.result, state, trace, coverage: { phases: [...phases], actions: [...actions] } };
+      return { seed, steps: step, round: state.round, result: state.result, state, trace, events, digest: stateDigest(state), coverage: { phases: [...phases], actions: [...actions] } };
     }
     const action = chooseSimulationAction(state, random);
     actions.add(`${action.type}:${action.kind || "default"}`);
@@ -247,11 +274,46 @@ export function simulateGame(seed, { maxSteps = 250 } = {}) {
     } catch (error) {
       throw new Error(`Seed ${seed}, step ${step}, V${state.round} ${state.phase}, action ${JSON.stringify(action)}: ${error.message}`, { cause: error });
     }
+    events.push({ action: structuredClone(action), digest: stateDigest(state) });
     trace.push({ step, round: state.round, phase: state.phase, action });
     if (trace.length > 20) trace.shift();
     if (JSON.stringify(state) === before) throw new Error(`Seed ${seed}, step ${step}: action không làm state tiến triển.`);
   }
   throw new Error(`Seed ${seed} vượt ${maxSteps} transition. Trace: ${JSON.stringify(trace)}`);
+}
+
+export function replayGame(seed, events) {
+  let state = createGame(seed);
+  for (let index = 0; index < events.length; index += 1) {
+    const action = events[index].action || events[index];
+    try {
+      state = dispatch(state, action);
+    } catch (error) {
+      throw new Error(`Replay event ${index} bị từ chối: ${error.message}`, { cause: error });
+    }
+    assertSimulationInvariants(state);
+    const actualDigest = stateDigest(state);
+    const expectedDigest = events[index].digest;
+    if (expectedDigest && actualDigest !== expectedDigest) {
+      throw new Error(`Replay divergence tại event ${index}: expected ${expectedDigest}, actual ${actualDigest}.`);
+    }
+  }
+  return { seed, events: events.length, state, digest: stateDigest(state) };
+}
+
+export function fuzzReplays({ count = 200, prefix = "p08", maxSteps = 250 } = {}) {
+  let events = 0;
+  let maxEvents = 0;
+  for (let index = 0; index < count; index += 1) {
+    const recorded = simulateGame(`${prefix}-${index}`, { maxSteps });
+    const replayed = replayGame(recorded.seed, recorded.events);
+    if (replayed.digest !== recorded.digest) {
+      throw new Error(`Replay ${recorded.seed} có final digest lệch: expected ${recorded.digest}, actual ${replayed.digest}.`);
+    }
+    events += recorded.events.length;
+    maxEvents = Math.max(maxEvents, recorded.events.length);
+  }
+  return { games: count, events, maxEvents, divergences: 0 };
 }
 
 export function fuzzGames({ count = 500, prefix = "p06", maxSteps = 250 } = {}) {

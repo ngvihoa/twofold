@@ -32,6 +32,12 @@ P0.7 có thể fuzz thêm action sai và replay action đã khóa. Mọi rejecti
 npm run fuzz:game --workspace=@twofold/spec-reviewer -- --count=500 --invalid-count=200 --prefix=local
 ```
 
+P0.8 ghi action stream kèm canonical state digest rồi replay từ cùng seed. Digest lệch sẽ báo đúng event đầu tiên:
+
+```bash
+npm run fuzz:game --workspace=@twofold/spec-reviewer -- --count=500 --replay-count=200 --prefix=local
+```
+
 ### Bản web trực quan
 
 Chạy reviewer bằng Vite:

@@ -1,5 +1,16 @@
 # Nhật ký kiểm tra
 
+## 02/09/2026 — P0.8 deterministic event replay/state digest
+
+- Ba TDD red signal: thiếu `replayGame`; replay chưa reject digest lệch; thiếu `fuzzReplays`.
+- Full-match transcript lưu accepted action và canonical full-state digest sau từng transition.
+- Replay dùng lại public `dispatch`, fail-fast với event index + expected/actual digest.
+- Targeted round-trip và divergence test PASS; digest sửa ở giữa transcript được phát hiện đúng event 34.
+- Replay audit 200 seed `p08-audit-*`: **15.665/15.665 event trùng digest**, max 132 event/trận, divergence 0.
+- CLI smoke `--count=20 --replay-count=20`: 1.497 event, divergence 0.
+
+Giới hạn: cùng runtime/code version; chưa kiểm tra persistence, backward compatibility, packet reorder/duplication hoặc public/private per-recipient digest.
+
 ## 01/09/2026 — P0.7 invalid-action atomic rejection
 
 - TDD red: `simulator.mjs` chưa export `fuzzInvalidActions`; test fail ở ESM import như expected.
