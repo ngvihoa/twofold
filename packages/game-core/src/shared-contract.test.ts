@@ -4,11 +4,11 @@ import {
   CardIdSchema,
   CardRole,
   ClientWsMessageSchema,
-  GameEventSchema,
   GamePlayerViewV2Schema,
   PlayerGameActionSchema,
   PlayerId,
   PublicCardViewV2Schema,
+  PublicGameOutcomeSchema,
   ServerWsMessageSchema,
 } from '@twofold/shared-types';
 import { createInitialCard } from './cards';
@@ -104,7 +104,11 @@ describe('shared-types ruleset v0.2 contract', () => {
     expect(
       ClientWsMessageSchema.safeParse({
         type: 'SUBMIT_ACTION',
-        payload: actions[0],
+        payload: {
+          commandId: 'command-1',
+          expectedVersion: 0,
+          action: actions[0],
+        },
       }).success
     ).toBe(true);
   });
@@ -159,7 +163,10 @@ describe('shared-types ruleset v0.2 contract', () => {
 
     expect(parsed.self.board).toHaveLength(10);
     expect(parsed.opponent.board.every((card) => card.role === null)).toBe(true);
-    expect(parsed.events).toHaveLength(2);
+    expect(parsed.outcomes.map((event) => event.type)).toEqual(['CARD_REVEALED']);
+    expect(parsed.privateEvents.map((event) => event.type)).toEqual([
+      'PRIVATE_INSPECTION_RESULT',
+    ]);
     expect(
       ServerWsMessageSchema.safeParse({
         type: 'GAME_STATE_UPDATE',
@@ -195,14 +202,13 @@ describe('shared-types ruleset v0.2 contract', () => {
     ).toBe(false);
   });
 
-  it('rejects Seer intel events accidentally marked public', () => {
+  it('rejects Seer intel from the public outcome contract', () => {
     expect(
-      GameEventSchema.safeParse({
+      PublicGameOutcomeSchema.safeParse({
         id: 'game:event:1',
         sequence: 1,
         round: 1,
         phase: 'NIGHT_RESOLUTION',
-        visibility: { type: 'PUBLIC' },
         type: 'PRIVATE_INSPECTION_RESULT',
         intelId: 'intel-1',
         targetCardId: 'B1',

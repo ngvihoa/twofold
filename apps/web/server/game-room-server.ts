@@ -4,7 +4,6 @@ import {
   PlayerId,
   ServerWsMessageSchema,
   type ClientWsMessage,
-  type PlayerGameAction,
   type ServerWsMessage,
 } from '@twofold/shared-types';
 
@@ -27,7 +26,19 @@ interface GameRoom {
   readonly id: string;
   readonly engine: GameEngine;
   readonly sessions: Map<PlayerId, PlayerSession>;
+  readonly commandResults: Map<string, CommandResult>;
 }
+
+type SubmitCommand = Extract<ClientWsMessage, { type: 'SUBMIT_ACTION' }>['payload'];
+type CommandResult =
+  | { readonly type: 'ACCEPTED'; readonly fingerprint: string }
+  | {
+      readonly type: 'REJECTED';
+      readonly fingerprint: string;
+      readonly code: string;
+      readonly message: string;
+      readonly currentVersion: number;
+    };
 
 export interface GameRoomServerOptions {
   readonly createEngine?: (roomId: string) => GameEngine;
@@ -140,29 +151,90 @@ export class GameRoomServer {
     this.broadcastViews(this.requireRoom(roomId));
   }
 
-  private submitAction(peer: GameServerPeer, action: PlayerGameAction): void {
+  private submitAction(peer: GameServerPeer, command: SubmitCommand): void {
     const session = this.getSessionForPeer(peer);
     if (!session) {
       this.sendError(peer, 'JOIN_REQUIRED', 'Phải JOIN_ROOM trước khi gửi action.');
       return;
     }
-    if (action.playerId !== session.playerId) {
-      this.reject(peer, 'PLAYER_MISMATCH', 'Action playerId không khớp session hiện tại.');
+    const { action } = command;
+    const room = this.requireRoom(session.roomId);
+    const commandKey = `${session.id}:${command.commandId}`;
+    const fingerprint = JSON.stringify({
+      expectedVersion: command.expectedVersion,
+      action: command.action,
+    });
+    const previous = room.commandResults.get(commandKey);
+    if (previous) {
+      if (previous.fingerprint !== fingerprint) {
+        this.rejectCommand(
+          peer,
+          command.commandId,
+          'COMMAND_ID_CONFLICT',
+          'commandId đã được dùng cho payload khác.',
+          room.engine.getState().version
+        );
+      } else if (previous.type === 'REJECTED') {
+        this.rejectCommand(
+          peer,
+          command.commandId,
+          previous.code,
+          previous.message,
+          previous.currentVersion
+        );
+      } else {
+        this.sendView(room, session);
+      }
       return;
     }
 
-    const room = this.requireRoom(session.roomId);
+    const currentVersion = room.engine.getState().version;
+    if (command.expectedVersion !== currentVersion) {
+      const result: CommandResult = {
+        type: 'REJECTED',
+        fingerprint,
+        code: 'STALE_STATE',
+        message: `Command dựa trên version ${command.expectedVersion}; server đang ở version ${currentVersion}.`,
+        currentVersion,
+      };
+      room.commandResults.set(commandKey, result);
+      this.rejectCommand(
+        peer,
+        command.commandId,
+        result.code,
+        result.message,
+        result.currentVersion
+      );
+      this.sendView(room, session);
+      return;
+    }
+    if (action.playerId !== session.playerId) {
+      const message = 'Action playerId không khớp session hiện tại.';
+      room.commandResults.set(commandKey, {
+        type: 'REJECTED', fingerprint, code: 'PLAYER_MISMATCH', message, currentVersion,
+      });
+      this.rejectCommand(peer, command.commandId, 'PLAYER_MISMATCH', message, currentVersion);
+      return;
+    }
+
     try {
       room.engine.dispatch(action);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Action không hợp lệ.';
-      this.reject(
+      const code = error instanceof RuleValidationError ? 'RULE_VALIDATION' : 'ACTION_FAILED';
+      room.commandResults.set(commandKey, {
+        type: 'REJECTED', fingerprint, code, message, currentVersion,
+      });
+      this.rejectCommand(
         peer,
-        error instanceof RuleValidationError ? 'RULE_VALIDATION' : 'ACTION_FAILED',
-        message
+        command.commandId,
+        code,
+        message,
+        currentVersion
       );
       return;
     }
+    room.commandResults.set(commandKey, { type: 'ACCEPTED', fingerprint });
     this.broadcastViews(room);
   }
 
@@ -173,6 +245,7 @@ export class GameRoomServer {
       id: roomId,
       engine: this.createEngine(roomId),
       sessions: new Map(),
+      commandResults: new Map(),
     };
     this.rooms.set(roomId, room);
     return room;
@@ -209,18 +282,35 @@ export class GameRoomServer {
 
   private broadcastViews(room: GameRoom): void {
     room.sessions.forEach((session) => {
-      if (!session.peer) return;
-      this.send(session.peer, {
+      this.sendView(room, session);
+    });
+  }
+
+  private sendView(room: GameRoom, session: PlayerSession): void {
+    if (!session.peer) return;
+    this.send(session.peer, {
         type: 'GAME_STATE_UPDATE',
         payload: GamePlayerViewV2Schema.parse(
           room.engine.getAuthoritativePlayerView(session.playerId)
         ),
-      });
+    });
+  }
+
+  private rejectCommand(
+    peer: GameServerPeer,
+    commandId: string,
+    code: string,
+    message: string,
+    currentVersion: number
+  ): void {
+    this.send(peer, {
+      type: 'ACTION_REJECTED',
+      payload: { commandId, code, message, currentVersion },
     });
   }
 
   private reject(peer: GameServerPeer, code: string, message: string): void {
-    this.send(peer, { type: 'ACTION_REJECTED', payload: { code, message } });
+    this.sendError(peer, code, message);
   }
 
   private sendError(peer: GameServerPeer, code: string, message: string): void {

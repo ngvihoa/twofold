@@ -721,6 +721,8 @@ function prepareCouncilResolution(state: GameState): GameState {
       playerId,
       targetCardId: accusation.targetId,
       voterIds: accusation.voterIds,
+      guessedRole: accusation.guessedRole,
+      votePower,
       succeeded: correct,
     });
     if (correct) {
@@ -1413,6 +1415,13 @@ function resolveNight(state: GameState): GameState {
       },
     };
     next = replaceCard(next, transitionCard(target, { type: 'APPLY_EFFECT', effect: protection }));
+    events.push({
+      type: 'ABILITY_RESOLVED',
+      visibility: { type: 'PRIVATE', playerId },
+      abilityId: AbilityId.GUARD_PROTECT,
+      sourceCardId: source.id,
+      targetCardId: target.id,
+    });
     events.push({
       type: 'EFFECT_APPLIED',
       visibility: { type: 'PRIVATE', playerId },

@@ -1,4 +1,4 @@
-import type { GameEventV2 } from '@twofold/shared-types';
+import { CardRole, Faction, PlayerId, type GamePresentationEventV2 } from '@twofold/shared-types';
 import { createActor } from 'xstate';
 import { describe, expect, it } from 'vitest';
 import {
@@ -10,16 +10,19 @@ import {
 
 function event(
   sequence: number,
-  phase: GameEventV2['phase'] = 'DAY_A'
-): GameEventV2 {
+  phase: GamePresentationEventV2['phase'] = 'DAY_A'
+): GamePresentationEventV2 {
   return {
     id: `event-${sequence}`,
     sequence,
     round: 1,
     phase,
-    visibility: { type: 'PUBLIC' },
     type: 'CARD_REVEALED',
     cardId: 'A1',
+    instanceId: 'A:1',
+    owner: PlayerId.PLAYER_A,
+    role: CardRole.VILLAGER,
+    faction: Faction.VILLAGE,
   };
 }
 

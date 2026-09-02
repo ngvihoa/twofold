@@ -1,18 +1,21 @@
-import type { GameEventV2 } from '@twofold/shared-types';
+import { CardRole, Faction, PlayerId, type GamePresentationEventV2 } from '@twofold/shared-types';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { PrototypeGameEventPresentationCard } from './-Prototype.GameEventPresentation';
 
 describe('PrototypeGameEventPresentationCard', () => {
   it('renders formatted structured-event wording and queue controls', () => {
-    const event: GameEventV2 = {
+    const event: GamePresentationEventV2 = {
       id: 'event-7',
       sequence: 7,
       round: 2,
       phase: 'NIGHT_RESOLUTION',
-      visibility: { type: 'PUBLIC' },
       type: 'CARD_REVEALED',
       cardId: 'B4',
+      instanceId: 'B:4',
+      owner: PlayerId.PLAYER_B,
+      role: CardRole.WEREWOLF,
+      faction: Faction.WEREWOLF,
     };
     const html = renderToStaticMarkup(
       <PrototypeGameEventPresentationCard

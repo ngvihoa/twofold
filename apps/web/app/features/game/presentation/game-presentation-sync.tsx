@@ -1,14 +1,14 @@
-import type { GameEventV2 } from '@twofold/shared-types';
+import type { GamePresentationEventV2 } from '@twofold/shared-types';
 import { useEffect, useRef } from 'react';
 import { GamePresentationActorContext } from './game-presentation-context';
 
 export interface GamePresentationSyncProps {
   readonly gameId: string;
-  readonly events: readonly GameEventV2[];
+  readonly events: readonly GamePresentationEventV2[];
 }
 
 /**
- * Đồng bộ structured events đã lọc theo viewer vào presentation actor.
+ * Đồng bộ public outcomes và private feedback đã project vào presentation actor.
  * Snapshot đầu tiên chỉ tạo baseline để reconnect không phát lại toàn bộ lịch sử;
  * các snapshot sau mới được đưa vào animation queue.
  */

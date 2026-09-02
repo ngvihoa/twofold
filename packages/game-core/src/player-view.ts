@@ -1,4 +1,9 @@
-import { CardRole, PlayerId } from '@twofold/shared-types';
+import {
+  CardRole,
+  PlayerId,
+  type PrivateGameEventV2,
+  type PublicGameOutcomeV2,
+} from '@twofold/shared-types';
 import {
   CardEffectKind,
   type CardEffectExpiry,
@@ -9,10 +14,7 @@ import {
   type GameCard,
 } from './cards';
 import type { GameResult, GameState } from './game-state';
-import {
-  isGameEventVisibleTo,
-  type GameEvent,
-} from './game-events';
+import type { GameEvent } from './game-events';
 import { getActivePhasePlayer, type GamePhaseState } from './phase-machine';
 import type {
   PlayerSetupState,
@@ -91,6 +93,7 @@ export interface OpponentPlayerView {
 /** Snapshot authoritative đã được lọc theo quyền biết của một player. */
 export interface GamePlayerView {
   readonly gameId: string;
+  readonly version: number;
   readonly viewerId: PlayerId;
   readonly round: number;
   readonly phase: GamePhaseState;
@@ -98,7 +101,8 @@ export interface GamePlayerView {
   readonly self: PrivatePlayerView;
   readonly opponent: OpponentPlayerView;
   readonly result: GameResult | null;
-  readonly events: readonly GameEvent[];
+  readonly outcomes: readonly PublicGameOutcomeV2[];
+  readonly privateEvents: readonly PrivateGameEventV2[];
 }
 
 /**
@@ -118,6 +122,7 @@ export function serializePlayerView(
 
   return {
     gameId: state.gameId,
+    version: state.version,
     viewerId,
     round: state.round,
     phase: { ...state.phase },
@@ -125,31 +130,45 @@ export function serializePlayerView(
     self: serializePrivatePlayer(self),
     opponent: serializeOpponentPlayer(opponent),
     result: state.result ? { ...state.result } : null,
-    events: state.events
-      .filter((event) => isGameEventVisibleTo(event, viewerId))
-      .map(cloneGameEvent),
+    outcomes: structuredClone(state.outcomes),
+    privateEvents: state.events.flatMap((event) =>
+      projectPrivateEvent(event, viewerId)
+    ),
   };
 }
 
-function cloneGameEvent(event: GameEvent): GameEvent {
-  if (event.type === 'CARD_ELIMINATED') {
-    return {
-      ...event,
-      visibility: { ...event.visibility },
-      cause: { ...event.cause },
-    };
+function projectPrivateEvent(
+  event: GameEvent,
+  viewerId: PlayerId
+): readonly PrivateGameEventV2[] {
+  if (event.visibility.type !== 'PRIVATE' || event.visibility.playerId !== viewerId) {
+    return [];
   }
-  if (event.type === 'COUNCIL_ACCUSATION_RESOLVED') {
-    return {
-      ...event,
-      visibility: { ...event.visibility },
-      voterIds: [...event.voterIds],
-    };
-  }
-  return {
-    ...event,
-    visibility: { ...event.visibility },
+  const envelope = {
+    id: event.id,
+    sequence: event.sequence,
+    round: event.round,
+    phase: event.phase,
   };
+  if (event.type === 'ABILITY_RESOLVED') {
+    return [{
+      ...envelope,
+      type: event.type,
+      abilityId: event.abilityId,
+      sourceCardId: event.sourceCardId,
+      targetCardId: event.targetCardId,
+    }];
+  }
+  if (event.type === 'PRIVATE_INSPECTION_RESULT') {
+    return [{
+      ...envelope,
+      type: event.type,
+      intelId: event.intelId,
+      targetCardId: event.targetCardId,
+      discoveredRole: event.discoveredRole,
+    }];
+  }
+  return [];
 }
 
 function serializePrivatePlayer(player: PlayerState): PrivatePlayerView {

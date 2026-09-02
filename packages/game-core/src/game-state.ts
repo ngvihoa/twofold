@@ -1,4 +1,8 @@
-import { PlayerId, WinReason } from '@twofold/shared-types';
+import {
+  PlayerId,
+  WinReason,
+  type PublicGameOutcomeV2,
+} from '@twofold/shared-types';
 import type { PlayerState } from './players';
 import {
   type GamePhaseState,
@@ -29,11 +33,15 @@ export interface GameResult {
 export interface GameState {
   readonly gameId: string;
   readonly seed: string;
+  /** Monotonic revision; tăng đúng một lần sau mỗi command được chấp nhận. */
+  readonly version: number;
   readonly round: number;
   readonly phase: GamePhaseState;
   readonly players: Record<PlayerId, PlayerState>;
   readonly result: GameResult | null;
   readonly events: readonly GameEvent[];
+  /** Public outcome đã allowlist, độc lập với authoritative event payload. */
+  readonly outcomes: readonly PublicGameOutcomeV2[];
 }
 
 /** Event mà GameState chấp nhận; setup lock được xử lý trước phase transition. */
@@ -52,11 +60,13 @@ export function createInitialGameState(
   return {
     gameId,
     seed,
+    version: 0,
     round: initialPhase.round,
     phase: initialPhase.phase,
     players,
     result: null,
     events: [],
+    outcomes: [],
   };
 }
 
@@ -96,7 +106,23 @@ export function transitionGameState<TState extends GameState>(
 
   if (event.type === 'GAME_ENDED') {
     const endedState = transitionWithPhase(state, { type: 'GAME_ENDED' });
-    return { ...endedState, result: event.result };
+    const sequence = (state.events.at(-1)?.sequence ?? 0) + 1;
+    return {
+      ...endedState,
+      result: event.result,
+      outcomes: [
+        ...state.outcomes,
+        {
+          id: `${state.gameId}:outcome:${sequence}`,
+          sequence,
+          round: state.round,
+          phase: 'ENDED',
+          type: 'MATCH_ENDED',
+          winner: event.result.winner,
+          reason: event.result.reason,
+        },
+      ],
+    };
   }
 
   return transitionWithPhase(state, event);

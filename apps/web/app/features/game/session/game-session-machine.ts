@@ -33,6 +33,15 @@ export interface GameSessionInput {
   readonly reconnectSessionId?: string;
   /** Persist hoặc xóa reconnect token tại browser boundary. */
   readonly onSessionIdChange?: (sessionId: string | null) => void;
+  /** Injectable UUID factory để command retry/dedupe có identity ổn định. */
+  readonly createCommandId?: () => string;
+}
+
+/** Command đang chờ snapshot/rejection xác nhận. */
+export interface PendingGameCommand {
+  readonly commandId: string;
+  readonly expectedVersion: number;
+  readonly action: PlayerGameAction;
 }
 
 /** Lỗi gần nhất mà UI session có thể trình bày cho người chơi. */
@@ -48,14 +57,15 @@ export interface GameSessionError {
 /**
  * Context do session machine sở hữu.
  *
- * `view` luôn là snapshot server gần nhất; `pendingAction` chỉ biểu diễn trạng
- * thái chờ acknowledgement và không được dùng để optimistic-update game state.
+ * `view` luôn là snapshot server gần nhất; `pendingCommand` giữ envelope để
+ * retry nhưng không được dùng để optimistic-update game state.
  */
 export interface GameSessionContext extends GameSessionInput {
+  readonly createCommandId: () => string;
   readonly assignedPlayerId: PlayerId | null;
   readonly sessionId: string | null;
   readonly view: GamePlayerViewV2 | null;
-  readonly pendingAction: PlayerGameAction | null;
+  readonly pendingCommand: PendingGameCommand | null;
   readonly error: GameSessionError | null;
 }
 
@@ -212,7 +222,11 @@ export const gameSessionMachine = setup({
   actors: { transportActor },
   guards: {
     canSubmit: ({ context }) =>
-      context.view !== null && context.pendingAction === null,
+      context.view !== null && context.pendingCommand === null,
+    shouldRetryPendingCommand: ({ context, event }) =>
+      event.type === 'SERVER.GAME_STATE_UPDATE' &&
+      context.pendingCommand !== null &&
+      event.payload.version === context.pendingCommand.expectedVersion,
   },
 }).createMachine({
   id: 'gameSession',
@@ -222,7 +236,8 @@ export const gameSessionMachine = setup({
     assignedPlayerId: null,
     sessionId: input.reconnectSessionId ?? null,
     view: null,
-    pendingAction: null,
+    createCommandId: input.createCommandId ?? (() => crypto.randomUUID()),
+    pendingCommand: null,
     error: null,
   }),
   invoke: {
@@ -257,16 +272,34 @@ export const gameSessionMachine = setup({
         }),
       ],
     },
-    'SERVER.GAME_STATE_UPDATE': {
-      actions: assign({
-        view: ({ event }) => event.payload,
-        pendingAction: null,
-        error: null,
-      }),
-    },
+    'SERVER.GAME_STATE_UPDATE': [
+      {
+        guard: 'shouldRetryPendingCommand',
+        actions: [
+          assign({ view: ({ event }) => event.payload, error: null }),
+          sendTo('transport', ({ context }) => ({
+            type: 'SEND',
+            message: ClientWsMessageSchema.parse({
+              type: 'SUBMIT_ACTION',
+              payload: context.pendingCommand,
+            }),
+          })),
+        ],
+      },
+      {
+        actions: assign({
+          view: ({ event }) => event.payload,
+          pendingCommand: null,
+          error: null,
+        }),
+      },
+    ],
     'SERVER.ACTION_REJECTED': {
       actions: assign({
-        pendingAction: null,
+        pendingCommand: ({ context, event }) =>
+          context.pendingCommand?.commandId === event.payload.commandId
+            ? null
+            : context.pendingCommand,
         error: ({ event }) => ({
           kind: 'ACTION' as const,
           code: event.payload.code,
@@ -315,7 +348,6 @@ export const gameSessionMachine = setup({
     'TRANSPORT.ERROR': {
       target: '.reconnecting',
       actions: assign({
-        pendingAction: null,
         error: ({ event }) => ({
           kind: 'TRANSPORT' as const,
           message: event.message,
@@ -324,7 +356,6 @@ export const gameSessionMachine = setup({
     },
     'TRANSPORT.CLOSED': {
       target: '.reconnecting',
-      actions: assign({ pendingAction: null }),
     },
     DISCONNECT: {
       target: '.closed',
@@ -339,17 +370,21 @@ export const gameSessionMachine = setup({
         SUBMIT_ACTION: {
           guard: 'canSubmit',
           actions: [
-            sendTo('transport', ({ event }) => ({
+            assign({
+              pendingCommand: ({ context, event }) => ({
+                commandId: context.createCommandId(),
+                expectedVersion: context.view?.version ?? 0,
+                action: event.action,
+              }),
+              error: null,
+            }),
+            sendTo('transport', ({ context }) => ({
               type: 'SEND',
               message: ClientWsMessageSchema.parse({
                 type: 'SUBMIT_ACTION',
-                payload: event.action,
+                payload: context.pendingCommand,
               }),
             })),
-            assign({
-              pendingAction: ({ event }) => event.action,
-              error: null,
-            }),
           ],
         },
       },
@@ -390,7 +425,7 @@ export const selectPhase = (snapshot: GameSessionSnapshot) =>
 
 /** @returns Action đang chờ server acknowledge, hoặc `null`. */
 export const selectPendingAction = (snapshot: GameSessionSnapshot) =>
-  snapshot.context.pendingAction;
+  snapshot.context.pendingCommand?.action ?? null;
 
 /** @returns Lỗi session gần nhất có thể hiển thị, hoặc `null`. */
 export const selectSessionError = (snapshot: GameSessionSnapshot) =>
@@ -405,4 +440,4 @@ export const selectSessionError = (snapshot: GameSessionSnapshot) =>
 export const selectCanSubmit = (snapshot: GameSessionSnapshot) =>
   snapshot.matches('connected') &&
   snapshot.context.view !== null &&
-  snapshot.context.pendingAction === null;
+  snapshot.context.pendingCommand === null;

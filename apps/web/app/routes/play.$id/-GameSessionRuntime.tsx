@@ -3,12 +3,16 @@ import { GamePresentationActorContext } from '../../features/game/presentation/g
 import { GamePresentationSync } from '../../features/game/presentation/game-presentation-sync';
 import { GameSessionActorContext } from '../../features/game/session/game-session-context';
 import {
+  getPresentationEvents,
+} from '../../features/game/presentation/game-presentation-machine';
+import {
   selectCanSubmit,
   selectConnection,
   selectPendingAction,
   selectSessionError,
   selectView,
 } from '../../features/game/session/game-session-machine';
+import { useMemo } from 'react';
 import { PrototypeGameBoard } from './-Prototype.GameBoard';
 import { PrototypeGameEventPresentation } from './-Prototype.GameEventPresentation';
 import { GameSetupPanel } from './-GameSetupPanel';
@@ -53,6 +57,10 @@ function GameSessionContent() {
   const pendingAction = GameSessionActorContext.useSelector(selectPendingAction);
   const error = GameSessionActorContext.useSelector(selectSessionError);
   const canSubmit = GameSessionActorContext.useSelector(selectCanSubmit);
+  const presentationEvents = useMemo(
+    () => view ? getPresentationEvents(view) : [],
+    [view]
+  );
 
   const retryConnection = () => {
     actor.send({
@@ -62,7 +70,7 @@ function GameSessionContent() {
 
   const presentation = view ? (
     <>
-      <GamePresentationSync gameId={view.gameId} events={view.events} />
+      <GamePresentationSync gameId={view.gameId} events={presentationEvents} />
       <PrototypeGameEventPresentation />
     </>
   ) : null;

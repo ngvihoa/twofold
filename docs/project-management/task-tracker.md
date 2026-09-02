@@ -25,6 +25,7 @@
 | DEV-03 | Reliability | Nghiên cứu reconnect/resume | Developer | Ý tưởng | Có proposal window và cách phục hồi state |
 | DEV-04 | Delivery | Đề xuất stack, deploy, log | Developer | Ý tưởng | Có ADR draft và rủi ro lớn |
 | MIG-01 | Spec → Runtime | Đồng bộ ruleset reviewer tại `b770f7b` sang shared-types/game-core | Developer | Xong | Standard deck dùng Kẻ Thế Mạng; Council/đêm/khiên/Purge khớp spec đã freeze; runtime tests và web typecheck pass; khác biệt còn lại được ghi rõ |
+| MIG-02 | Spec → Runtime | Đồng bộ information boundary P0.10 và command idempotency tại `4b96da9` | Developer | Xong | Runtime tách internal event khỏi recipient outcome; Purge target không rò; command retry dedupe theo ID/version; core/web tests pass |
 | TEAM-01 | Process | Chốt Definition of Done và nhịp sync | Cả team | Tuần này | Team đồng ý cách cập nhật task/decision/playtest |
 
 ## Backlog đến Web Alpha

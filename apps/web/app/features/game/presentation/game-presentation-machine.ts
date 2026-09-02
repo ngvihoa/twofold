@@ -1,4 +1,7 @@
-import type { GameEventV2 } from '@twofold/shared-types';
+import type {
+  GamePresentationEventV2,
+  GamePlayerViewV2,
+} from '@twofold/shared-types';
 import { assign, setup, type SnapshotFrom } from 'xstate';
 
 /** Nhóm animation/presentation được derive từ phase của current event. */
@@ -19,9 +22,9 @@ export interface GamePresentationContext {
   /** Sequence cao nhất đã complete/skip hoặc được baseline bằng hydrate. */
   readonly lastPresentedSequence: number;
   /** Event duy nhất UI được phép animate tại một thời điểm. */
-  readonly current: GameEventV2 | null;
+  readonly current: GamePresentationEventV2 | null;
   /** Event đã dedupe và sort đang chờ sau `current`. */
-  readonly queue: readonly GameEventV2[];
+  readonly queue: readonly GamePresentationEventV2[];
 }
 
 /**
@@ -32,8 +35,8 @@ export interface GamePresentationContext {
  * actor được tái sử dụng cho game khác.
  */
 export type GamePresentationEvent =
-  | { readonly type: 'HYDRATE'; readonly events: readonly GameEventV2[] }
-  | { readonly type: 'INGEST'; readonly events: readonly GameEventV2[] }
+  | { readonly type: 'HYDRATE'; readonly events: readonly GamePresentationEventV2[] }
+  | { readonly type: 'INGEST'; readonly events: readonly GamePresentationEventV2[] }
   | { readonly type: 'PRESENTATION_COMPLETED' }
   | { readonly type: 'SKIP_CURRENT' }
   | { readonly type: 'SKIP_ALL' }
@@ -47,13 +50,22 @@ const INITIAL_CONTEXT: GamePresentationContext = {
   queue: [],
 };
 
+/** Ghép public outcome và private feedback thành một timeline theo sequence. */
+export function getPresentationEvents(
+  view: Pick<GamePlayerViewV2, 'outcomes' | 'privateEvents'>
+): readonly GamePresentationEventV2[] {
+  return [...view.outcomes, ...view.privateEvents].sort(
+    (left, right) => left.sequence - right.sequence
+  );
+}
+
 /**
  * Tìm event sequence lớn nhất trong một snapshot history.
  *
  * @param events - Structured events đã được server lọc cho viewer.
  * @returns Sequence lớn nhất, hoặc `0` nếu history rỗng.
  */
-function highestSequence(events: readonly GameEventV2[]): number {
+function highestSequence(events: readonly GamePresentationEventV2[]): number {
   let highest = 0;
   for (const event of events) highest = Math.max(highest, event.sequence);
   return highest;
@@ -72,9 +84,9 @@ function highestSequence(events: readonly GameEventV2[]): number {
  */
 function appendFreshEvents(
   context: GamePresentationContext,
-  events: readonly GameEventV2[]
+  events: readonly GamePresentationEventV2[]
 ): GamePresentationContext {
-  const bySequence = new Map<number, GameEventV2>();
+  const bySequence = new Map<number, GamePresentationEventV2>();
   for (const event of events) {
     if (event.sequence > context.lastSeenSequence && !bySequence.has(event.sequence)) {
       bySequence.set(event.sequence, event);
@@ -114,7 +126,7 @@ function advancePresentation(context: GamePresentationContext): GamePresentation
 }
 
 /**
- * UI-only event queue. It sequences already-filtered structured events and
+ * UI-only event queue. It sequences already-projected recipient events and
  * never owns or mutates authoritative gameplay state.
  *
  * Machine có hai state: `idle` khi không có animation và `presenting` khi
@@ -229,7 +241,7 @@ export type GamePresentationSnapshot = SnapshotFrom<
  * @returns Nhóm presentation mà UI nên render; không lưu state trùng với phase.
  */
 export function getPresentationKind(
-  event: GameEventV2 | null
+  event: GamePresentationEventV2 | null
 ): GamePresentationKind | null {
   if (event === null) return null;
   switch (event.phase) {

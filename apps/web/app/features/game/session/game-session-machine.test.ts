@@ -44,7 +44,7 @@ class FakeGameTransport implements GameTransport {
   }
 }
 
-function createView(round = 1) {
+function createView(round = 1, version = 0) {
   const playerA = createInitialPlayerState(
     PlayerId.PLAYER_A,
     STANDARD_DECK.map((role, index) =>
@@ -61,7 +61,7 @@ function createView(round = 1) {
     [PlayerId.PLAYER_A]: playerA,
     [PlayerId.PLAYER_B]: playerB,
   });
-  return serializePlayerView({ ...game, round }, PlayerId.PLAYER_A);
+  return serializePlayerView({ ...game, round, version }, PlayerId.PLAYER_A);
 }
 
 function startSession(
@@ -73,6 +73,7 @@ function startSession(
       roomId: 'room-41',
       playerName: 'Alice',
       transport,
+      createCommandId: () => 'command-1',
       ...input,
     },
   });
@@ -142,9 +143,13 @@ describe('gameSessionMachine', () => {
 
     expect(transport.sent.at(-1)).toEqual({
       type: 'SUBMIT_ACTION',
-      payload: { type: 'SETUP_LOCK', playerId: PlayerId.PLAYER_A },
+      payload: {
+        commandId: 'command-1',
+        expectedVersion: 0,
+        action: { type: 'SETUP_LOCK', playerId: PlayerId.PLAYER_A },
+      },
     });
-    expect(actor.getSnapshot().context.pendingAction?.type).toBe('SETUP_LOCK');
+    expect(actor.getSnapshot().context.pendingCommand?.action.type).toBe('SETUP_LOCK');
     expect(actor.getSnapshot().context.view).toBe(authoritativeView);
     expect(selectCanSubmit(actor.getSnapshot())).toBe(false);
     actor.stop();
@@ -167,11 +172,16 @@ describe('gameSessionMachine', () => {
       type: 'MESSAGE',
       message: {
         type: 'ACTION_REJECTED',
-        payload: { code: 'INVALID_PHASE', message: 'Setup đã khóa.' },
+        payload: {
+          commandId: 'command-1',
+          code: 'INVALID_PHASE',
+          message: 'Setup đã khóa.',
+          currentVersion: 0,
+        },
       },
     });
 
-    expect(actor.getSnapshot().context.pendingAction).toBeNull();
+    expect(actor.getSnapshot().context.pendingCommand).toBeNull();
     expect(actor.getSnapshot().context.view).toBe(authoritativeView);
     expect(actor.getSnapshot().context.error).toEqual({
       kind: 'ACTION',
@@ -222,6 +232,49 @@ describe('gameSessionMachine', () => {
     expect(transport.connectCount).toBe(2);
     expect(actor.getSnapshot().context.sessionId).toBe('session-41-next');
     expect(actor.getSnapshot().context.view?.round).toBe(4);
+    actor.stop();
+  });
+
+  it('retries the same pending command id after reconnect at the same version', () => {
+    const transport = new FakeGameTransport();
+    const actor = joinSession(transport);
+    transport.emit({
+      type: 'MESSAGE',
+      message: { type: 'GAME_STATE_UPDATE', payload: createView(1, 0) },
+    });
+    actor.send({
+      type: 'SUBMIT_ACTION',
+      action: { type: 'SETUP_LOCK', playerId: PlayerId.PLAYER_A },
+    });
+    const command = transport.sent.at(-1);
+
+    transport.emit({ type: 'CLOSED', reason: 'ack lost' });
+    actor.send({ type: 'RECONNECT' });
+    transport.emit({ type: 'OPEN' });
+    transport.emit({
+      type: 'MESSAGE',
+      message: {
+        type: 'ROOM_JOINED',
+        payload: {
+          roomId: 'room-41',
+          assignedPlayerId: PlayerId.PLAYER_A,
+          sessionId: 'session-41',
+        },
+      },
+    });
+    transport.emit({
+      type: 'MESSAGE',
+      message: { type: 'GAME_STATE_UPDATE', payload: createView(1, 0) },
+    });
+
+    expect(transport.sent.at(-1)).toEqual(command);
+    expect(actor.getSnapshot().context.pendingCommand?.commandId).toBe('command-1');
+
+    transport.emit({
+      type: 'MESSAGE',
+      message: { type: 'GAME_STATE_UPDATE', payload: createView(1, 1) },
+    });
+    expect(actor.getSnapshot().context.pendingCommand).toBeNull();
     actor.stop();
   });
 

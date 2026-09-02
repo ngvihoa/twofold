@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AbilityId, CardRole, PlayerId, WinReason } from './enums';
+import { AbilityId, CardRole, Faction, PlayerId, WinReason } from './enums';
 import {
   CardIdSchema,
   CardInstanceIdSchema,
@@ -239,70 +239,8 @@ export const GameResultSchema = z.object({
 });
 export type GameResultV2 = z.infer<typeof GameResultSchema>;
 
-export const GameEventVisibilitySchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('PUBLIC') }),
-  z.object({ type: z.literal('PRIVATE'), playerId: z.nativeEnum(PlayerId) }),
-]);
-export type GameEventVisibilityV2 = z.infer<
-  typeof GameEventVisibilitySchema
->;
-
-export const CardEliminationCauseSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('ABILITY'), abilityId: z.nativeEnum(AbilityId), sourceCardId: CardIdSchema }),
-  z.object({ type: z.literal('PLAYER_ABILITY'), abilityId: z.literal('BLOOD_MOON'), playerId: z.nativeEnum(PlayerId) }),
-  z.object({ type: z.literal('COUNCIL'), playerId: z.nativeEnum(PlayerId) }),
-  z.object({ type: z.literal('PURGE'), rule: z.enum(['CUT', 'SWAP', 'REVEAL', 'LOCK']) }),
-  z.object({ type: z.literal('REVENGE'), sourceCardId: CardIdSchema }),
-  z.object({ type: z.literal('HIDDEN_NIGHT') }),
-]);
-export type CardEliminationCauseV2 = z.infer<
-  typeof CardEliminationCauseSchema
->;
-
-export const GameEventPayloadSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('CARD_REVEALED'), cardId: CardIdSchema }),
-  z.object({
-    type: z.literal('ABILITY_RESOLVED'),
-    abilityId: z.union([z.nativeEnum(AbilityId), z.literal('BLOOD_MOON')]),
-    sourceCardId: CardIdSchema.nullable(),
-    targetCardId: CardIdSchema.nullable(),
-  }),
-  z.object({ type: z.literal('EFFECT_APPLIED'), targetCardId: CardIdSchema, effectKind: CardEffectStateSchema.shape.kind }),
-  z.object({ type: z.literal('EFFECT_BLOCKED'), targetCardId: CardIdSchema, effectKind: CardEffectStateSchema.shape.kind }),
-  z.object({ type: z.literal('CARD_ELIMINATED'), cardId: CardIdSchema, cause: CardEliminationCauseSchema }),
-  z.object({ type: z.literal('CARD_REVIVED'), cardId: CardIdSchema, sourceCardId: CardIdSchema }),
-  z.object({ type: z.literal('PRIVATE_INSPECTION_RESULT'), intelId: z.string().min(1), targetCardId: CardIdSchema, discoveredRole: CardRoleSchema }),
-  z.object({
-    type: z.literal('COUNCIL_ACCUSATION_RESOLVED'),
-    playerId: z.nativeEnum(PlayerId),
-    targetCardId: CardIdSchema,
-    voterIds: z.array(CardIdSchema).min(1).max(3),
-    succeeded: z.boolean(),
-  }),
-  z.object({ type: z.literal('COUNCIL_PASSED'), playerId: z.nativeEnum(PlayerId) }),
-  z.object({ type: z.literal('DEFENSE_SKIPPED'), playerId: z.nativeEnum(PlayerId) }),
-  z.object({ type: z.literal('SUBSTITUTE_SACRIFICED'), sourceCardId: CardIdSchema, targetCardId: CardIdSchema }),
-  z.object({
-    type: z.literal('PURGE_RESOLVED'),
-    playerId: z.nativeEnum(PlayerId),
-    rule: z.enum(['CUT', 'SWAP', 'REVEAL', 'LOCK']),
-    targetCardId: CardIdSchema.nullable(),
-    swapTargetCardId: CardIdSchema.nullable(),
-  }),
-  z.object({
-    type: z.literal('FINAL_DUEL_RESOLVED'),
-    cardAId: CardIdSchema,
-    cardBId: CardIdSchema,
-    guessA: CardRoleSchema,
-    guessB: CardRoleSchema,
-    correctA: z.boolean(),
-    correctB: z.boolean(),
-  }),
-  z.object({ type: z.literal('DAWN_PRESENTATION_COMPLETED') }),
-]);
-export type GameEventPayloadV2 = z.infer<typeof GameEventPayloadSchema>;
-
-export const GameEventEnvelopeSchema = z.object({
+/** Metadata ổn định của outcome đã được project cho client. */
+export const GameOutcomeEnvelopeSchema = z.object({
   id: z.string().min(1),
   sequence: z.number().int().positive(),
   round: z.number().int().positive(),
@@ -322,28 +260,95 @@ export const GameEventEnvelopeSchema = z.object({
     'FINAL_DUEL',
     'ENDED',
   ]),
-  visibility: GameEventVisibilitySchema,
 });
 
-export const GameEventSchema = GameEventEnvelopeSchema.and(GameEventPayloadSchema).superRefine(
-  (event, context) => {
-    if (
-      event.type === 'PRIVATE_INSPECTION_RESULT' &&
-      event.visibility.type !== 'PRIVATE'
-    ) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['visibility'],
-        message: 'PRIVATE_INSPECTION_RESULT phải có private visibility.',
-      });
-    }
-  }
+const RevealedCardOutcomeSchema = z.object({
+  cardId: CardIdSchema,
+  instanceId: CardInstanceIdSchema,
+  owner: z.nativeEnum(PlayerId),
+  role: CardRoleSchema,
+  faction: z.nativeEnum(Faction),
+});
+
+const EliminatedCardOutcomeSchema = z.object({
+  cardId: CardIdSchema,
+  instanceId: CardInstanceIdSchema,
+  owner: z.nativeEnum(PlayerId),
+  role: CardRoleSchema.nullable(),
+  faction: z.nativeEnum(Faction).nullable(),
+});
+
+/**
+ * Allowlist public outcome P0.10. Hidden command, source/cause và Purge target
+ * không thuộc wire payload này.
+ */
+export const PublicGameOutcomeSchema = GameOutcomeEnvelopeSchema.and(
+  z.discriminatedUnion('type', [
+    RevealedCardOutcomeSchema.extend({ type: z.literal('CARD_REVEALED') }),
+    EliminatedCardOutcomeSchema.extend({ type: z.literal('CARD_ELIMINATED') }),
+    z.object({
+      type: z.literal('CARD_SAVED'),
+      cardId: CardIdSchema,
+      instanceId: CardInstanceIdSchema,
+      owner: z.nativeEnum(PlayerId),
+    }),
+    RevealedCardOutcomeSchema.extend({ type: z.literal('CARD_REVIVED') }),
+    z.object({
+      type: z.literal('COUNCIL_RESOLVED'),
+      playerId: z.nativeEnum(PlayerId),
+      targetCardId: CardIdSchema,
+      guessedRole: CardRoleSchema.nullable(),
+      votePower: z.number().int().nonnegative(),
+      succeeded: z.boolean(),
+    }),
+    z.object({ type: z.literal('COUNCIL_PASSED'), playerId: z.nativeEnum(PlayerId) }),
+    z.object({
+      type: z.literal('PURGE_RESOLVED'),
+      rule: z.enum(['CUT', 'SWAP', 'REVEAL', 'LOCK']),
+      status: z.enum(['RESOLVED', 'FIZZLED']),
+    }),
+    z.object({
+      type: z.literal('MATCH_ENDED'),
+      winner: z.nativeEnum(PlayerId).nullable(),
+      reason: GameResultSchema.shape.reason,
+    }),
+  ])
 );
-export type GameEventV2 = z.infer<typeof GameEventSchema>;
+export type PublicGameOutcomeV2 = z.infer<typeof PublicGameOutcomeSchema>;
+
+/** Private feedback chỉ được đưa vào snapshot của đúng recipient. */
+export const PrivateGameEventSchema = GameOutcomeEnvelopeSchema.and(
+  z.discriminatedUnion('type', [
+    z.object({
+      type: z.literal('ABILITY_RESOLVED'),
+      abilityId: z.union([z.nativeEnum(AbilityId), z.literal('BLOOD_MOON')]),
+      sourceCardId: CardIdSchema.nullable(),
+      targetCardId: CardIdSchema.nullable(),
+    }),
+    z.object({
+      type: z.literal('PRIVATE_INSPECTION_RESULT'),
+      intelId: z.string().min(1),
+      targetCardId: CardIdSchema,
+      discoveredRole: CardRoleSchema,
+    }),
+  ])
+);
+export type PrivateGameEventV2 = z.infer<typeof PrivateGameEventSchema>;
+export const GamePresentationEventSchema = z.union([
+  PublicGameOutcomeSchema,
+  PrivateGameEventSchema,
+]);
+export type GamePresentationEventV2 = z.infer<typeof GamePresentationEventSchema>;
+type WithoutOutcomeEnvelope<T> = T extends unknown
+  ? Omit<T, 'id' | 'sequence' | 'round' | 'phase'>
+  : never;
+/** Payload helper for tests and presentation factories. */
+export type GamePresentationEventPayloadV2 = WithoutOutcomeEnvelope<GamePresentationEventV2>;
 
 /** Snapshot v0.2 đã lọc theo viewer; structured events là history authoritative. */
 export const GamePlayerViewV2Schema = z.object({
   gameId: z.string().min(1),
+  version: z.number().int().nonnegative(),
   viewerId: z.nativeEnum(PlayerId),
   round: z.number().int().positive(),
   phase: GamePhaseStateSchema,
@@ -351,6 +356,7 @@ export const GamePlayerViewV2Schema = z.object({
   self: PrivatePlayerViewSchema,
   opponent: OpponentPlayerViewSchema,
   result: GameResultSchema.nullable(),
-  events: z.array(GameEventSchema),
+  outcomes: z.array(PublicGameOutcomeSchema),
+  privateEvents: z.array(PrivateGameEventSchema),
 });
 export type GamePlayerViewV2 = z.infer<typeof GamePlayerViewV2Schema>;

@@ -1,5 +1,5 @@
 import type {
-  GameEventV2,
+  GamePresentationEventV2,
   GamePlayerViewV2,
   PlayerGameAction,
 } from '@twofold/shared-types';
@@ -9,6 +9,7 @@ import {
   formatGamePlayerName,
 } from '../../features/game/presentation/game-display-labels';
 import { formatGameHistoryMessage } from '../../features/game/presentation/game-history-message';
+import { getPresentationEvents } from '../../features/game/presentation/game-presentation-machine';
 import type { GameSessionError } from '../../features/game/session/game-session-machine';
 import {
   PrototypeGameActionPanel,
@@ -111,7 +112,7 @@ function PrototypeGameArena({ view }: { readonly view: GamePlayerViewV2 }) {
           </PrototypeBoardSection>
         </main>
 
-        <PrototypeHistoryRail events={view.events} />
+        <PrototypeHistoryRail events={getPresentationEvents(view)} />
       </div>
     </div>
   );
@@ -185,7 +186,7 @@ function PrototypeResult({ view }: { readonly view: GamePlayerViewV2 }) {
   );
 }
 
-function PrototypeHistoryRail({ events }: { readonly events: readonly GameEventV2[] }) {
+function PrototypeHistoryRail({ events }: { readonly events: readonly GamePresentationEventV2[] }) {
   const recentEvents = events.slice(-12).reverse();
   return (
     <aside className="flex min-h-52 flex-col rounded-xl border border-white/10 bg-slate-950/80 p-4 lg:min-h-0">
