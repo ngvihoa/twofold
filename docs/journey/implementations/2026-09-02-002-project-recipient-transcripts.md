@@ -6,7 +6,7 @@
 - Owner/Agent: Codex
 - Branch: `codex/chat-playtest-prototype`
 - Commit trước khi làm: `2422665`
-- Commit implementation: Chờ commit
+- Commit implementation: `48eb3f5`
 - Conversation/task source: CONV-006 — tiếp tục phase sau P0.8
 - Trạng thái: Hoàn thành prototype
 
@@ -91,7 +91,7 @@ CLI: games=20, events=1623, hiddenActions=1168, leaks=0
 - Root cause: Xác định — P0.8 transcript được thiết kế cho authoritative replay, chưa có projection layer.
 - Fix/decision: tách view digest, deny-by-default action envelope và transcript không seed/full digest.
 - Verify lại: PASS 200 seed/11.190 hidden action, leak 0.
-- Commit fix: Chờ commit.
+- Commit fix: `48eb3f5`.
 
 ## Quyết định sau implementation
 
@@ -128,7 +128,7 @@ CLI: games=20, events=1623, hiddenActions=1168, leaks=0
 - Docs/ADR: game flow, README demo, verification log, task tracker.
 - Screenshot/video: Không áp dụng.
 - Test report: record này và verification log.
-- Commit/PR: Chờ commit.
+- Commit/PR: `48eb3f5`.
 
 ## Bước tiếp theo
 
