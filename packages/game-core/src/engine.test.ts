@@ -11,9 +11,11 @@ describe('GameEngine authoritative facade', () => {
 
     engine.dispatch({ type: 'SETUP_LOCK', playerId: PlayerId.PLAYER_A });
     expect(engine.getState().phase).toEqual({ type: 'SETUP' });
+    expect(engine.getState().version).toBe(1);
 
     engine.dispatch({ type: 'SETUP_LOCK', playerId: PlayerId.PLAYER_B });
     expect(engine.getState().phase).toEqual({ type: 'DAY_A' });
+    expect(engine.getState().version).toBe(2);
   });
 
   it('does not mutate state when the pipeline rejects an invalid action', () => {

@@ -40,3 +40,4 @@ temp/
 # File cục bộ của Codex; deliverable chính nằm ở root repo
 work/
 outputs/
+.claude/

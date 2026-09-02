@@ -13,7 +13,14 @@ export const ClientWsMessageSchema = z.discriminatedUnion('type', [
       reconnectSessionId: z.string().optional(),
     }),
   }),
-  z.object({ type: z.literal('SUBMIT_ACTION'), payload: PlayerGameActionSchema }),
+  z.object({
+    type: z.literal('SUBMIT_ACTION'),
+    payload: z.object({
+      commandId: z.string().min(1),
+      expectedVersion: z.number().int().nonnegative(),
+      action: PlayerGameActionSchema,
+    }),
+  }),
   z.object({ type: z.literal('SURRENDER'), payload: z.object({}) }),
   z.object({ type: z.literal('REMATCH_REQUEST'), payload: z.object({}) }),
   z.object({ type: z.literal('PING'), payload: z.object({ timestamp: z.number() }) }),
@@ -33,7 +40,12 @@ export const ServerWsMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('GAME_STATE_UPDATE'), payload: GamePlayerViewV2Schema }),
   z.object({
     type: z.literal('ACTION_REJECTED'),
-    payload: z.object({ code: z.string().min(1), message: z.string().min(1) }),
+    payload: z.object({
+      commandId: z.string().min(1),
+      code: z.string().min(1),
+      message: z.string().min(1),
+      currentVersion: z.number().int().nonnegative(),
+    }),
   }),
   z.object({
     type: z.literal('ERROR'),

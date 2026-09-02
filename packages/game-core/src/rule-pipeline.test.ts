@@ -460,12 +460,20 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
     });
 
     const opponentView = serializePlayerView(state, PlayerId.PLAYER_A);
-    const opponentSeerEvents = opponentView.events.filter(
-      (event) =>
-        event.type === 'ABILITY_RESOLVED' &&
-        event.abilityId === AbilityId.SEER_INSPECT
-    );
-    expect(opponentSeerEvents).toHaveLength(0);
+    expect(opponentView.privateEvents).toHaveLength(0);
+    const ownerView = serializePlayerView(state, PlayerId.PLAYER_B);
+    expect(ownerView.privateEvents).toEqual([
+      expect.objectContaining({
+        type: 'ABILITY_RESOLVED',
+        abilityId: AbilityId.SEER_INSPECT,
+        sourceCardId: 'B3',
+        targetCardId: 'A1',
+      }),
+      expect.objectContaining({
+        type: 'PRIVATE_INSPECTION_RESULT',
+        targetCardId: 'A1',
+      }),
+    ]);
   });
 
   it('reveals Seer when executing a previously identified Werewolf', () => {
@@ -863,6 +871,14 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
         (event) => event.type === 'EFFECT_BLOCKED' && event.targetCardId === 'B1'
       )
     ).toBe(true);
+    expect(
+      serializePlayerView(state, PlayerId.PLAYER_B).privateEvents
+    ).toContainEqual(expect.objectContaining({
+      type: 'ABILITY_RESOLVED',
+      abilityId: AbilityId.GUARD_PROTECT,
+      sourceCardId: 'B2',
+      targetCardId: 'B1',
+    }));
   });
 
   it('lets Guard block attack while Seer inspect bypasses protection', () => {
@@ -1153,6 +1169,14 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
     expect(
       state.events.filter((event) => event.type === 'PURGE_RESOLVED')
     ).toHaveLength(2);
+    const purgeOutcome = state.outcomes.find(
+      (outcome) => outcome.type === 'PURGE_RESOLVED'
+    );
+    expect(purgeOutcome).toEqual(expect.objectContaining({
+      rule: 'CUT',
+      status: 'RESOLVED',
+    }));
+    expect(JSON.stringify(purgeOutcome)).not.toContain('targetCardId');
   });
 
   it('swaps four unique card slots from one round-seven snapshot', () => {
@@ -1270,6 +1294,12 @@ describe('ruleset v0.2 validation/resolution pipeline', () => {
         swapTargetCardId: null,
       }),
     ]);
+    expect(state.outcomes.at(-1)).toEqual(expect.objectContaining({
+      type: 'PURGE_RESOLVED',
+      rule: 'SWAP',
+      status: 'FIZZLED',
+    }));
+    expect(JSON.stringify(state.outcomes.at(-1))).not.toContain('targetCardId');
   });
 
   it('rejects skipping round-seven Purge SWAP while a valid pair remains', () => {

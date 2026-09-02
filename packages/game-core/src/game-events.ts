@@ -1,8 +1,14 @@
-import { AbilityId, CardRole, PlayerId } from '@twofold/shared-types';
-import type { CardEffectKind, CardId } from './cards';
+import {
+  AbilityId,
+  CardRole,
+  PlayerId,
+  type PublicGameOutcomeV2,
+} from '@twofold/shared-types';
+import { CardEffectKind, type CardId, type GameCard } from './cards';
 import type { GameState } from './game-state';
 import type { GamePhaseState } from './phase-machine';
 import type { PlayerSpecialAbilityId, PurgeOrder } from './players';
+import { getRoleDefinition } from './roles';
 
 /** Quyền nhìn thấy một structured event trong player view. */
 export type GameEventVisibility =
@@ -71,6 +77,8 @@ export type GameEventPayload =
       readonly playerId: PlayerId;
       readonly targetCardId: CardId;
       readonly voterIds: readonly CardId[];
+      readonly guessedRole: CardRole | null;
+      readonly votePower: number;
       readonly succeeded: boolean;
     }
   | { readonly type: 'COUNCIL_PASSED'; readonly playerId: PlayerId }
@@ -146,7 +154,128 @@ export function appendGameEvents<TState extends GameState>(
     };
   });
 
-  return { ...state, events: [...state.events, ...appended] };
+  const outcomes = projectPublicOutcomes(state, appended);
+  return {
+    ...state,
+    events: [...state.events, ...appended],
+    outcomes: [...state.outcomes, ...outcomes],
+  };
+}
+
+/**
+ * Project authoritative resolution events thành public allowlist P0.10.
+ * Projection cố ý loại source/cause, hidden action kind và Purge target.
+ */
+function projectPublicOutcomes(
+  state: GameState,
+  events: readonly GameEvent[]
+): readonly PublicGameOutcomeV2[] {
+  const outcomes: PublicGameOutcomeV2[] = [];
+  type WithoutEnvelope<T> = T extends unknown
+    ? Omit<T, 'id' | 'sequence' | 'round' | 'phase'>
+    : never;
+  const append = (
+    sourceSequence: number,
+    payload: WithoutEnvelope<PublicGameOutcomeV2>
+  ) => {
+    outcomes.push({
+      ...payload,
+      id: `${state.gameId}:outcome:${sourceSequence}`,
+      sequence: sourceSequence,
+      round: state.round,
+      phase: state.phase.type,
+    } as PublicGameOutcomeV2);
+  };
+
+  for (const event of events) {
+    if (event.visibility.type !== 'PUBLIC') continue;
+    switch (event.type) {
+      case 'CARD_REVEALED': {
+        const card = findCard(state, event.cardId);
+        append(event.sequence, { type: 'CARD_REVEALED', ...revealedCardPayload(card) });
+        break;
+      }
+      case 'CARD_ELIMINATED': {
+        const card = findCard(state, event.cardId);
+        const revealed = card.occupant.state.visibility === 'REVEALED';
+        append(event.sequence, {
+          type: 'CARD_ELIMINATED',
+          cardId: card.id,
+          instanceId: card.occupant.id,
+          owner: card.owner,
+          role: revealed ? card.occupant.role.id : null,
+          faction: revealed
+            ? getRoleDefinition(card.occupant.role.id).faction
+            : null,
+        });
+        break;
+      }
+      case 'EFFECT_BLOCKED': {
+        if (event.effectKind !== CardEffectKind.PROTECTION) break;
+        const card = findCard(state, event.targetCardId);
+        append(event.sequence, {
+          type: 'CARD_SAVED',
+          cardId: card.id,
+          instanceId: card.occupant.id,
+          owner: card.owner,
+        });
+        break;
+      }
+      case 'CARD_REVIVED': {
+        const card = findCard(state, event.cardId);
+        append(event.sequence, { type: 'CARD_REVIVED', ...revealedCardPayload(card) });
+        break;
+      }
+      case 'COUNCIL_ACCUSATION_RESOLVED':
+        append(event.sequence, {
+          type: 'COUNCIL_RESOLVED',
+          playerId: event.playerId,
+          targetCardId: event.targetCardId,
+          guessedRole: event.guessedRole,
+          votePower: event.votePower,
+          succeeded: event.succeeded,
+        });
+        break;
+      case 'COUNCIL_PASSED':
+        append(event.sequence, { type: 'COUNCIL_PASSED', playerId: event.playerId });
+        break;
+    }
+  }
+
+  const purgeEvents = events.filter(
+    (event): event is Extract<GameEvent, { type: 'PURGE_RESOLVED' }> =>
+      event.type === 'PURGE_RESOLVED' && event.visibility.type === 'PUBLIC'
+  );
+  const purge = purgeEvents.at(-1);
+  if (purge) {
+    append(purge.sequence, {
+      type: 'PURGE_RESOLVED',
+      rule: purge.rule,
+      status:
+        purge.rule === 'SWAP' && purgeEvents.every((event) => event.targetCardId === null)
+          ? 'FIZZLED'
+          : 'RESOLVED',
+    });
+  }
+  return outcomes;
+}
+
+function findCard(state: GameState, cardId: CardId): GameCard {
+  for (const player of Object.values(state.players)) {
+    const card = player.board.find((candidate) => candidate.id === cardId);
+    if (card) return card;
+  }
+  throw new Error(`Không tìm thấy card ${cardId} khi project public outcome.`);
+}
+
+function revealedCardPayload(card: GameCard) {
+  return {
+    cardId: card.id,
+    instanceId: card.occupant.id,
+    owner: card.owner,
+    role: card.occupant.role.id,
+    faction: getRoleDefinition(card.occupant.role.id).faction,
+  };
 }
 
 /** Kiểm tra event có được phép xuất hiện trong view của player hay không. */

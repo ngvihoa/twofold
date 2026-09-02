@@ -11,6 +11,9 @@ Gói thư viện chứa authoritative ruleset v0.2, state machine trận đấu 
 
 - Mỗi người bắt đầu với **10 lá trên sân**.
 - `GameEngine` chỉ nhận `PlayerGameAction` v0.2 và trả filtered player view.
-- Structured events là nguồn history duy nhất; private event được lọc theo viewer.
+- Structured events là history nội bộ; player view chỉ nhận public outcome đã
+  allowlist và private feedback của đúng viewer.
+- `GameState.version` tăng sau mỗi command hợp lệ; WebSocket dùng
+  `commandId` + `expectedVersion` để dedupe/reconcile retry.
 - Day A/B chạy tuần tự; Council, Night, Defense và Purge khóa lệnh hai bên trước khi phân giải.
 - Chi tiết migration và decision log nằm trong `docs/development/ruleset-v0.2-migration-plan.md`.

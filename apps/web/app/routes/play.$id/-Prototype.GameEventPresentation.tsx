@@ -1,4 +1,4 @@
-import type { GameEventV2 } from '@twofold/shared-types';
+import type { GamePresentationEventV2 } from '@twofold/shared-types';
 import {
   Eye,
   Moon,
@@ -64,7 +64,7 @@ export function PrototypeGameEventPresentation() {
 }
 
 export interface PrototypeGameEventPresentationCardProps {
-  readonly current: GameEventV2;
+  readonly current: GamePresentationEventV2;
   readonly kind: GamePresentationKind;
   readonly queuedCount: number;
   readonly onSkipCurrent: () => void;

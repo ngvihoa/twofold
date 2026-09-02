@@ -224,9 +224,13 @@ describe('ruleset v0.2 player view serializer', () => {
       },
     ]);
 
-    expect(serializePlayerView(game, PlayerId.PLAYER_A).events).toHaveLength(2);
-    expect(serializePlayerView(game, PlayerId.PLAYER_B).events.map((event) => event.type)).toEqual(
-      ['CARD_REVEALED']
-    );
+    const playerAView = serializePlayerView(game, PlayerId.PLAYER_A);
+    const playerBView = serializePlayerView(game, PlayerId.PLAYER_B);
+    expect(playerAView.outcomes.map((event) => event.type)).toEqual(['CARD_REVEALED']);
+    expect(playerAView.privateEvents.map((event) => event.type)).toEqual([
+      'PRIVATE_INSPECTION_RESULT',
+    ]);
+    expect(playerBView.outcomes).toEqual(playerAView.outcomes);
+    expect(playerBView.privateEvents).toHaveLength(0);
   });
 });

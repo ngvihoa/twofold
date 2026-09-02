@@ -1,4 +1,8 @@
-import { PlayerId, type ServerWsMessage } from '@twofold/shared-types';
+import {
+  PlayerId,
+  type PlayerGameAction,
+  type ServerWsMessage,
+} from '@twofold/shared-types';
 import { describe, expect, it } from 'vitest';
 import {
   GameRoomServer,
@@ -47,6 +51,19 @@ function latestSnapshot(
   throw new Error('Missing GAME_STATE_UPDATE');
 }
 
+function submit(
+  server: GameRoomServer,
+  peer: FakePeer,
+  commandId: string,
+  expectedVersion: number,
+  action: PlayerGameAction
+): void {
+  server.handleMessage(peer, {
+    type: 'SUBMIT_ACTION',
+    payload: { commandId, expectedVersion, action },
+  });
+}
+
 describe('GameRoomServer', () => {
   it('assigns A/B and sends a viewer-filtered v0.2 snapshot', () => {
     const server = createServer();
@@ -75,13 +92,11 @@ describe('GameRoomServer', () => {
     join(server, peerA);
     join(server, peerB);
 
-    server.handleMessage(peerA, {
-      type: 'SUBMIT_ACTION',
-      payload: { type: 'SETUP_LOCK', playerId: PlayerId.PLAYER_A },
+    submit(server, peerA, 'lock-a', 0, {
+      type: 'SETUP_LOCK', playerId: PlayerId.PLAYER_A,
     });
-    server.handleMessage(peerB, {
-      type: 'SUBMIT_ACTION',
-      payload: { type: 'SETUP_LOCK', playerId: PlayerId.PLAYER_B },
+    submit(server, peerB, 'lock-b', 1, {
+      type: 'SETUP_LOCK', playerId: PlayerId.PLAYER_B,
     });
 
     for (const peer of [peerA, peerB]) {
@@ -94,15 +109,41 @@ describe('GameRoomServer', () => {
     const peerA = new FakePeer('peer-a');
     join(server, peerA);
 
-    server.handleMessage(peerA, {
-      type: 'SUBMIT_ACTION',
-      payload: { type: 'SETUP_LOCK', playerId: PlayerId.PLAYER_B },
+    submit(server, peerA, 'impersonate', 0, {
+      type: 'SETUP_LOCK', playerId: PlayerId.PLAYER_B,
     });
 
     expect(peerA.messages.at(-1)).toMatchObject({
       type: 'ACTION_REJECTED',
-      payload: { code: 'PLAYER_MISMATCH' },
+      payload: { commandId: 'impersonate', code: 'PLAYER_MISMATCH', currentVersion: 0 },
     });
+  });
+
+  it('deduplicates an accepted command and rejects a stale version', () => {
+    const server = createServer();
+    const peerA = new FakePeer('peer-a');
+    join(server, peerA);
+    const action = { type: 'SETUP_LOCK', playerId: PlayerId.PLAYER_A } as const;
+
+    submit(server, peerA, 'lock-once', 0, action);
+    expect(latestSnapshot(peerA).payload.version).toBe(1);
+
+    submit(server, peerA, 'lock-once', 0, action);
+    expect(latestSnapshot(peerA).payload.version).toBe(1);
+    expect(
+      peerA.messages.filter((message) => message.type === 'ACTION_REJECTED')
+    ).toHaveLength(0);
+
+    submit(server, peerA, 'stale-command', 0, action);
+    expect(peerA.messages.at(-2)).toMatchObject({
+      type: 'ACTION_REJECTED',
+      payload: {
+        commandId: 'stale-command',
+        code: 'STALE_STATE',
+        currentVersion: 1,
+      },
+    });
+    expect(latestSnapshot(peerA).payload.version).toBe(1);
   });
 
   it('reattaches an existing session and rejects a third seat', () => {

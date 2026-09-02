@@ -55,6 +55,7 @@ export class GameEngine {
 
   /** Gửi player action qua validation/resolution pipeline duy nhất của game. */
   public dispatch(action: PlayerGameAction): void {
-    this.state = dispatchPlayerAction(this.state, action);
+    const next = dispatchPlayerAction(this.state, action);
+    this.state = { ...next, version: this.state.version + 1 };
   }
 }

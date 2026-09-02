@@ -1152,6 +1152,13 @@ Acceptance criteria:
    `CALAMITY`. WebSocket, server và web chỉ còn contract v0.2. `core-adapter.mjs`
    của Spec Reviewer thuộc PR 3 và vẫn được giữ làm presentation reference,
    không phải transport/player-view adapter v0.1 vừa xóa.
+3. **PR 4.7 / MIG-02 — Outcome projection và command idempotency (hoàn thành
+   02/09/2026):** giữ authoritative `GameEvent` trong core nhưng chỉ gửi
+   `outcomes` allowlist và `privateEvents` đúng recipient. Snapshot có monotonic
+   `version`; `SUBMIT_ACTION` dùng `commandId`, `expectedVersion` và `action`.
+   Room server dedupe accepted/rejected command, reject `STALE_STATE`, còn
+   XState session actor retry cùng command ID sau reconnect nếu version chưa
+   tiến. Chi tiết tại journey record MIG-02.
 
 ### PR 5 — Cleanup và documentation
 

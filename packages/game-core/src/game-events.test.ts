@@ -76,6 +76,30 @@ describe('ruleset v0.2 structured game events', () => {
       phase: 'SETUP',
     });
     expect(JSON.stringify(next.events)).not.toContain('duration');
+    expect(next.outcomes.map((outcome) => outcome.type)).toEqual([
+      'CARD_REVEALED',
+      'CARD_ELIMINATED',
+      'CARD_REVIVED',
+    ]);
+    expect(JSON.stringify(next.outcomes)).not.toContain('sourceCardId');
+    expect(JSON.stringify(next.outcomes)).not.toContain('cause');
+  });
+
+  it('projects a blocked protection as card.saved without hidden action data', () => {
+    const next = appendGameEvents(createEventTestGame(), [{
+      type: 'EFFECT_BLOCKED',
+      visibility: { type: 'PUBLIC' },
+      targetCardId: 'B1',
+      effectKind: CardEffectKind.PROTECTION,
+    }]);
+
+    expect(next.outcomes).toEqual([expect.objectContaining({
+      type: 'CARD_SAVED',
+      cardId: 'B1',
+      instanceId: 'B:1',
+      owner: PlayerId.PLAYER_B,
+    })]);
+    expect(JSON.stringify(next.outcomes)).not.toContain('effectKind');
   });
 
   it('requires Seer inspection results to be private', () => {
