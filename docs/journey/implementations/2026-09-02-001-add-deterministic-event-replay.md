@@ -6,7 +6,7 @@
 - Owner/Agent: Codex
 - Branch: `codex/chat-playtest-prototype`
 - Commit trước khi làm: `d2678dc`
-- Commit implementation: Chờ commit
+- Commit implementation: `d548a63`
 - Conversation/task source: CONV-006 — tiếp tục phase sau P0.7
 - Trạng thái: Hoàn thành prototype
 
@@ -88,7 +88,7 @@ Audit: games=200, events=15665, maxEvents=132, divergences=0
 - Root cause: Xác định — P0.6 chỉ lưu trace ngắn để debug.
 - Fix/decision: lưu full transcript và thêm canonical digest/replay.
 - Verify lại: PASS round-trip.
-- Commit fix: Chờ commit.
+- Commit fix: `d548a63`.
 
 ### F-002 — Replay không kiểm tra digest kỳ vọng
 
@@ -99,7 +99,7 @@ Audit: games=200, events=15665, maxEvents=132, divergences=0
 - Root cause: Xác định — slice đầu chỉ dispatch lại action, chưa so digest từng event.
 - Fix/decision: so actual/expected digest sau mỗi transition và dừng tại lệch đầu tiên.
 - Verify lại: PASS, báo đúng event 34.
-- Commit fix: Chờ commit.
+- Commit fix: `d548a63`.
 
 ## Quyết định sau implementation
 
@@ -136,7 +136,7 @@ Audit: games=200, events=15665, maxEvents=132, divergences=0
 - Docs/ADR: README demo, verification log, task tracker.
 - Screenshot/video: Không áp dụng.
 - Test report: record này và verification log.
-- Commit/PR: Chờ commit.
+- Commit/PR: `d548a63`.
 
 ## Bước tiếp theo
 
