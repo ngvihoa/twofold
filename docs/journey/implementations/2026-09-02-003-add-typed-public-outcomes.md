@@ -58,7 +58,8 @@ Không đổi role, charge, target hoặc thứ tự resolve. Đây là contract
 | T-005 | TDD red/green | Round 7 Swap conflict | Chỉ một `purge.resolved` sau batch | Red thiếu event; green `fizzled` | PASS |
 | T-006 | Integration | Toàn bộ engine/simulator suite | Không regression | 54/54 pass | PASS |
 | T-007 | Extended fuzz | 200 seed `p10-outcome-audit` | Schema/recipient leak 0 | 15.306 transition; 11.125 outcome; leak 0 | PASS |
-| T-008 | Static/workspace | `node --check`, `npm run check`, `git diff --check` | Không lỗi | 3/3 workspace pass; static/diff pass | PASS |
+| T-008 | Static/workspace trước fetch | `node --check`, `npm run check`, `git diff --check` | Không lỗi | 3/3 workspace pass; static/diff pass | PASS |
+| T-009 | Integrated remote workspace | Remote `1045182` + 6 commit Phase 0, `pnpm tf check` | Spec/runtime boundary và mọi workspace xanh | 4/4 workspace pass; spec 51, web 62, game-core 83 test pass | PASS |
 
 ### Lệnh đã chạy
 
@@ -73,6 +74,8 @@ node --check apps/spec-reviewer/game-flow-demo/simulator.mjs
 node --check apps/spec-reviewer/game-flow-demo/fuzz.mjs
 npm run check
 git diff --check
+pnpm install --frozen-lockfile
+pnpm tf check
 ```
 
 ### Output quan trọng
@@ -81,6 +84,7 @@ git diff --check
 tests 54; pass 54; fail 0
 recipient audit: games=200, events=15306, outcomes=11125, hiddenActions=10995, leaks=0
 All 3 workspace checks passed
+Integrated remote: All 4 workspace checks passed
 ```
 
 ## Failure log
@@ -95,6 +99,17 @@ All 3 workspace checks passed
 - Fix/decision: giữ sequence engine đúng và cho assertion dùng sequence thực; outcome vẫn chỉ xuất hiện sau cả hai commit.
 - Verify lại: PASS trong suite 54/54.
 - Commit fix: `c75a3c6`.
+
+### F-002 — Full remote check thiếu dependencies trong worktree tạm
+
+- Build/commit/seed: remote `1045182` + cherry-pick P0.8–P0.10 trong worktree tạm.
+- Reproduction: chạy `pnpm tf check` trước khi install lockfile.
+- Expected: chạy toàn bộ 4 workspace.
+- Actual: spec notes thiếu `@neondatabase/serverless`; web/game-core thiếu `vitest`.
+- Root cause: Xác định — worktree tạm chưa có `node_modules`, không phải regression code.
+- Fix/decision: `pnpm install --frozen-lockfile`, không sửa dependency manifest/lockfile.
+- Verify lại: PASS — 4/4 workspace, spec 51 test, web 62 test + typecheck/build, game-core 83 test.
+- Commit fix: Không áp dụng; chỉ là setup local.
 
 ## Quyết định sau implementation
 
@@ -124,7 +139,7 @@ All 3 workspace checks passed
 - UI/UX: chưa nối UI local sang event consumer; log vẫn tồn tại cho presentation.
 - Kỹ thuật: có producer, recipient delta projection, invariant và leak audit.
 - Data/analytics: event chỉ in-memory, không persistence.
-- Scope/roadmap: Phase 0 kết thúc; P1 bắt đầu authoritative multiplayer room/transport.
+- Scope/roadmap: Phase 0 của spec reviewer kết thúc; runtime track hiện có cần migration audit riêng, không được suy ra parity từ P0.10.
 
 ## File và artifact liên quan
 
@@ -136,8 +151,8 @@ All 3 workspace checks passed
 
 ## Bước tiếp theo
 
-- [ ] P1.1 chốt command envelope (`commandId`, `stateVersion`) — Developer.
-- [ ] P1.2 dựng authoritative room + persistence/transport POC — Developer.
+- [ ] Freeze `c75a3c6`/commit tích hợp làm spec candidate và lập migration audit với runtime baseline — Developer + Game Designer.
+- [ ] Tiếp tục command envelope/persistence/transport trên runtime track theo task đã được phê duyệt — Developer.
 - [ ] Human playtest/balance vẫn đi theo TEST-01/PT-01, không được suy ra từ fuzz.
 
 ## Giới hạn bằng chứng

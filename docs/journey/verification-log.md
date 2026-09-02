@@ -7,7 +7,7 @@
 - `card.saved` không chứa role/source/kind; Council/Purge không phát outcome khi mới có lựa chọn kín đầu tiên.
 - Full engine/simulator suite: **54/54 pass**.
 - Audit 200 seed `p10-outcome-audit-recipient-*`: **15.306 transition**, **11.125 typed outcome**, **10.995 hidden action**, schema/recipient leak 0.
-- Phase 0 đóng ở P0.10; chuyển sang P1 authoritative room/transport. Không mở P0.11 nếu không phát hiện blocker hồi quy.
+- Phase 0 của spec reviewer đóng ở P0.10; handoff qua migration audit/runtime P1 theo policy hiện hành. Không mở P0.11 nếu không phát hiện blocker hồi quy.
 
 Giới hạn: local/in-memory; chưa kiểm serialization/wire-version, command idempotency, hai client thật, reconnect, timing/traffic side-channel hoặc human balance playtest.
 

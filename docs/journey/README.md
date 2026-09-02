@@ -58,4 +58,4 @@ Mục tiêu không phải chép nguyên transcript. Mỗi entry cần giúp mộ
 - State machine tại `b589667` đã được chạy smoke test lại ngày 29/08/2026: 11/11 case pass.
 - Dataset Role Atlas đã được kiểm tra lại ngày 29/08/2026: 92 role, 5 phe, 80 ảnh.
 - Ngày 29/08/2026 repo đang có một đợt tái cấu trúc monorepo chưa hoàn tất; journal không can thiệp vào đợt thay đổi đó.
-- Ngày 02/09/2026 Phase 0 đóng tại P0.10; bước tiếp theo là authoritative room/transport P1, không phải mở thêm P0 mặc định.
+- Ngày 02/09/2026 Phase 0 của spec reviewer đóng tại P0.10; bước tiếp theo là migration audit với runtime/P1 track hiện có, không phải mở thêm P0 mặc định hay tự tuyên bố parity.
