@@ -7,12 +7,14 @@ import { Eye, EyeOff, Skull } from 'lucide-react';
 import * as React from 'react';
 import { createPortal } from 'react-dom';
 import {
-  formatGameCardLife,
-  formatGameCardVisibility,
   formatGameRoleName,
   getGameRoleTooltipContent,
 } from '../../features/game/presentation/game-display-labels';
 import { getGameRoleArt } from '../../features/game/presentation/game-role-art';
+import {
+  PrototypeGameCardEffects,
+  type CardIntentIndicator,
+} from './-Prototype.GameCardEffects';
 
 export type PrototypeGameCardProps =
   | ({ readonly kind: 'self'; readonly card: PrivateCardViewV2 } & CardInteractionProps)
@@ -20,6 +22,7 @@ export type PrototypeGameCardProps =
 
 interface CardInteractionProps {
   readonly animateReveal?: boolean;
+  readonly intentIndicators?: readonly CardIntentIndicator[];
   readonly selectable: boolean;
   readonly selected: boolean;
   readonly onSelect: (cardId: CardId) => void;
@@ -148,6 +151,11 @@ export function PrototypeGameCard(props: PrototypeGameCardProps) {
             <span className="font-mono text-xs text-slate-300">{card.instanceId}</span>
           </div>
         </div>
+        <PrototypeGameCardEffects
+          effects={card.effects}
+          intents={props.intentIndicators ?? NO_CARD_INTENTS}
+          view={props.kind}
+        />
       </button>
 
       {tooltip ? (
@@ -197,3 +205,5 @@ export function PrototypeGameCard(props: PrototypeGameCardProps) {
     </div>
   );
 }
+
+const NO_CARD_INTENTS: readonly CardIntentIndicator[] = [];

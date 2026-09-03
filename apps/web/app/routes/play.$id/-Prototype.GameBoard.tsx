@@ -1,9 +1,10 @@
-import type {
-  CardId,
-  CardRuntimeStateV2,
-  GamePresentationEventV2,
-  GamePlayerViewV2,
-  PlayerGameAction,
+import {
+  AbilityId,
+  type CardId,
+  type CardRuntimeStateV2,
+  type GamePresentationEventV2,
+  type GamePlayerViewV2,
+  type PlayerGameAction,
 } from '@twofold/shared-types';
 import { History, Moon, Shield, Skull, Sun, Trophy } from 'lucide-react';
 import * as React from 'react';
@@ -20,6 +21,7 @@ import {
   usePrototypeCardInteraction,
 } from './-Prototype.GameActionPanel';
 import { PrototypeGameCard } from './-Prototype.GameCard';
+import type { CardIntentIndicator } from './-Prototype.GameCardEffects';
 
 export interface PrototypeGameBoardProps {
   readonly view: GamePlayerViewV2;
@@ -46,6 +48,10 @@ export function PrototypeGameBoard(props: PrototypeGameBoardProps) {
     previousOpponentVisibilityRef.current,
     props.view.opponent.board
   );
+  const privateCardIntents = getPrivateCardIntentIndicators(
+    props.view,
+    props.pendingAction
+  );
 
   React.useEffect(() => {
     previousOpponentVisibilityRef.current = createOpponentVisibilitySnapshot(
@@ -64,6 +70,7 @@ export function PrototypeGameBoard(props: PrototypeGameBoardProps) {
       <PrototypeGameArena
         view={props.view}
         newlyRevealedOpponentCardIds={newlyRevealedOpponentCardIds}
+        privateCardIntents={privateCardIntents}
       />
     </PrototypeGameInteractionProvider>
   );
@@ -72,9 +79,11 @@ export function PrototypeGameBoard(props: PrototypeGameBoardProps) {
 function PrototypeGameArena({
   view,
   newlyRevealedOpponentCardIds,
+  privateCardIntents,
 }: {
   readonly view: GamePlayerViewV2;
   readonly newlyRevealedOpponentCardIds: ReadonlySet<CardId>;
+  readonly privateCardIntents: ReadonlyMap<CardId, readonly CardIntentIndicator[]>;
 }) {
   const scene = getPrototypeScene(view.phase.type);
   const selfAlive = countLivingCards(view.self.board);
@@ -103,6 +112,7 @@ function PrototypeGameArena({
                 kind="opponent"
                 card={card}
                 animateReveal={newlyRevealedOpponentCardIds.has(card.id)}
+                intentIndicators={privateCardIntents.get(card.id)}
                 selectable={interaction.selectableCardIds.has(card.id)}
                 selected={interaction.selectedCardIds.has(card.id)}
                 onSelect={interaction.selectCard}
@@ -129,6 +139,7 @@ function PrototypeGameArena({
                 key={card.id}
                 kind="self"
                 card={card}
+                intentIndicators={privateCardIntents.get(card.id)}
                 selectable={interaction.selectableCardIds.has(card.id)}
                 selected={interaction.selectedCardIds.has(card.id)}
                 onSelect={interaction.selectCard}
@@ -167,6 +178,63 @@ export function getNewlyRevealedOpponentCardIds(
       )
       .map((card) => card.id)
   );
+}
+
+export function getPrivateCardIntentIndicators(
+  view: GamePlayerViewV2,
+  pendingAction: PlayerGameAction | null
+): ReadonlyMap<CardId, readonly CardIntentIndicator[]> {
+  const indicators = new Map<CardId, CardIntentIndicator[]>();
+  const addIndicator = (cardId: CardId, indicator: CardIntentIndicator) => {
+    const current = indicators.get(cardId) ?? [];
+    if (!current.includes(indicator)) {
+      indicators.set(cardId, [...current, indicator]);
+    }
+  };
+  const councilOrder =
+    pendingAction?.type === 'COUNCIL_ACCUSATION_SUBMIT' &&
+    pendingAction.playerId === view.self.id
+      ? pendingAction.order
+      : view.self.submissions.council.accusation;
+  if (councilOrder?.type === 'ACCUSE') {
+    addIndicator(councilOrder.targetId, 'PENDING_HANGING');
+  }
+
+  const pendingCouncilTargetId =
+    view.self.submissions.council.pendingTargetId;
+  if (pendingCouncilTargetId) {
+    addIndicator(pendingCouncilTargetId, 'PENDING_HANGING');
+  }
+
+  const defenseOrder =
+    pendingAction?.type === 'DEFENSE_SUBMIT' &&
+    pendingAction.playerId === view.self.id
+      ? pendingAction.order
+      : view.self.submissions.defense;
+  if (defenseOrder?.type === 'PROTECT') {
+    addIndicator(defenseOrder.targetId, 'PENDING_PROTECTION');
+  }
+
+  const nightOrder =
+    pendingAction?.type === 'NIGHT_SUBMIT' &&
+    pendingAction.playerId === view.self.id
+      ? pendingAction.order
+      : view.self.submissions.night;
+  if (nightOrder?.type === 'BLOOD_MOON') {
+    addIndicator(nightOrder.targetId, 'PENDING_BLOOD_MOON');
+  } else if (nightOrder?.type === 'USE_ABILITY') {
+    const indicatorByAbility = {
+      [AbilityId.WEREWOLF_ATTACK]: 'PENDING_ATTACK',
+      [AbilityId.SEER_INSPECT]: 'PENDING_INSPECTION',
+      [AbilityId.WITCH_POISON]: 'PENDING_POISON',
+    } as const satisfies Record<
+      typeof nightOrder.abilityId,
+      CardIntentIndicator
+    >;
+    addIndicator(nightOrder.targetId, indicatorByAbility[nightOrder.abilityId]);
+  }
+
+  return indicators;
 }
 
 function PrototypeTopbar({
