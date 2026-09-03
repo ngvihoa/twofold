@@ -1,16 +1,18 @@
 import {
-  CardRole,
   type CardId,
   type PrivateCardViewV2,
   type PublicCardViewV2,
 } from '@twofold/shared-types';
-import { Eye, EyeOff, Shield, Skull } from 'lucide-react';
+import { Eye, EyeOff, Skull } from 'lucide-react';
 import * as React from 'react';
 import { createPortal } from 'react-dom';
 import {
+  formatGameCardLife,
+  formatGameCardVisibility,
   formatGameRoleName,
   getGameRoleTooltipContent,
 } from '../../features/game/presentation/game-display-labels';
+import { getGameRoleArt } from '../../features/game/presentation/game-role-art';
 
 export type PrototypeGameCardProps =
   | ({ readonly kind: 'self'; readonly card: PrivateCardViewV2 } & CardInteractionProps)
@@ -21,19 +23,6 @@ interface CardInteractionProps {
   readonly selected: boolean;
   readonly onSelect: (cardId: CardId) => void;
 }
-
-const ROLE_ART: Record<CardRole, string> = {
-  [CardRole.VILLAGER]: '/characters/dan-lang.png',
-  [CardRole.WEREWOLF]: '/characters/ma-soi-thuong.png',
-  [CardRole.SEER]: '/characters/tien-tri.png',
-  [CardRole.GUARD]: '/characters/bao-ve.png',
-  [CardRole.WITCH]: '/characters/phu-thuy.webp',
-  [CardRole.SHOOTER]: '/characters/xa-thu.webp',
-  [CardRole.AVENGER]: '/characters/ke-bao-thu.png',
-  [CardRole.PRIEST]: '/characters/muc-su.png',
-  [CardRole.SUBSTITUTE]: '/characters/soi-ho-ve.webp',
-  [CardRole.WOLF_GUARD]: '/characters/soi-ho-ve.webp',
-};
 
 interface TooltipPosition {
   readonly left: number;
@@ -56,7 +45,6 @@ export function PrototypeGameCard(props: PrototypeGameCardProps) {
     props.kind === 'self' ? props.card.role.id : props.card.role;
   const roleName = role ? formatGameRoleName(role) : 'Vai trò ẩn';
   const tooltip = role ? getGameRoleTooltipContent(role) : null;
-  const protectedCard = card.effects.some((effect) => effect.kind === 'PROTECTION');
   const abilityResources =
     props.kind === 'self'
       ? props.card.role.abilities
@@ -122,7 +110,7 @@ export function PrototypeGameCard(props: PrototypeGameCardProps) {
         aria-pressed={props.selected}
         disabled={!props.selectable}
         onClick={() => props.onSelect(card.id)}
-        className={`group relative flex min-h-36 w-full flex-col overflow-hidden rounded-lg border p-1.5 text-left shadow-lg shadow-black/25 transition-[transform,box-shadow,opacity,filter] ${
+        className={`group relative flex h-48 w-full flex-col overflow-hidden rounded-lg border p-1.5 text-left shadow-lg shadow-black/25 transition-[transform,box-shadow,opacity,filter] ${
           props.selectable ? 'cursor-pointer ring-2 ring-amber-200/80 hover:-translate-y-2 hover:brightness-110' : 'cursor-default'
         } ${props.selected ? 'z-10 -translate-y-1 ring-4 ring-cyan-200 shadow-cyan-200/40' : ''} ${
           dead
@@ -142,17 +130,17 @@ export function PrototypeGameCard(props: PrototypeGameCardProps) {
           </span>
         </div>
 
-        <div className="relative my-1.5 flex min-h-20 flex-1 overflow-hidden rounded border border-black/35 bg-black/20 text-center">
+        <div className="relative my-1.5 h-28 shrink-0 overflow-hidden rounded border border-black/35 bg-black/20 text-center">
           {role ? (
             <img
-              src={ROLE_ART[role]}
+              src={getGameRoleArt(role)}
               alt={`Minh họa ${roleName}`}
               loading="lazy"
               decoding="async"
-              className="h-full min-h-20 w-full object-cover object-top"
+              className="h-28 w-full object-cover object-top"
             />
           ) : (
-            <div className="grid min-h-20 w-full place-items-center bg-[radial-gradient(circle,#334155_0_18%,#172033_19%_40%,#101827_41%)] font-serif text-3xl text-slate-300">
+            <div className="grid h-28 w-full place-items-center bg-[radial-gradient(circle,#334155_0_18%,#172033_19%_40%,#101827_41%)] font-serif text-3xl text-slate-300">
               TF
             </div>
           )}
@@ -166,15 +154,12 @@ export function PrototypeGameCard(props: PrototypeGameCardProps) {
 
         <div className="space-y-1 text-[8px] text-slate-400">
           <div className="flex flex-wrap gap-1">
-            <span className="rounded bg-slate-900/70 px-1.5 py-0.5">{card.state.life}</span>
             <span className="rounded bg-slate-900/70 px-1.5 py-0.5">
-              {card.state.visibility}
+              {formatGameCardLife(card.state.life)}
             </span>
-            {protectedCard ? (
-              <span className="inline-flex items-center gap-1 rounded bg-emerald-950/70 px-1.5 py-0.5 text-emerald-300">
-                <Shield className="h-3 w-3" /> PROTECTION
-              </span>
-            ) : null}
+            <span className="rounded bg-slate-900/70 px-1.5 py-0.5">
+              {formatGameCardVisibility(card.state.visibility)}
+            </span>
           </div>
           {/* {abilityResources.length > 0 ? (
             <p className="truncate" title={abilityResources.join(' · ')}>

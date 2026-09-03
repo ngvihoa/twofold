@@ -51,5 +51,8 @@ describe('GameSetupPanel', () => {
       expect(html).toContain(`data-setup-card="${card.instanceId}"`);
       expect(html).toContain(formatGameRoleName(card.role.id));
     }
+    expect(html.match(/<img /gu)).toHaveLength(10);
+    expect(html).toContain('/characters/dan-lang.png');
+    expect(html).toContain('h-28 w-full object-cover object-top');
   });
 });

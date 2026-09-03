@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  GAME_CARD_LIFE_LABELS,
+  GAME_CARD_VISIBILITY_LABELS,
   GAME_PHASE_LABELS,
+  formatGameCardLife,
+  formatGameCardVisibility,
   formatGamePhaseName,
 } from './game-display-labels';
 
@@ -29,5 +33,20 @@ describe('game phase labels', () => {
 
     expect(label).toBe('Ban ngày · Người chơi A hành động');
     expect(label).not.toContain('DAY_A');
+  });
+});
+
+describe('game card state labels', () => {
+  it('maps lifecycle and visibility enums to Vietnamese wording', () => {
+    expect(GAME_CARD_LIFE_LABELS).toEqual({
+      ALIVE: 'Sống',
+      DEAD: 'Chết',
+    });
+    expect(GAME_CARD_VISIBILITY_LABELS).toEqual({
+      HIDDEN: 'Ẩn',
+      REVEALED: 'Hiện',
+    });
+    expect(formatGameCardLife('ALIVE')).toBe('Sống');
+    expect(formatGameCardVisibility('REVEALED')).toBe('Hiện');
   });
 });

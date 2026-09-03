@@ -1,6 +1,7 @@
 import {
   CardRole,
   PlayerId,
+  type CardRuntimeStateV2,
   type GamePlayerViewV2,
 } from '@twofold/shared-types';
 
@@ -28,6 +29,16 @@ const GAME_PLAYER_LABELS = {
   [PlayerId.PLAYER_A]: 'Người chơi A',
   [PlayerId.PLAYER_B]: 'Người chơi B',
 } as const satisfies Record<PlayerId, string>;
+
+export const GAME_CARD_LIFE_LABELS = {
+  ALIVE: 'Sống',
+  DEAD: 'Chết',
+} as const satisfies Record<CardRuntimeStateV2['life'], string>;
+
+export const GAME_CARD_VISIBILITY_LABELS = {
+  HIDDEN: 'Ẩn',
+  REVEALED: 'Hiện',
+} as const satisfies Record<CardRuntimeStateV2['visibility'], string>;
 
 /** Tên vai trò dùng ở presentation; domain và wire contract vẫn giữ enum ổn định. */
 export const GAME_ROLE_LABELS = {
@@ -115,6 +126,18 @@ export function formatGamePhaseName(phase: GamePhaseType): string {
 
 export function formatGamePlayerName(player: PlayerId): string {
   return GAME_PLAYER_LABELS[player];
+}
+
+export function formatGameCardLife(
+  life: CardRuntimeStateV2['life']
+): string {
+  return GAME_CARD_LIFE_LABELS[life];
+}
+
+export function formatGameCardVisibility(
+  visibility: CardRuntimeStateV2['visibility']
+): string {
+  return GAME_CARD_VISIBILITY_LABELS[visibility];
 }
 
 export function getGameRoleTooltipContent(

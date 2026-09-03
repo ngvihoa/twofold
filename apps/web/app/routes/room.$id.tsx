@@ -2,7 +2,8 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import * as React from 'react';
 import { CardRole } from '@twofold/shared-types';
 import { STANDARD_DECK } from '@twofold/game-core';
-import { Copy, Check, UserCheck, Shield, Sparkles, Swords } from 'lucide-react';
+import { AlertCircle, Copy, Check, Shield, Sparkles, Swords } from 'lucide-react';
+import { copyTextToClipboard } from '../features/lobby/copy-text-to-clipboard';
 
 export const Route = createFileRoute('/room/$id')({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -16,16 +17,27 @@ function RoomLobbyComponent() {
   const { id: roomId } = Route.useParams();
   const { name } = Route.useSearch();
   const navigate = useNavigate();
-  const [copied, setCopied] = React.useState(false);
+  const [copyStatus, setCopyStatus] = React.useState<
+    'idle' | 'copying' | 'success' | 'error'
+  >('idle');
+  const copyResetTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const [myDeck] = React.useState<CardRole[]>(() => [...STANDARD_DECK]);
   const [isReady, setIsReady] = React.useState(false);
   const [countdown, setCountdown] = React.useState<number | null>(null);
 
-  const copyRoomCode = () => {
-    navigator.clipboard.writeText(roomId);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const copyRoomCode = async () => {
+    if (copyStatus === 'copying') return;
+    setCopyStatus('copying');
+    const copied = await copyTextToClipboard(roomId);
+    setCopyStatus(copied ? 'success' : 'error');
+
+    if (copyResetTimerRef.current) clearTimeout(copyResetTimerRef.current);
+    copyResetTimerRef.current = setTimeout(() => setCopyStatus('idle'), 2000);
   };
+
+  React.useEffect(() => () => {
+    if (copyResetTimerRef.current) clearTimeout(copyResetTimerRef.current);
+  }, []);
 
   const handleToggleReady = () => {
     const nextReady = !isReady;
@@ -70,12 +82,28 @@ function RoomLobbyComponent() {
               {roomId}
             </span>
             <button
+              type="button"
               onClick={copyRoomCode}
+              disabled={copyStatus === 'copying'}
               className="p-2 rounded-lg bg-surface-highlight/70 hover:bg-surface-highlight text-slate-300 hover:text-white transition-colors border border-slate-700/50"
-              title="Sao chép mã phòng"
+              title={copyStatus === 'error' ? 'Không thể sao chép mã phòng' : 'Sao chép mã phòng'}
+              aria-label={copyStatus === 'error' ? 'Không thể sao chép mã phòng' : 'Sao chép mã phòng'}
             >
-              {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+              {copyStatus === 'success' ? (
+                <Check className="w-4 h-4 text-emerald-400" />
+              ) : copyStatus === 'error' ? (
+                <AlertCircle className="w-4 h-4 text-rose-400" />
+              ) : (
+                <Copy className="w-4 h-4" />
+              )}
             </button>
+            <span className="sr-only" role="status" aria-live="polite">
+              {copyStatus === 'success'
+                ? 'Đã sao chép mã phòng'
+                : copyStatus === 'error'
+                  ? 'Không thể sao chép mã phòng'
+                  : ''}
+            </span>
           </div>
         </div>
 

@@ -4,6 +4,7 @@ import type {
 } from '@twofold/shared-types';
 import type { GameSessionError } from '../../features/game/session/game-session-machine';
 import { formatGameRoleName } from '../../features/game/presentation/game-display-labels';
+import { getGameRoleArt } from '../../features/game/presentation/game-role-art';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -148,13 +149,22 @@ export function GameSetupPanel({
                 );
                 if (Number.isInteger(fromIndex)) moveCard(fromIndex, index);
               }}
-              className="group flex min-h-44 flex-col rounded-xl border border-slate-700/70 bg-surface-highlight/40 p-3 transition-colors hover:border-indigo-500/60"
+              className="group flex h-64 flex-col rounded-xl border border-slate-700/70 bg-surface-highlight/40 p-3 transition-colors hover:border-indigo-500/60"
             >
               <div className="flex items-center justify-between text-xs text-slate-400">
                 <span className="font-mono font-bold">Vị trí {index + 1}</span>
                 <GripVertical className="h-4 w-4" aria-hidden="true" />
               </div>
-              <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
+              <div className="my-2 h-28 shrink-0 overflow-hidden rounded-lg border border-black/35 bg-black/20">
+                <img
+                  src={getGameRoleArt(card.role.id)}
+                  alt={`Minh họa ${roleName}`}
+                  loading="lazy"
+                  decoding="async"
+                  className="h-28 w-full object-cover object-top"
+                />
+              </div>
+              <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-1 text-center">
                 <span className="text-sm font-bold text-indigo-200">{roleName}</span>
                 <span className="font-mono text-[10px] text-slate-500">{instanceId}</span>
               </div>
