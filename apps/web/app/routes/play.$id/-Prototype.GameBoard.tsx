@@ -6,8 +6,9 @@ import {
   type GamePlayerViewV2,
   type PlayerGameAction,
 } from '@twofold/shared-types';
-import { History, Moon, Shield, Skull, Sun, Trophy } from 'lucide-react';
+import { History, Moon, Shield, Skull, Sun, Trophy, X } from 'lucide-react';
 import * as React from 'react';
+import { createPortal } from 'react-dom';
 import { cn } from '../../lib/classnames';
 import {
   formatGamePhaseName,
@@ -90,20 +91,28 @@ function PrototypeGameArena({
   const selfAlive = countLivingCards(view.self.board);
   const opponentAlive = countLivingCards(view.opponent.board);
   const interaction = usePrototypeCardInteraction();
+  const historyEvents = getPresentationEvents(view);
+  const [historyOpen, setHistoryOpen] = React.useState(false);
+  const closeHistory = React.useCallback(() => setHistoryOpen(false), []);
 
   return (
     <div
       data-prototype-layout="arena-side-rail"
       data-prototype-scene={scene}
       className={cn(
-        'relative mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-3 overflow-hidden p-3 sm:p-4',
+        'relative mx-auto flex h-full min-h-0 w-full max-w-[1600px] flex-col gap-3 overflow-hidden p-3 sm:p-4',
         getSceneClass(scene)
       )}
     >
-      <PrototypeTopbar view={view} scene={scene} />
+      <PrototypeTopbar
+        view={view}
+        scene={scene}
+        historyCount={historyEvents.length}
+        onOpenHistory={() => setHistoryOpen(true)}
+      />
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_19rem]">
-        <main className="grid min-w-0 grid-rows-[auto_minmax(17rem,1fr)_auto] gap-2">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-hidden lg:grid-cols-[minmax(0,1fr)_19rem]">
+        <main className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(7rem,1fr)_auto] gap-2 overflow-hidden sm:grid-rows-[auto_minmax(10rem,1fr)_auto]">
           <PrototypeBoardSection
             title={`Đối thủ · ${view.opponent.id}`}
             hint="Vai trò công khai được nhấn sáng"
@@ -155,8 +164,13 @@ function PrototypeGameArena({
           </PrototypeBoardSection>
         </main>
 
-        <PrototypeHistoryRail events={getPresentationEvents(view)} />
+        <PrototypeHistoryRail events={historyEvents} />
       </div>
+      <PrototypeHistorySheet
+        events={historyEvents}
+        open={historyOpen}
+        onClose={closeHistory}
+      />
     </div>
   );
 }
@@ -247,9 +261,13 @@ export function getPrivateCardIntentIndicators(
 function PrototypeTopbar({
   view,
   scene,
+  historyCount,
+  onOpenHistory,
 }: {
   readonly view: GamePlayerViewV2;
   readonly scene: PrototypeScene;
+  readonly historyCount: number;
+  readonly onOpenHistory: () => void;
 }) {
   const daylight = scene === 'day' || scene === 'dawn';
   return (
@@ -258,11 +276,28 @@ function PrototypeTopbar({
         {daylight ? <Sun className="h-3.5 w-3.5 text-amber-300" /> : <Moon className="h-3.5 w-3.5 text-indigo-300" />}
         {formatGamePhaseName(view.phase.type)}
       </div>
-      <span className="rounded-md border border-white/10 bg-black/20 px-2 py-1 text-xs text-slate-400">
-        {view.activePlayer
-          ? `Đang hành động · ${formatGamePlayerName(view.activePlayer)}`
-          : 'Hai bên cùng chọn / đang phân giải'}
-      </span>
+      <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+        <span className="rounded-md border border-white/10 bg-black/20 px-2 py-1 text-xs text-slate-400">
+          {view.activePlayer
+            ? `Đang hành động · ${formatGamePlayerName(view.activePlayer)}`
+            : 'Hai bên cùng chọn / đang phân giải'}
+        </span>
+        <button
+          type="button"
+          data-history-sheet-trigger
+          className="inline-flex items-center gap-1.5 rounded-md border border-white/15 bg-black/25 px-2 py-1 text-xs font-bold text-slate-200 hover:bg-white/10 lg:hidden"
+          onClick={onOpenHistory}
+          aria-label={`Mở lịch sử trận đấu, ${historyCount} diễn biến`}
+        >
+          <History className="h-4 w-4 text-amber-300" />
+          Lịch sử
+          {historyCount > 0 ? (
+            <span className="rounded-full bg-amber-300/20 px-1.5 text-amber-100">
+              {historyCount}
+            </span>
+          ) : null}
+        </button>
+      </div>
     </header>
   );
 }
@@ -306,18 +341,141 @@ function PrototypeResult({ view }: { readonly view: GamePlayerViewV2 }) {
 }
 
 function PrototypeHistoryRail({ events }: { readonly events: readonly GamePresentationEventV2[] }) {
+  return (
+    <aside
+      data-history-rail
+      className="hidden min-h-0 max-h-[calc(100dvh-7rem)] flex-col overflow-hidden rounded-xl border border-white/10 bg-slate-950/80 p-4 lg:sticky lg:top-4 lg:flex"
+    >
+      <PrototypeHistoryContent events={events} />
+    </aside>
+  );
+}
+
+export function PrototypeHistorySheet({
+  events,
+  open,
+  onClose,
+}: {
+  readonly events: readonly GamePresentationEventV2[];
+  readonly open: boolean;
+  readonly onClose: () => void;
+}) {
+  const sheetRef = React.useRef<HTMLElement>(null);
+  const closeButtonRef = React.useRef<HTMLButtonElement>(null);
+
+  React.useEffect(() => {
+    if (!open) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+
+      const focusableElements = sheetRef.current?.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (!focusableElements || focusableElements.length === 0) return;
+
+      const first = focusableElements[0];
+      const last = focusableElements[focusableElements.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', handleKeyDown);
+    closeButtonRef.current?.focus();
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+      previouslyFocused?.focus();
+    };
+  }, [onClose, open]);
+
+  if (!open) return null;
+
+  const sheet = (
+    <div data-history-sheet className="fixed inset-0 z-[100] isolate lg:hidden">
+      <button
+        type="button"
+        className="history-sheet-backdrop absolute inset-0 bg-black/70 backdrop-blur-sm"
+        onClick={onClose}
+        aria-label="Đóng lịch sử trận đấu"
+      />
+      <section
+        ref={sheetRef}
+        data-side="right"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="history-sheet-title"
+        className="history-sheet-content absolute inset-y-0 right-0 z-10 flex h-dvh max-h-dvh min-h-0 w-[85vw] max-w-sm flex-col overflow-hidden border-l border-white/15 bg-slate-950 p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl shadow-black"
+      >
+        <PrototypeHistoryContent
+          events={events}
+          onClose={onClose}
+          closeButtonRef={closeButtonRef}
+          titleId="history-sheet-title"
+        />
+      </section>
+    </div>
+  );
+
+  return typeof document === 'undefined'
+    ? sheet
+    : createPortal(sheet, document.body);
+}
+
+function PrototypeHistoryContent({
+  events,
+  onClose,
+  closeButtonRef,
+  titleId,
+}: {
+  readonly events: readonly GamePresentationEventV2[];
+  readonly onClose?: () => void;
+  readonly closeButtonRef?: React.Ref<HTMLButtonElement>;
+  readonly titleId?: string;
+}) {
   const recentEvents = events.slice(-12).reverse();
   return (
-    <aside className="flex min-h-52 flex-col rounded-xl border border-white/10 bg-slate-950/80 p-4 lg:min-h-0">
-      <header className="border-b border-white/10 pb-3">
-        <h2 className="flex items-center gap-2 text-sm font-bold text-slate-100">
-          <History className="h-4 w-4 text-amber-300" /> Lịch sử trận đấu
-        </h2>
-        <p className="mt-1 text-xs leading-relaxed text-slate-500">
-          Những diễn biến gần nhất được ghi lại theo thứ tự thời gian.
-        </p>
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <header className="flex shrink-0 items-start justify-between gap-3 border-b border-white/10 pb-3">
+        <div>
+          <h2 id={titleId} className="flex items-center gap-2 text-sm font-bold text-slate-100">
+            <History className="h-4 w-4 text-amber-300" /> Lịch sử trận đấu
+          </h2>
+          <p className="mt-1 text-xs leading-relaxed text-slate-500">
+            Những diễn biến gần nhất được ghi lại theo thứ tự thời gian.
+          </p>
+        </div>
+        {onClose ? (
+          <button
+            ref={closeButtonRef}
+            type="button"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-white/10 text-slate-300 hover:bg-white/10 hover:text-white"
+            onClick={onClose}
+            aria-label="Đóng lịch sử trận đấu"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        ) : null}
       </header>
-      <ol className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto">
+      <ol
+        data-history-scroll
+        tabIndex={0}
+        aria-label="Danh sách diễn biến trận đấu"
+        className="mt-3 min-h-0 flex-1 touch-pan-y space-y-2 overflow-y-auto overscroll-contain pr-1"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
         {recentEvents.length > 0 ? recentEvents.map((event) => {
           const message = formatGameHistoryMessage(event);
           return (
@@ -333,7 +491,7 @@ function PrototypeHistoryRail({ events }: { readonly events: readonly GamePresen
           </li>
         )}
       </ol>
-    </aside>
+    </div>
   );
 }
 

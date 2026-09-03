@@ -19,6 +19,7 @@ import {
 } from './-Prototype.GameActionPanel';
 import {
   PrototypeGameBoard,
+  PrototypeHistorySheet,
   getNewlyRevealedOpponentCardIds,
   getPrivateCardIntentIndicators,
 } from './-Prototype.GameBoard';
@@ -76,8 +77,13 @@ describe('PrototypeGameBoard', () => {
     expect(html.match(/data-card-id=/gu)).toHaveLength(20);
     expect(html).toContain('data-prototype-layout="arena-side-rail"');
     expect(html).toContain('data-prototype-scene="day"');
+    expect(html).toContain('h-full min-h-0');
+    expect(html).toContain('grid-rows-[auto_minmax(7rem,1fr)_auto]');
     expect(html).toContain('Mệnh lệnh hiện tại');
     expect(html).toContain('Lịch sử trận đấu');
+    expect(html).toContain('data-history-rail="true"');
+    expect(html).toContain('max-h-[calc(100dvh-7rem)]');
+    expect(html).toContain('data-history-sheet-trigger="true"');
     expect(html).toContain('Ban ngày · Người chơi A hành động');
     expect(html).not.toContain('DAY_A');
     expect(html).toContain('/characters/dan-lang.png');
@@ -85,6 +91,25 @@ describe('PrototypeGameBoard', () => {
     expect(html).not.toContain('<select');
     expect(html.indexOf('Đối thủ')).toBeLessThan(html.indexOf('Mệnh lệnh hiện tại'));
     expect(html.indexOf('Mệnh lệnh hiện tại')).toBeLessThan(html.indexOf('Tay của bạn'));
+  });
+
+  it('renders mobile history as a scrollable right-side sheet', () => {
+    const html = renderToStaticMarkup(
+      <PrototypeHistorySheet events={[]} open onClose={vi.fn()} />
+    );
+
+    expect(html).toContain('data-history-sheet="true"');
+    expect(html).toContain('z-[100]');
+    expect(html).toContain('role="dialog"');
+    expect(html).toContain('aria-modal="true"');
+    expect(html).toContain('data-side="right"');
+    expect(html).toContain('inset-y-0 right-0');
+    expect(html).toContain('w-[85vw] max-w-sm');
+    expect(html).toContain('h-dvh max-h-dvh min-h-0');
+    expect(html).toContain('data-history-scroll="true"');
+    expect(html).toContain('touch-pan-y');
+    expect(html).toContain('overflow-y-auto');
+    expect(html).toContain('aria-label="Đóng lịch sử trận đấu"');
   });
 
   it('does not infer the role of a dead hidden opponent card', () => {
