@@ -12,6 +12,7 @@ import {
   Swords,
   type LucideIcon,
 } from 'lucide-react';
+import { cn } from '../../lib/classnames';
 
 interface EffectPresentation {
   readonly label: string;
@@ -132,7 +133,10 @@ export function PrototypeGameCardEffects({
             role="img"
             aria-label={presentation.label}
             title={presentation.label}
-            className={`grid h-4 w-4 place-items-center rounded-full border ${presentation.className}`}
+            className={cn(
+              'grid h-4 w-4 place-items-center rounded-full border',
+              presentation.className
+            )}
           >
             <Icon className="h-3 w-3" aria-hidden="true" />
           </span>
@@ -148,7 +152,10 @@ export function PrototypeGameCardEffects({
             role="img"
             aria-label={presentation.label}
             title={presentation.label}
-            className={`grid h-4 w-4 place-items-center rounded-full border ${presentation.className}`}
+            className={cn(
+              'grid h-4 w-4 place-items-center rounded-full border',
+              presentation.className
+            )}
           >
             <Icon className="h-3 w-3" aria-hidden="true" />
           </span>

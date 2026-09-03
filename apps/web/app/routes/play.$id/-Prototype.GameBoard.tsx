@@ -8,6 +8,7 @@ import {
 } from '@twofold/shared-types';
 import { History, Moon, Shield, Skull, Sun, Trophy } from 'lucide-react';
 import * as React from 'react';
+import { cn } from '../../lib/classnames';
 import {
   formatGamePhaseName,
   formatGamePlayerName,
@@ -94,7 +95,10 @@ function PrototypeGameArena({
     <div
       data-prototype-layout="arena-side-rail"
       data-prototype-scene={scene}
-      className={`relative mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-3 overflow-hidden p-3 sm:p-4 ${getSceneClass(scene)}`}
+      className={cn(
+        'relative mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-3 overflow-hidden p-3 sm:p-4',
+        getSceneClass(scene)
+      )}
     >
       <PrototypeTopbar view={view} scene={scene} />
 
@@ -120,7 +124,10 @@ function PrototypeGameArena({
             ))}
           </PrototypeBoardSection>
 
-          <section className={`relative flex min-h-0 items-center justify-center overflow-y-auto rounded-xl border p-3 sm:p-5 ${getBattlefieldClass(scene)}`}>
+          <section className={cn(
+            'relative flex min-h-0 items-center justify-center overflow-y-auto rounded-xl border p-3 sm:p-5',
+            getBattlefieldClass(scene)
+          )}>
             <div className="pointer-events-none absolute inset-x-6 top-1/2 border-t border-dashed border-white/10" />
             <div className="relative z-10 w-full">
               {view.result ? <PrototypeResult view={view} /> : null}

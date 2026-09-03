@@ -9,6 +9,7 @@ import {
   Users,
 } from 'lucide-react';
 import { useEffect } from 'react';
+import { cn } from '../../lib/classnames';
 import { GamePresentationActorContext } from '../../features/game/presentation/game-presentation-context';
 import { formatGameHistoryMessage } from '../../features/game/presentation/game-history-message';
 import {
@@ -92,7 +93,10 @@ export function PrototypeGameEventPresentationCard({
         role="status"
         data-presentation-kind={kind}
         data-presentation-sequence={current.sequence}
-        className={`game-presentation-event pointer-events-auto relative w-full max-w-lg overflow-hidden rounded-2xl border px-4 py-3 shadow-2xl backdrop-blur-md ${PRESENTATION_CLASS[kind]}`}
+        className={cn(
+          'game-presentation-event pointer-events-auto relative w-full max-w-lg overflow-hidden rounded-2xl border px-4 py-3 shadow-2xl backdrop-blur-md',
+          PRESENTATION_CLASS[kind]
+        )}
       >
         <div className="flex items-start gap-3">
           <span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full border border-current/20 bg-black/20">

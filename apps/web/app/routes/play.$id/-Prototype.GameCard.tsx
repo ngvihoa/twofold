@@ -6,6 +6,7 @@ import {
 import { Eye, EyeOff, Skull } from 'lucide-react';
 import * as React from 'react';
 import { createPortal } from 'react-dom';
+import { cn } from '../../lib/classnames';
 import {
   formatGameRoleName,
   getGameRoleTooltipContent,
@@ -108,11 +109,14 @@ export function PrototypeGameCard(props: PrototypeGameCardProps) {
         aria-pressed={props.selected}
         disabled={!props.selectable}
         onClick={() => props.onSelect(card.id)}
-        className={`group relative flex h-48 w-full flex-col overflow-hidden rounded-lg border p-1.5 text-left shadow-lg shadow-black/25 transition-[transform,box-shadow,opacity,filter] ${
-          props.animateReveal ? 'opponent-card-reveal' : ''
-        } ${
-          props.selectable ? 'cursor-pointer ring-2 ring-amber-200/80 hover:-translate-y-2 hover:brightness-110' : 'cursor-default'
-        } ${props.selected ? 'z-10 -translate-y-1 ring-4 ring-cyan-200 shadow-cyan-200/40' : ''} ${
+        className={cn(
+          'group relative flex h-fit w-full flex-col overflow-hidden rounded-lg border p-1.5 px-1 text-left shadow-lg shadow-black/25 transition-[transform,box-shadow,opacity,filter]',
+          props.animateReveal && 'opponent-card-reveal',
+          props.selectable
+            ? 'cursor-pointer ring-2 ring-amber-200/80 hover:-translate-y-2 hover:brightness-110'
+            : 'cursor-default',
+          props.selected &&
+          'z-10 -translate-y-1 ring-4 ring-cyan-200 shadow-cyan-200/40',
           dead
             ? 'border-slate-700 bg-slate-950/80 opacity-45 grayscale'
             : props.kind === 'self'
@@ -120,42 +124,52 @@ export function PrototypeGameCard(props: PrototypeGameCardProps) {
               : revealed
                 ? 'border-amber-400/80 bg-gradient-to-br from-amber-900/50 to-slate-950 shadow-amber-500/10'
                 : 'border-slate-600/70 bg-[radial-gradient(circle_at_center,_#1f2937_0_18%,_#0f172a_19%_38%,_#111827_39%)]'
-        }`}
+        )}
       >
         <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-slate-400">
           <span>{card.id}</span>
           <span className="flex items-center gap-1">
-            {revealed ? <Eye className="h-3.5 w-3.5" /> : role ? <EyeOff className="h-3.5 w-3.5" /> : null}
-            {dead ? <Skull className="h-3.5 w-3.5 text-rose-400" /> : null}
+            {revealed ? <Eye className="h-3.5 w-3.5" /> : props.kind === 'self' ? <EyeOff className="h-3.5 w-3.5" /> : null}
           </span>
         </div>
 
-        <div className="relative my-1.5 h-28 shrink-0 overflow-hidden rounded border border-black/35 bg-black/20 text-center">
+        <div className="relative my-1.5 h-[100px] shrink-0 overflow-hidden rounded border 
+        border-black/35 bg-blue-200/20 text-center flex items-center justify-center">
           {role ? (
+            <div className='p-1'>
+              <img
+                src={getGameRoleArt(role)}
+                alt={`Minh họa ${roleName}`}
+                loading="lazy"
+                decoding="async"
+                className="aspect-square w-full object-contain"
+              />
+            </div>
+          ) : (
+            // <div className="grid h-28 w-full place-items-center bg-[radial-gradient(circle,#334155_0_18%,#172033_19%_40%,#101827_41%)] font-serif text-3xl text-slate-300">
+            //   TF
+            // </div>
             <img
-              src={getGameRoleArt(role)}
-              alt={`Minh họa ${roleName}`}
+              src="/logo.png"
+              alt="Mặt sau lá bài"
               loading="lazy"
               decoding="async"
-              className="h-28 w-full object-cover object-top"
-            />
-          ) : (
-            <div className="grid h-28 w-full place-items-center bg-[radial-gradient(circle,#334155_0_18%,#172033_19%_40%,#101827_41%)] font-serif text-3xl text-slate-300">
-              TF
-            </div>
+              className="h-[100px] w-full object-contain" />
           )}
           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent px-1 pb-1 pt-5">
             {role ? (
               <strong className="block truncate text-xs leading-tight text-amber-50">{roleName}</strong>
             ) : null}
-            <span className="font-mono text-xs text-slate-300">{card.instanceId}</span>
+            {/* <span className="font-mono text-xs text-slate-300">{card.instanceId}</span> */}
           </div>
         </div>
-        <PrototypeGameCardEffects
-          effects={card.effects}
-          intents={props.intentIndicators ?? NO_CARD_INTENTS}
-          view={props.kind}
-        />
+        <div className='h-5'>
+          <PrototypeGameCardEffects
+            effects={card.effects}
+            intents={props.intentIndicators ?? NO_CARD_INTENTS}
+            view={props.kind}
+          />
+        </div>
       </button>
 
       {tooltip ? (
@@ -166,41 +180,42 @@ export function PrototypeGameCard(props: PrototypeGameCardProps) {
 
       {tooltip && tooltipPosition && typeof document !== 'undefined'
         ? createPortal(
+          <div
+            role="tooltip"
+            aria-hidden="true"
+            className="pointer-events-none fixed z-[100]"
+            style={{
+              left: tooltipPosition.left,
+              top: tooltipPosition.top,
+              transform:
+                tooltipPosition.placement === 'top'
+                  ? 'translate(-50%, -100%)'
+                  : 'translateX(-50%)',
+            }}
+          >
             <div
-              role="tooltip"
-              aria-hidden="true"
-              className="pointer-events-none fixed z-[100]"
-              style={{
-                left: tooltipPosition.left,
-                top: tooltipPosition.top,
-                transform:
-                  tooltipPosition.placement === 'top'
-                    ? 'translate(-50%, -100%)'
-                    : 'translateX(-50%)',
-              }}
+              data-card-tooltip={card.id}
+              data-placement={tooltipPosition.placement}
+              className={cn(
+                'w-72 rounded-xl border border-amber-300/25 bg-slate-950/95 p-3 text-left shadow-2xl shadow-black/60 backdrop-blur-md',
+                tooltipPosition.placement === 'top'
+                  ? 'card-tooltip-enter-top'
+                  : 'card-tooltip-enter-bottom'
+              )}
             >
-              <div
-                data-card-tooltip={card.id}
-                data-placement={tooltipPosition.placement}
-                className={`w-72 rounded-xl border border-amber-300/25 bg-slate-950/95 p-3 text-left shadow-2xl shadow-black/60 backdrop-blur-md ${
-                  tooltipPosition.placement === 'top'
-                    ? 'card-tooltip-enter-top'
-                    : 'card-tooltip-enter-bottom'
-                }`}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <strong className="text-sm text-amber-100">{tooltip.name}</strong>
-                  <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-slate-400">
-                    {tooltip.faction}
-                  </span>
-                </div>
-                <p className="mt-2 text-xs leading-relaxed text-slate-300">
-                  {tooltip.description}
-                </p>
+              <div className="flex items-center justify-between gap-3">
+                <strong className="text-sm text-amber-100">{tooltip.name}</strong>
+                <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-slate-400">
+                  {tooltip.faction}
+                </span>
               </div>
-            </div>,
-            document.body
-          )
+              <p className="mt-2 text-xs leading-relaxed text-slate-300">
+                {tooltip.description}
+              </p>
+            </div>
+          </div>,
+          document.body
+        )
         : null}
     </div>
   );

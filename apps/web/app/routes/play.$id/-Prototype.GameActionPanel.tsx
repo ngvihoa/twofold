@@ -7,6 +7,7 @@ import {
 } from '@twofold/shared-types';
 import { AlertTriangle, LoaderCircle, RotateCcw, Shield } from 'lucide-react';
 import * as React from 'react';
+import { cn } from '../../lib/classnames';
 import {
   DAY_ACTION_ABILITY,
   createBloodMoonAction,
@@ -469,7 +470,21 @@ function Prompt({ text }: { readonly text: string }) {
 }
 
 function ActionButton({ label, onClick, disabled, tone = 'primary', icon }: { readonly label: string; readonly onClick: () => void; readonly disabled: boolean; readonly tone?: 'primary' | 'quiet'; readonly icon?: React.ReactNode }) {
-  return <button type="button" disabled={disabled} onClick={onClick} className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-black transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-35 ${tone === 'primary' ? 'border-amber-200/35 bg-amber-300/20 text-amber-50 hover:bg-amber-300/30' : 'border-white/15 bg-black/15 text-slate-200 hover:bg-white/10'}`}>{icon}{label}</button>;
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-black transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-35',
+        tone === 'primary'
+          ? 'border-amber-200/35 bg-amber-300/20 text-amber-50 hover:bg-amber-300/30'
+          : 'border-white/15 bg-black/15 text-slate-200 hover:bg-white/10'
+      )}
+    >
+      {icon}{label}
+    </button>
+  );
 }
 
 function CancelButton({ onClick }: { readonly onClick: () => void }) {
