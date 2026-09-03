@@ -19,6 +19,7 @@ export type PrototypeGameCardProps =
   | ({ readonly kind: 'opponent'; readonly card: PublicCardViewV2 } & CardInteractionProps);
 
 interface CardInteractionProps {
+  readonly animateReveal?: boolean;
   readonly selectable: boolean;
   readonly selected: boolean;
   readonly onSelect: (cardId: CardId) => void;
@@ -45,12 +46,6 @@ export function PrototypeGameCard(props: PrototypeGameCardProps) {
     props.kind === 'self' ? props.card.role.id : props.card.role;
   const roleName = role ? formatGameRoleName(role) : 'Vai trò ẩn';
   const tooltip = role ? getGameRoleTooltipContent(role) : null;
-  const abilityResources =
-    props.kind === 'self'
-      ? props.card.role.abilities
-          .filter((ability) => 'remainingUses' in ability)
-          .map((ability) => `${ability.abilityId}: ${ability.remainingUses}`)
-      : [];
 
   const showTooltip = React.useCallback(() => {
     if (!tooltip || !wrapperRef.current) return;
@@ -111,6 +106,8 @@ export function PrototypeGameCard(props: PrototypeGameCardProps) {
         disabled={!props.selectable}
         onClick={() => props.onSelect(card.id)}
         className={`group relative flex h-48 w-full flex-col overflow-hidden rounded-lg border p-1.5 text-left shadow-lg shadow-black/25 transition-[transform,box-shadow,opacity,filter] ${
+          props.animateReveal ? 'opponent-card-reveal' : ''
+        } ${
           props.selectable ? 'cursor-pointer ring-2 ring-amber-200/80 hover:-translate-y-2 hover:brightness-110' : 'cursor-default'
         } ${props.selected ? 'z-10 -translate-y-1 ring-4 ring-cyan-200 shadow-cyan-200/40' : ''} ${
           dead
@@ -122,10 +119,10 @@ export function PrototypeGameCard(props: PrototypeGameCardProps) {
                 : 'border-slate-600/70 bg-[radial-gradient(circle_at_center,_#1f2937_0_18%,_#0f172a_19%_38%,_#111827_39%)]'
         }`}
       >
-        <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400">
+        <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-slate-400">
           <span>{card.id}</span>
           <span className="flex items-center gap-1">
-            {revealed ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+            {revealed ? <Eye className="h-3.5 w-3.5" /> : role ? <EyeOff className="h-3.5 w-3.5" /> : null}
             {dead ? <Skull className="h-3.5 w-3.5 text-rose-400" /> : null}
           </span>
         </div>
@@ -146,26 +143,10 @@ export function PrototypeGameCard(props: PrototypeGameCardProps) {
           )}
           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent px-1 pb-1 pt-5">
             {role ? (
-              <strong className="block truncate text-[10px] leading-tight text-amber-50">{roleName}</strong>
+              <strong className="block truncate text-xs leading-tight text-amber-50">{roleName}</strong>
             ) : null}
-            <span className="font-mono text-[8px] text-slate-300">{card.instanceId}</span>
+            <span className="font-mono text-xs text-slate-300">{card.instanceId}</span>
           </div>
-        </div>
-
-        <div className="space-y-1 text-[8px] text-slate-400">
-          <div className="flex flex-wrap gap-1">
-            <span className="rounded bg-slate-900/70 px-1.5 py-0.5">
-              {formatGameCardLife(card.state.life)}
-            </span>
-            <span className="rounded bg-slate-900/70 px-1.5 py-0.5">
-              {formatGameCardVisibility(card.state.visibility)}
-            </span>
-          </div>
-          {/* {abilityResources.length > 0 ? (
-            <p className="truncate" title={abilityResources.join(' · ')}>
-              {abilityResources.join(' · ')}
-            </p>
-          ) : null} */}
         </div>
       </button>
 
@@ -201,11 +182,11 @@ export function PrototypeGameCard(props: PrototypeGameCardProps) {
               >
                 <div className="flex items-center justify-between gap-3">
                   <strong className="text-sm text-amber-100">{tooltip.name}</strong>
-                  <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                  <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-slate-400">
                     {tooltip.faction}
                   </span>
                 </div>
-                <p className="mt-2 text-[11px] leading-relaxed text-slate-300">
+                <p className="mt-2 text-xs leading-relaxed text-slate-300">
                   {tooltip.description}
                 </p>
               </div>

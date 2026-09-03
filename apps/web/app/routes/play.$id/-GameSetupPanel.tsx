@@ -166,7 +166,7 @@ export function GameSetupPanel({
               </div>
               <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-1 text-center">
                 <span className="text-sm font-bold text-indigo-200">{roleName}</span>
-                <span className="font-mono text-[10px] text-slate-500">{instanceId}</span>
+                <span className="font-mono text-xs text-slate-500">{instanceId}</span>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <button

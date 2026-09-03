@@ -1,9 +1,12 @@
 import type {
+  CardId,
+  CardRuntimeStateV2,
   GamePresentationEventV2,
   GamePlayerViewV2,
   PlayerGameAction,
 } from '@twofold/shared-types';
 import { History, Moon, Shield, Skull, Sun, Trophy } from 'lucide-react';
+import * as React from 'react';
 import {
   formatGamePhaseName,
   formatGamePlayerName,
@@ -36,22 +39,43 @@ type PrototypeScene = 'day' | 'dusk' | 'night' | 'dawn' | 'purge';
  * duy nhất và component không resolve gameplay rule.
  */
 export function PrototypeGameBoard(props: PrototypeGameBoardProps) {
-  const phaseKey = `${props.view.round}:${props.view.phase.type}`;
+  const previousOpponentVisibilityRef = React.useRef(
+    createOpponentVisibilitySnapshot(props.view.opponent.board)
+  );
+  const newlyRevealedOpponentCardIds = getNewlyRevealedOpponentCardIds(
+    previousOpponentVisibilityRef.current,
+    props.view.opponent.board
+  );
+
+  React.useEffect(() => {
+    previousOpponentVisibilityRef.current = createOpponentVisibilitySnapshot(
+      props.view.opponent.board
+    );
+  }, [props.view.opponent.board]);
+
   return (
     <PrototypeGameInteractionProvider
-      key={phaseKey}
       view={props.view}
       pendingAction={props.pendingAction}
       error={props.error}
       canSubmit={props.canSubmit}
       onSubmit={props.onSubmit}
     >
-      <PrototypeGameArena view={props.view} />
+      <PrototypeGameArena
+        view={props.view}
+        newlyRevealedOpponentCardIds={newlyRevealedOpponentCardIds}
+      />
     </PrototypeGameInteractionProvider>
   );
 }
 
-function PrototypeGameArena({ view }: { readonly view: GamePlayerViewV2 }) {
+function PrototypeGameArena({
+  view,
+  newlyRevealedOpponentCardIds,
+}: {
+  readonly view: GamePlayerViewV2;
+  readonly newlyRevealedOpponentCardIds: ReadonlySet<CardId>;
+}) {
   const scene = getPrototypeScene(view.phase.type);
   const selfAlive = countLivingCards(view.self.board);
   const opponentAlive = countLivingCards(view.opponent.board);
@@ -78,6 +102,7 @@ function PrototypeGameArena({ view }: { readonly view: GamePlayerViewV2 }) {
                 key={card.id}
                 kind="opponent"
                 card={card}
+                animateReveal={newlyRevealedOpponentCardIds.has(card.id)}
                 selectable={interaction.selectableCardIds.has(card.id)}
                 selected={interaction.selectedCardIds.has(card.id)}
                 onSelect={interaction.selectCard}
@@ -118,6 +143,32 @@ function PrototypeGameArena({ view }: { readonly view: GamePlayerViewV2 }) {
   );
 }
 
+type OpponentVisibilitySnapshot = ReadonlyMap<
+  CardId,
+  CardRuntimeStateV2['visibility']
+>;
+
+function createOpponentVisibilitySnapshot(
+  cards: GamePlayerViewV2['opponent']['board']
+): OpponentVisibilitySnapshot {
+  return new Map(cards.map((card) => [card.id, card.state.visibility]));
+}
+
+export function getNewlyRevealedOpponentCardIds(
+  previous: OpponentVisibilitySnapshot,
+  cards: GamePlayerViewV2['opponent']['board']
+): ReadonlySet<CardId> {
+  return new Set(
+    cards
+      .filter(
+        (card) =>
+          previous.get(card.id) === 'HIDDEN' &&
+          card.state.visibility === 'REVEALED'
+      )
+      .map((card) => card.id)
+  );
+}
+
 function PrototypeTopbar({
   view,
   scene,
@@ -127,19 +178,12 @@ function PrototypeTopbar({
 }) {
   const daylight = scene === 'day' || scene === 'dawn';
   return (
-    <header className="flex flex-wrap items-center gap-3 border-b border-white/10 bg-black/15 px-2 pb-3">
-      <div className="grid h-9 w-9 place-items-center rounded-full border border-slate-300 font-serif text-[10px] font-black tracking-tighter">
-        TF
-      </div>
-      <div>
-        <p className="text-xs font-black tracking-[0.18em] text-slate-100">TWOFOLD</p>
-        <p className="text-[10px] text-slate-400">Prototype presentation · Vòng {view.round}</p>
-      </div>
-      <div className="ml-auto flex items-center gap-2 rounded-full border border-white/10 bg-black/25 px-3 py-2 text-[10px] font-black uppercase tracking-widest">
+    <header className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-black/15 px-2 py-2 rounded-lg">
+      <div className="flex items-center gap-2 rounded-full border border-white/10 bg-black/25 px-3 py-2 text-xs font-black uppercase tracking-widest">
         {daylight ? <Sun className="h-3.5 w-3.5 text-amber-300" /> : <Moon className="h-3.5 w-3.5 text-indigo-300" />}
         {formatGamePhaseName(view.phase.type)}
       </div>
-      <span className="rounded-md border border-white/10 bg-black/20 px-2 py-1 text-[9px] text-slate-400">
+      <span className="rounded-md border border-white/10 bg-black/20 px-2 py-1 text-xs text-slate-400">
         {view.activePlayer
           ? `Đang hành động · ${formatGamePlayerName(view.activePlayer)}`
           : 'Hai bên cùng chọn / đang phân giải'}
@@ -167,7 +211,7 @@ function PrototypeBoardSection({
         <h2 className="flex items-center gap-2 font-black uppercase tracking-[0.12em] text-slate-200">
           {icon}{title}
         </h2>
-        <span className="text-right text-[9px] text-slate-400">{hint} · {alive}/10 sống</span>
+        <span className="text-right text-xs text-slate-400">{hint} · {alive}/10 sống</span>
       </header>
       <div className="overflow-x-auto px-1 py-2">
         <div className="grid min-w-[680px] grid-cols-10 gap-1.5">{children}</div>
@@ -194,7 +238,7 @@ function PrototypeHistoryRail({ events }: { readonly events: readonly GamePresen
         <h2 className="flex items-center gap-2 text-sm font-bold text-slate-100">
           <History className="h-4 w-4 text-amber-300" /> Lịch sử trận đấu
         </h2>
-        <p className="mt-1 text-[9px] leading-relaxed text-slate-500">
+        <p className="mt-1 text-xs leading-relaxed text-slate-500">
           Những diễn biến gần nhất được ghi lại theo thứ tự thời gian.
         </p>
       </header>
@@ -202,14 +246,14 @@ function PrototypeHistoryRail({ events }: { readonly events: readonly GamePresen
         {recentEvents.length > 0 ? recentEvents.map((event) => {
           const message = formatGameHistoryMessage(event);
           return (
-            <li key={event.id} className="border-l-2 border-slate-700 pl-2 text-[10px] leading-relaxed text-slate-400">
+            <li key={event.id} className="border-l-2 border-slate-700 pl-2 text-xs leading-relaxed text-slate-400">
               <span className="font-mono text-slate-500">#{event.sequence} · V{event.round}</span>
               <strong className="block text-slate-200">{message.title}</strong>
               <span className="block text-slate-400">{message.detail}</span>
             </li>
           );
         }) : (
-          <li className="rounded-lg border border-dashed border-slate-800 p-3 text-center text-[10px] text-slate-500">
+          <li className="rounded-lg border border-dashed border-slate-800 p-3 text-center text-xs text-slate-500">
             Chưa có structured event.
           </li>
         )}

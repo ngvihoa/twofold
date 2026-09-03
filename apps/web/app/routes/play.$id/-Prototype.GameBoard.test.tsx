@@ -12,7 +12,10 @@ import {
   PrototypeGameActionPanel,
   PrototypeGameInteractionProvider,
 } from './-Prototype.GameActionPanel';
-import { PrototypeGameBoard } from './-Prototype.GameBoard';
+import {
+  PrototypeGameBoard,
+  getNewlyRevealedOpponentCardIds,
+} from './-Prototype.GameBoard';
 import { PrototypeGameCard } from './-Prototype.GameCard';
 
 function createView() {
@@ -95,12 +98,34 @@ describe('PrototypeGameBoard', () => {
     );
 
     expect(html).toContain('Vai trò ẩn');
-    expect(html).toContain('Chết');
-    expect(html).toContain('Ẩn');
+    expect(html).not.toContain('Chết');
+    expect(html).not.toContain('Ẩn');
+    expect(html).not.toContain('lucide-eye-off');
     expect(html).not.toContain('>DEAD<');
     expect(html).not.toContain('>HIDDEN<');
     expect(html).not.toContain(CardRole.WEREWOLF);
     expect(html).not.toContain('trọng số 2 phiếu');
+  });
+
+  it('detects an opponent reveal across a phase-driven board remount', () => {
+    const opponentBoard = createView().opponent.board;
+    const revealedCard = opponentBoard[0];
+    const previous = new Map(
+      opponentBoard.map((card) => [card.id, card.state.visibility])
+    );
+    const nextBoard = opponentBoard.map((card) =>
+      card.id === revealedCard.id
+        ? {
+            ...card,
+            state: { ...card.state, visibility: 'REVEALED' as const },
+          }
+        : card
+    );
+
+    const newlyRevealed = getNewlyRevealedOpponentCardIds(previous, nextBoard);
+
+    expect(newlyRevealed.has(revealedCard.id)).toBe(true);
+    expect(newlyRevealed.size).toBe(1);
   });
 
   it.each([

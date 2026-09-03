@@ -59,6 +59,13 @@ type InteractionState =
   | { readonly kind: 'PURGE_OWN' }
   | { readonly kind: 'PURGE_OPPONENT'; readonly ownTargetId: CardId };
 
+const IDLE_INTERACTION: InteractionState = { kind: 'IDLE' };
+
+interface ScopedInteractionState {
+  readonly scope: string;
+  readonly interaction: InteractionState;
+}
+
 interface GameInteractionContextValue {
   readonly view: GamePlayerViewV2;
   readonly pendingAction: PlayerGameAction | null;
@@ -83,12 +90,41 @@ export function PrototypeGameInteractionProvider({
   onSubmit,
   children,
 }: PrototypeGameInteractionProviderProps) {
-  const [interaction, setInteraction] = React.useState<InteractionState>({ kind: 'IDLE' });
+  const interactionScope = `${view.round}:${view.phase.type}`;
+  const [scopedInteraction, setScopedInteraction] =
+    React.useState<ScopedInteractionState>(() => ({
+      scope: interactionScope,
+      interaction: IDLE_INTERACTION,
+    }));
+  const interaction =
+    scopedInteraction.scope === interactionScope
+      ? scopedInteraction.interaction
+      : IDLE_INTERACTION;
+  const setInteraction = React.useCallback<
+    React.Dispatch<React.SetStateAction<InteractionState>>
+  >(
+    (nextInteraction) => {
+      setScopedInteraction((current) => {
+        const currentInteraction =
+          current.scope === interactionScope
+            ? current.interaction
+            : IDLE_INTERACTION;
+        return {
+          scope: interactionScope,
+          interaction:
+            typeof nextInteraction === 'function'
+              ? nextInteraction(currentInteraction)
+              : nextInteraction,
+        };
+      });
+    },
+    [interactionScope]
+  );
   const submit = React.useCallback((action: PlayerGameAction) => {
     if (!canSubmit) return;
     setInteraction({ kind: 'IDLE' });
     onSubmit(action);
-  }, [canSubmit, onSubmit]);
+  }, [canSubmit, onSubmit, setInteraction]);
   const selectableCardIds = getSelectableCardIds(view, interaction, canSubmit);
   const selectedCardIds = getSelectedCardIds(interaction);
 
@@ -195,7 +231,7 @@ export function PrototypeGameActionPanel() {
     <section aria-label="Mệnh lệnh hiện tại" className="mx-auto w-full max-w-3xl rounded-2xl border border-white/20 bg-white/10 px-4 py-3 shadow-xl shadow-black/20 backdrop-blur-md">
       <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-center">
         <div>
-          <p className="text-[9px] font-black uppercase tracking-[0.22em] text-amber-200">Vòng {view.round}</p>
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-amber-200">Vòng {view.round}</p>
           <h2 className="text-sm font-black text-white">{formatGamePhaseName(view.phase.type)}</h2>
         </div>
         <PhaseControls context={context} />
@@ -433,9 +469,9 @@ function Prompt({ text }: { readonly text: string }) {
 }
 
 function ActionButton({ label, onClick, disabled, tone = 'primary', icon }: { readonly label: string; readonly onClick: () => void; readonly disabled: boolean; readonly tone?: 'primary' | 'quiet'; readonly icon?: React.ReactNode }) {
-  return <button type="button" disabled={disabled} onClick={onClick} className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-black transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-35 ${tone === 'primary' ? 'border-amber-200/35 bg-amber-300/20 text-amber-50 hover:bg-amber-300/30' : 'border-white/15 bg-black/15 text-slate-200 hover:bg-white/10'}`}>{icon}{label}</button>;
+  return <button type="button" disabled={disabled} onClick={onClick} className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-black transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-35 ${tone === 'primary' ? 'border-amber-200/35 bg-amber-300/20 text-amber-50 hover:bg-amber-300/30' : 'border-white/15 bg-black/15 text-slate-200 hover:bg-white/10'}`}>{icon}{label}</button>;
 }
 
 function CancelButton({ onClick }: { readonly onClick: () => void }) {
-  return <button type="button" onClick={onClick} className="inline-flex items-center gap-1 rounded-full border border-white/15 px-3 py-1.5 text-[10px] font-bold text-slate-200 hover:bg-white/10"><RotateCcw className="h-3 w-3" /> Chọn lại</button>;
+  return <button type="button" onClick={onClick} className="inline-flex items-center gap-1 rounded-full border border-white/15 px-3 py-1.5 text-xs font-bold text-slate-200 hover:bg-white/10"><RotateCcw className="h-3 w-3" /> Chọn lại</button>;
 }

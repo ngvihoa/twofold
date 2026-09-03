@@ -65,7 +65,7 @@ function RootComponent() {
               <span className="font-extrabold text-lg tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-indigo-200 via-slate-100 to-rose-200">
                 TWOFOLD
               </span>
-              <span className="text-[10px] uppercase font-bold tracking-widest bg-indigo-900/60 text-indigo-300 border border-indigo-500/30 px-1.5 py-0.5 rounded">
+              <span className="text-xs uppercase font-bold tracking-widest bg-indigo-900/60 text-indigo-300 border border-indigo-500/30 px-1.5 py-0.5 rounded">
                 Alpha v0.1
               </span>
             </a>

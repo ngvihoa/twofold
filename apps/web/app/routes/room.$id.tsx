@@ -152,7 +152,7 @@ function RoomLobbyComponent() {
               <div className="font-bold text-sm text-slate-200 group-hover:text-indigo-300 transition-colors">
                 {role}
               </div>
-              <span className="text-[10px] text-slate-400 bg-surface/80 px-2 py-0.5 rounded border border-slate-800">
+              <span className="text-xs text-slate-400 bg-surface/80 px-2 py-0.5 rounded border border-slate-800">
                 Vị trí {index + 1}
               </span>
             </div>

@@ -99,7 +99,7 @@ export function PrototypeGameEventPresentationCard({
             <PresentationIcon kind={kind} />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-[9px] font-black uppercase tracking-[0.18em] opacity-60">
+            <p className="text-xs font-black uppercase tracking-[0.18em] opacity-60">
               Diễn biến mới · Vòng {current.round}
             </p>
             <strong className="mt-0.5 block text-sm">{message.title}</strong>
@@ -120,7 +120,7 @@ export function PrototypeGameEventPresentationCard({
         {queuedCount > 1 ? (
           <button
             type="button"
-            className="mt-2 text-[9px] font-semibold uppercase tracking-wider opacity-55 transition hover:opacity-100"
+            className="mt-2 text-xs font-semibold uppercase tracking-wider opacity-55 transition hover:opacity-100"
             onClick={onSkipAll}
           >
             Bỏ qua tất cả ({queuedCount})
