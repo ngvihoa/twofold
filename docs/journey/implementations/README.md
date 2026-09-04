@@ -23,10 +23,10 @@ Ví dụ:
 
 | ID | Ngày | Implementation | Trạng thái | Commit/PR |
 |---|---:|---|---|---|
-| [2026-09-04-004](2026-09-04-004-build-guided-first-day-turn.md) | 04/09/2026 | Nối Match Intro với guided Day A action và Day B handoff | Hoàn thành working tree; full check 4/4 + browser journey pass | Chưa commit |
-| [2026-09-04-003](2026-09-04-003-build-room-setup-countdown-intro-flow.md) | 04/09/2026 | Build opponent arrival, setup reorder, ready, countdown và Match Intro | Hoàn thành working tree; full check 4/4 + browser interaction pass | Chưa commit |
-| [2026-09-04-002](2026-09-04-002-build-website-entry-flow.md) | 04/09/2026 | Build Home, create/join intent, Room waiting và setup preview | Hoàn thành lát entry working tree; 66/66 web test | Chưa commit |
-| [2026-09-04-001](2026-09-04-001-realign-gameflow-ux-scope.md) | 04/09/2026 | Chốt scope gameflow/UX và screen inventory end-to-end | Hoàn thành working tree; chờ UX review | Chưa commit |
+| [2026-09-04-004](2026-09-04-004-build-guided-first-day-turn.md) | 04/09/2026 | Nối Match Intro với guided Day A action và Day B handoff | Hoàn thành; full check 4/4 + browser journey pass | `0e97723` |
+| [2026-09-04-003](2026-09-04-003-build-room-setup-countdown-intro-flow.md) | 04/09/2026 | Build opponent arrival, setup reorder, ready, countdown và Match Intro | Hoàn thành; full check 4/4 + browser interaction pass | `0e97723` |
+| [2026-09-04-002](2026-09-04-002-build-website-entry-flow.md) | 04/09/2026 | Build Home, create/join intent, Room waiting và setup preview | Hoàn thành; 66/66 web test | `0e97723` |
+| [2026-09-04-001](2026-09-04-001-realign-gameflow-ux-scope.md) | 04/09/2026 | Chốt scope gameflow/UX và screen inventory end-to-end | Hoàn thành; chờ UX review | `0e97723` |
 | [2026-09-02-004](2026-09-02-004-migrate-outcome-command-contract.md) | 02/09/2026 | MIG-02 outcome projection và command idempotency | Hoàn thành; full check 4/4 | `20581b2` |
 | [2026-09-02-003](2026-09-02-003-add-typed-public-outcomes.md) | 02/09/2026 | Thêm typed public outcomes và đóng P0.10 | Hoàn thành; 200 trận/11.125 outcome, leak 0 | `c75a3c6` |
 | [2026-09-02-002](2026-09-02-002-project-recipient-transcripts.md) | 02/09/2026 | Project recipient transcript và digest P0.9 | Hoàn thành; 200 trận/11.190 hidden action, leak 0 | `48eb3f5` |

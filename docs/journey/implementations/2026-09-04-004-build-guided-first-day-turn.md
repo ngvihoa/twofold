@@ -6,7 +6,7 @@
 - Owner/Agent: Codex
 - Branch: `codex/chat-playtest-prototype`
 - Commit trước khi làm: `a723c1f`
-- Commit implementation: Chưa commit
+- Commit implementation: `0e97723`
 - Conversation/task source: CONV-011
 - Trạng thái: Hoàn thành trên working tree
 
@@ -134,7 +134,7 @@ Room handoff URL: /play/ABC123?name=Minh&preview=FIRST_TURN&seat=A
 - Docs/ADR: record này; journey index, conversation index, verification log và task tracker.
 - Screenshot/video: browser screenshot của Day A desktop và mobile trong phiên QA.
 - Test report: full workspace 4/4; web 75/75; game-core 88/88; browser click-through PASS.
-- Commit/PR: Chưa commit.
+- Commit/PR: `0e97723`.
 
 ## Bước tiếp theo
 

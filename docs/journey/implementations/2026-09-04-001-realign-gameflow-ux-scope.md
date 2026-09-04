@@ -6,7 +6,7 @@
 - Owner/Agent: Codex + Product Owner
 - Branch: `codex/chat-playtest-prototype`
 - Commit trước khi làm: `a723c1f`
-- Commit implementation: Chưa commit
+- Commit implementation: `0e97723`
 - Conversation/task source: CONV-008 — làm rõ room/matchmaking backend do Developer phụ trách
 - Trạng thái: Hoàn thành trên working tree
 
@@ -129,7 +129,7 @@ All 4 workspace checks passed: spec-reviewer 51, web 63, game-core 88.
 - Docs/ADR: `docs/game-design/player-journey-and-screen-inventory-v0.1.md`, `docs/game-design/game-flow-v0.1.md`, tracker và journey indexes.
 - Screenshot/video: Chưa có.
 - Test report: `docs/journey/verification-log.md`.
-- Commit/PR: Chưa commit.
+- Commit/PR: `0e97723`.
 
 ## Bước tiếp theo
 

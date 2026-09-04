@@ -6,7 +6,7 @@
 - Owner/Agent: Codex
 - Branch: `codex/chat-playtest-prototype`
 - Commit trước khi làm: `a723c1f`
-- Commit implementation: Chưa commit
+- Commit implementation: `0e97723`
 - Conversation/task source: CONV-010
 - Trạng thái: Hoàn thành trên working tree
 
@@ -130,7 +130,7 @@ Full workspace: All 4 workspace checks passed
 - Docs/ADR: record này; task tracker, conversation index và verification log được đồng bộ cùng implementation.
 - Screenshot/video: `/private/tmp/twofold-setup-v2.png`, `/private/tmp/twofold-match-intro.png`; responsive browser screenshot trong phiên QA.
 - Test report: output lệnh và browser metrics trong record này.
-- Commit/PR: Chưa commit.
+- Commit/PR: `0e97723`.
 
 ## Bước tiếp theo
 

@@ -6,7 +6,7 @@
 - Owner/Agent: Codex + UI/UX Game
 - Branch: `codex/chat-playtest-prototype`
 - Commit trước khi làm: `a723c1f`
-- Commit implementation: Chưa commit
+- Commit implementation: `0e97723`
 - Conversation/task source: CONV-009 - bắt đầu build flow khi người chơi vào website
 - Trạng thái: Hoàn thành lát entry đầu tiên trên working tree
 
@@ -139,7 +139,7 @@ All 4 workspace checks passed
 - Docs/ADR: Player Journey & Screen/State Inventory v0.1; record này.
 - Screenshot/video: `/private/tmp/twofold-entry-desktop.png`, `/private/tmp/twofold-entry-mobile-fixed.png`, `/private/tmp/twofold-room-host.png`, `/private/tmp/twofold-room-guest.png`.
 - Test report: `docs/journey/verification-log.md`.
-- Commit/PR: Chưa commit.
+- Commit/PR: `0e97723`.
 
 ## Bước tiếp theo
 
