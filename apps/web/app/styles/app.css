@@ -6,6 +6,132 @@
   body {
     @apply bg-background text-slate-100 font-game antialiased min-h-screen selection:bg-indigo-500 selection:text-white;
   }
+
+  button,
+  input,
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+.entry-page {
+  background:
+    radial-gradient(circle at 18% 26%, rgba(190, 24, 93, 0.11), transparent 28rem),
+    linear-gradient(135deg, #080b12 0%, #0b1019 58%, #070a10 100%);
+}
+
+.entry-atmosphere {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.16;
+  background-image:
+    linear-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: linear-gradient(to bottom, black, transparent 92%);
+}
+
+.entry-input {
+  width: 100%;
+  min-height: 3rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(100, 116, 139, 0.75);
+  background: rgba(2, 6, 23, 0.62);
+  padding: 0.75rem 1rem;
+  color: #f1f5f9;
+  outline: none;
+  transition: border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+}
+
+.entry-input::placeholder { color: #94a3b8; }
+.entry-input:hover { border-color: rgba(148, 163, 184, 0.85); }
+.entry-input:focus-visible {
+  border-color: #fda4af;
+  box-shadow: 0 0 0 3px rgba(253, 164, 175, 0.2);
+}
+.entry-input[aria-invalid='true'] { border-color: #fda4af; }
+.entry-input:disabled { cursor: wait; opacity: 0.62; }
+
+.entry-artwork {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.entry-artwork::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(7, 10, 16, 0.35), rgba(7, 10, 16, 0.88));
+}
+
+.entry-role-card {
+  position: absolute;
+  width: clamp(10rem, 16vw, 15rem);
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  filter: saturate(0.72) contrast(1.04) brightness(0.74);
+  box-shadow: 0 28px 70px rgba(2, 6, 23, 0.46);
+}
+
+.entry-role-card-seer { left: 5%; top: 5%; transform: rotate(-9deg); }
+.entry-role-card-wolf { right: 7%; top: 9%; transform: rotate(8deg); }
+.entry-role-card-guard { bottom: -12%; left: 34%; transform: rotate(2deg); }
+
+.entry-loading-mark {
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 999px;
+  border: 2px solid rgba(51, 65, 85, 0.45);
+  border-top-color: #334155;
+  animation: entry-loading-spin 700ms linear infinite;
+}
+
+@keyframes entry-loading-spin {
+  to { transform: rotate(360deg); }
+}
+
+.room-state-enter {
+  animation: room-state-enter 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.countdown-number {
+  animation: countdown-number-enter 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes room-state-enter {
+  from { opacity: 0; transform: translateY(10px); }
+}
+
+@keyframes countdown-number-enter {
+  from { opacity: 0; transform: scale(0.82); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .entry-role-card {
+    animation: entry-card-reveal 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .entry-role-card-wolf { animation-delay: 80ms; }
+  .entry-role-card-guard { animation-delay: 160ms; }
+
+  @keyframes entry-card-reveal {
+    from { opacity: 0; transform: translateY(18px) rotate(0deg) scale(0.96); }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .entry-loading-mark,
+  .room-state-enter,
+  .countdown-number { animation: none; }
+}
+
+@media (max-width: 1023px) {
+  .entry-artwork { opacity: 0.45; }
+  .entry-role-card { width: 13rem; }
 }
 
 /* Custom Game Utilities */

@@ -1,7 +1,7 @@
 # Kế hoạch Phát triển Kỹ thuật (Technical Development Plan) — Twofold Web Alpha 2026
 
-- **Phiên bản:** 1.2 (Đồng bộ trạng thái triển khai)
-- **Ngày cập nhật:** 30/08/2026
+- **Phiên bản:** 1.3 (Hoàn tất migration nền móng Phase 1)
+- **Ngày cập nhật:** 03/09/2026
 - **Mục tiêu phát hành:** Web Alpha nội bộ trước 30/10/2026
 - **Phạm vi áp dụng:** Toàn bộ Monorepo (`apps/web`, `packages/game-core`, `packages/shared-types`, `packages/cli`)
 
@@ -13,16 +13,16 @@
 
 ---
 
-## 0. Snapshot triển khai 30/08/2026
+## 0. Snapshot triển khai 03/09/2026
 
 | Khu vực | Đã có | Chưa có / không được suy diễn |
 |---|---|---|
 | `apps/spec-reviewer/game-flow-demo` | Full-loop local prototype, bot B, gameplay UI/motion và nguồn thử nghiệm rule mới hơn | Không phải authoritative multiplayer; không tự động đồng bộ vào runtime |
-| `apps/web` | TanStack routes Home/Room/Play và mock UI | Chưa có room server/realtime hoàn chỉnh; Play vẫn tự chuyển state và dùng random outcome |
-| `packages/shared-types` | Enum, schema, room contract và WebSocket DTO sơ bộ | Chưa có action/view/event contract v0.2 đầy đủ |
-| `packages/game-core` | Model card, role, ability, effect và player nền; đã hỗ trợ bài chết nhưng còn ẩn | Chưa có phase machine v0.2 và player-view serializer v0.2 |
+| `apps/web` | TanStack routes, room/WebSocket vertical slice và history formatter cho event v0.2 | Chưa có reliability/persistence/reconnect hoàn chỉnh hoặc full UX Alpha |
+| `packages/shared-types` | Action, player-view, projected outcome và command id/state version schema v0.2 | Chưa có persistence/event-store contract |
+| `packages/game-core` | Authoritative phase/rule pipeline v0.2, filtered player view, state version và outcome projection | Chưa có full replay/digest; chưa kiểm desync qua hai client/transport thật hoặc persistence |
 
-Lát triển khai kế tiếp không port toàn bộ prototype. Dev làm lần lượt: (1) sửa lifecycle/visibility theo ADR-0004, (2) phase spine tới Purge Vòng 6, (3) player-view serializer, (4) structured presentation events. Owner và acceptance criteria nằm tại [Task Tracker](../project-management/task-tracker.md).
+MIG-01 và MIG-02 đã hoàn thành bốn lát runtime trên theo các spec source đã freeze. Track Product/UX tiếp theo tập trung [journey từ vào game, setup, chơi, kết quả tới rematch/create-room](../game-design/player-journey-and-screen-inventory-v0.1.md); room, matchmaking và network reliability là track riêng do Developer phụ trách. Owner và acceptance criteria nằm tại [Task Tracker](../project-management/task-tracker.md).
 
 ---
 
@@ -183,7 +183,7 @@ flowchart TD
 6. **Xạ thủ (Shooter x1):** Ban ngày bắn một mục tiêu; 1 viên đạn.
 7. **Kẻ báo thù (Avenger x1):** Đánh dấu một mục tiêu và duy trì một dấu đang hoạt động.
 8. **Mục sư (Priest x1):** Thanh tẩy một mục tiêu; 1 lần, có phản sát khi chọn nhầm phe Dân.
-9. **Sói Hộ Vệ (Wolf Guard x1):** Cứu một mục tiêu khỏi Hội đồng; 1 lần.
+9. **Kẻ Thế Mạng (Substitute x1):** Có thể chết thay một đồng minh vừa bị Hội đồng kết tội; 1 lần/trận.
 
 Đây là bộ prototype v0.2, chưa phải kết luận cân bằng cho Alpha.
 
@@ -193,12 +193,12 @@ flowchart TD
 
 ### Giai đoạn 1: Nền móng & Schemas (M1: 28/08 – 07/09/2026)
 - [x] **ST-01A:** Khởi tạo `packages/shared-types` với schema/enum/contract/DTO nền.
-- [ ] **ST-01B:** Đồng bộ action, player view và event contract v0.2.
+- [x] **ST-01B:** Đồng bộ action, player view và event contract v0.2.
 - [x] **WEB-INIT-A:** Khởi tạo `apps/web` với TanStack Start và các route graybox.
 - [x] **WEB-INIT-B1:** Kết nối `srvx`/`crossws` `/api/ws`, room store và authoritative player snapshot thật.
 - [ ] **WEB-INIT-B2:** Hoàn thiện oRPC cho create room/get room info; WebSocket vertical slice chưa thay HTTP/RPC API.
 - [x] **GC-01A:** Thiết lập model card/role/effect/player nền trong `packages/game-core`.
-- [ ] **GC-01B:** Dựng authoritative phase spine v0.2; xem DEV-02A–D trong Task Tracker.
+- [x] **GC-01B:** Dựng authoritative phase spine v0.2, filtered player view và projected outcome tooling.
 
 ### Giai đoạn 2: Game Core Engine & Test Matrix (M2: 08/09 – 14/09/2026)
 - [ ] **GC-02:** Cài đặt toàn bộ Actions ban ngày (Dùng skill, Treo cổ đoán vai trò, Bỏ lượt).

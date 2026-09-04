@@ -18,7 +18,7 @@ export const Route = createRootRoute({
         content: 'width=device-width, initial-scale=1',
       },
       {
-        title: 'Twofold — 1v1 Turn-Based Strategy Web Alpha',
+        title: 'Twofold - Game chiến thuật 1v1',
       },
       {
         name: 'description',
@@ -29,19 +29,6 @@ export const Route = createRootRoute({
       {
         rel: 'stylesheet',
         href: appCss,
-      },
-      {
-        rel: 'preconnect',
-        href: 'https://fonts.googleapis.com',
-      },
-      {
-        rel: 'preconnect',
-        href: 'https://fonts.gstatic.com',
-        crossOrigin: 'anonymous',
-      },
-      {
-        rel: 'stylesheet',
-        href: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap',
       },
     ],
   }),
@@ -54,37 +41,32 @@ function RootComponent() {
       <head>
         <HeadContent />
       </head>
-      <body className="bg-background text-slate-100 min-h-screen flex flex-col">
-        {/* Main Navigation Header */}
-        <header className="border-b border-surface-highlight/40 bg-surface/50 backdrop-blur-md sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
+      <body className="bg-background text-slate-100 min-h-[100dvh] flex flex-col">
+        <header className="sticky top-0 z-50 border-b border-slate-800/80 bg-[#080b12]/90 backdrop-blur-md">
+          <div className="mx-auto flex h-14 max-w-[1440px] items-center justify-between px-5 sm:px-10">
             <a href="/" className="flex items-center gap-2 group">
-              <span className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-600 to-rose-500 flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-500/20 group-hover:scale-105 transition-transform">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-rose-300/25 bg-rose-500 text-sm font-black text-slate-950 transition-transform group-hover:-rotate-3">
                 TF
               </span>
-              <span className="font-extrabold text-lg tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-indigo-200 via-slate-100 to-rose-200">
+              <span className="text-base font-black tracking-[0.14em] text-slate-100 sm:text-lg">
                 TWOFOLD
-              </span>
-              <span className="text-[10px] uppercase font-bold tracking-widest bg-indigo-900/60 text-indigo-300 border border-indigo-500/30 px-1.5 py-0.5 rounded">
-                Alpha v0.1
               </span>
             </a>
 
-            <div className="flex items-center gap-4 text-xs font-medium text-slate-400">
-              <span className="hidden sm:inline">1v1 Turn-based Strategy</span>
+            <div className="flex items-center gap-4 text-xs font-semibold text-slate-400">
+              <span className="hidden sm:inline">Chiến thuật 1v1</span>
               <a
                 href="/spec-reviewer"
                 target="_blank"
                 rel="noreferrer"
-                className="hover:text-indigo-400 transition-colors bg-surface-highlight/50 px-2.5 py-1 rounded border border-slate-700/50"
+                className="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-1.5 transition-colors hover:border-slate-500 hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200"
               >
-                Role Atlas ↗
+                Xem vai trò
               </a>
             </div>
           </div>
         </header>
 
-        {/* Page Content */}
         <main className="flex-1 flex flex-col">
           <Outlet />
         </main>

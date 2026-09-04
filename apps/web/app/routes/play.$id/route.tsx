@@ -6,6 +6,7 @@ import {
   writeGameSessionId,
 } from '../../features/game/session/game-session-storage';
 import { GameSessionRuntime } from './-GameSessionRuntime';
+import { FirstTurnPreview } from './-FirstTurnPreview';
 
 export const Route = createFileRoute('/play/$id')({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -14,6 +15,8 @@ export const Route = createFileRoute('/play/$id')({
       typeof search.reconnectSessionId === 'string'
         ? search.reconnectSessionId
         : undefined,
+    preview: search.preview === 'FIRST_TURN' ? ('FIRST_TURN' as const) : undefined,
+    seat: search.seat === 'B' ? ('B' as const) : ('A' as const),
   }),
   component: GameRouteComponent,
 });
@@ -21,7 +24,28 @@ export const Route = createFileRoute('/play/$id')({
 /** Compose route params, transport và authoritative game actor runtime. */
 function GameRouteComponent() {
   const { id: roomId } = Route.useParams();
-  const { name, reconnectSessionId } = Route.useSearch();
+  const { name, reconnectSessionId, preview, seat } = Route.useSearch();
+  if (preview === 'FIRST_TURN') {
+    return <FirstTurnPreview roomId={roomId} playerName={name} seat={seat} />;
+  }
+  return (
+    <AuthoritativeGameRoute
+      roomId={roomId}
+      playerName={name}
+      reconnectSessionId={reconnectSessionId}
+    />
+  );
+}
+
+function AuthoritativeGameRoute({
+  roomId,
+  playerName,
+  reconnectSessionId,
+}: {
+  readonly roomId: string;
+  readonly playerName: string;
+  readonly reconnectSessionId?: string;
+}) {
   const endpoint = (import.meta.env.VITE_GAME_WS_URL as string | undefined) ?? '/api/ws';
   const effectiveSessionId = React.useMemo(
     () => reconnectSessionId ?? readGameSessionId(roomId),
@@ -39,7 +63,7 @@ function GameRouteComponent() {
   return (
     <GameSessionRuntime
       roomId={roomId}
-      playerName={name}
+      playerName={playerName}
       reconnectSessionId={effectiveSessionId ?? undefined}
       onSessionIdChange={persistSessionId}
       transport={transport}

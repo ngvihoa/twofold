@@ -19,6 +19,11 @@ Mục tiêu không phải chép nguyên transcript. Mỗi entry cần giúp mộ
 | [29/08/2026 — Case study Thanh trừng](2026-08-29-case-study-thanh-trung-gameflow.md) | Thay đổi nhịp Game Flow | Từ Day/Night + Tai họa rời rạc sang Bình minh → Thanh trừng → Ngày → Vote → Đêm; đánh dấu làm case study về pacing và reveal economy |
 | [29/08/2026](2026-08-29-xay-he-thong-luu-tru-hanh-trinh.md) | Biến lịch sử thành tài sản của team | Thiết lập conversation index, build journal và quy trình cập nhật |
 | [02/09/2026 — Đóng Phase 0](2026-09-02-dong-phase-0.md) | Từ luật prototype tới contract kiểm chứng được | P0.1–P0.10 hoàn tất; 54/54 test và typed outcome audit leak 0; sẵn sàng vào authoritative room P1 |
+| [02/09/2026 — MIG-02](implementations/2026-09-02-004-migrate-outcome-command-contract.md) | Đưa information boundary vào runtime Phase 1 | Runtime có projected outcome, state version và command idempotency; full check 4/4 workspace |
+| [04/09/2026 — Scope gameflow/UX](implementations/2026-09-04-001-realign-gameflow-ux-scope.md) | Tách Product/UX khỏi backend room/matchmaking | Screen inventory end-to-end từ Home đến Result/rematch/create room; backend để Developer sở hữu |
+| [04/09/2026 - Website entry](implementations/2026-09-04-002-build-website-entry-flow.md) | Từ screen inventory sang flow chạy được | Home create/join, validation/loading, Room waiting và setup preview bằng mock state |
+| [04/09/2026 - Room setup đến Match Intro](implementations/2026-09-04-003-build-room-setup-countdown-intro-flow.md) | Hoàn tất lát pre-match UX | Đối thủ xuất hiện, đổi vị trí 10 lá, ready hai phía, countdown có thể hủy và intro nêu quyền đi trước |
+| [04/09/2026 - Guided first Day turn](implementations/2026-09-04-004-build-guided-first-day-turn.md) | Từ Match Intro vào gameplay | First-turn fixture giữ privacy, chỉ mở action có target, hướng dẫn skill/source/target và xác nhận sang Day B |
 
 ## Các tài liệu hỗ trợ
 
@@ -59,3 +64,8 @@ Mục tiêu không phải chép nguyên transcript. Mỗi entry cần giúp mộ
 - Dataset Role Atlas đã được kiểm tra lại ngày 29/08/2026: 92 role, 5 phe, 80 ảnh.
 - Ngày 29/08/2026 repo đang có một đợt tái cấu trúc monorepo chưa hoàn tất; journal không can thiệp vào đợt thay đổi đó.
 - Ngày 02/09/2026 Phase 0 của spec reviewer đóng tại P0.10; bước tiếp theo là migration audit với runtime/P1 track hiện có, không phải mở thêm P0 mặc định hay tự tuyên bố parity.
+- MIG-02 đã hoàn tất tại `20581b2`: runtime tách internal event khỏi recipient outcome, thêm state version và command idempotency; full replay/digest và persistence vẫn là phần việc sau.
+- Ngày 04/09/2026 scope Product/UX được chốt: track hiện tại đặc tả gameflow/screen state; room, matchmaking và reliability backend thuộc Developer.
+- Ngày 04/09/2026 lát entry UX đầu tiên được build trong `apps/web`: mock flow chạy từ Home tới Room waiting/setup mà không triển khai backend room.
+- Ngày 04/09/2026 lát pre-match UX nối tiếp đã chạy được từ opponent arrival qua setup/ready/countdown tới Match Intro; browser interaction xác nhận swap giữ identity và hủy countdown quay lại setup.
+- Ngày 04/09/2026 gameplay preview đã nối liền từ Room tới Day A: action không có target bị khóa, browser hoàn tất Đánh dấu báo thù từ A8 lên B3 và chuyển đúng trạng thái Day B.

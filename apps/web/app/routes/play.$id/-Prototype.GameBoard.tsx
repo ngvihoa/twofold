@@ -3,7 +3,7 @@ import type {
   GamePlayerViewV2,
   PlayerGameAction,
 } from '@twofold/shared-types';
-import { History, Moon, Shield, Skull, Sun, Trophy } from 'lucide-react';
+import { CheckCircle2, History, Info, Moon, Shield, Skull, Sun, Trophy } from 'lucide-react';
 import {
   formatGamePhaseName,
   formatGamePlayerName,
@@ -24,6 +24,15 @@ export interface PrototypeGameBoardProps {
   readonly error: GameSessionError | null;
   readonly canSubmit: boolean;
   readonly onSubmit: (action: PlayerGameAction) => void;
+  readonly notice?: PrototypeGameBoardNotice;
+}
+
+export interface PrototypeGameBoardNotice {
+  readonly tone: 'guide' | 'success';
+  readonly title: string;
+  readonly detail: string;
+  readonly actionLabel?: string;
+  readonly onAction?: () => void;
 }
 
 type PrototypeScene = 'day' | 'dusk' | 'night' | 'dawn' | 'purge';
@@ -46,12 +55,18 @@ export function PrototypeGameBoard(props: PrototypeGameBoardProps) {
       canSubmit={props.canSubmit}
       onSubmit={props.onSubmit}
     >
-      <PrototypeGameArena view={props.view} />
+      <PrototypeGameArena view={props.view} notice={props.notice} />
     </PrototypeGameInteractionProvider>
   );
 }
 
-function PrototypeGameArena({ view }: { readonly view: GamePlayerViewV2 }) {
+function PrototypeGameArena({
+  view,
+  notice,
+}: {
+  readonly view: GamePlayerViewV2;
+  readonly notice?: PrototypeGameBoardNotice;
+}) {
   const scene = getPrototypeScene(view.phase.type);
   const selfAlive = countLivingCards(view.self.board);
   const opponentAlive = countLivingCards(view.opponent.board);
@@ -64,6 +79,7 @@ function PrototypeGameArena({ view }: { readonly view: GamePlayerViewV2 }) {
       className={`relative mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-3 overflow-hidden p-3 sm:p-4 ${getSceneClass(scene)}`}
     >
       <PrototypeTopbar view={view} scene={scene} />
+      {notice ? <PrototypeBoardNotice notice={notice} /> : null}
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_19rem]">
         <main className="grid min-w-0 grid-rows-[auto_minmax(17rem,1fr)_auto] gap-2">
@@ -97,7 +113,7 @@ function PrototypeGameArena({ view }: { readonly view: GamePlayerViewV2 }) {
             title={`Tay của bạn · ${view.self.id}`}
             hint="Thông tin vai trò chỉ hiện với bạn"
             alive={selfAlive}
-            icon={<Shield className="h-4 w-4 text-sky-300" />}
+            icon={<Shield className="h-4 w-4 text-rose-300" />}
           >
             {view.self.board.map((card) => (
               <PrototypeGameCard
@@ -118,6 +134,31 @@ function PrototypeGameArena({ view }: { readonly view: GamePlayerViewV2 }) {
   );
 }
 
+function PrototypeBoardNotice({ notice }: { readonly notice: PrototypeGameBoardNotice }) {
+  const Icon = notice.tone === 'success' ? CheckCircle2 : Info;
+  return (
+    <section
+      aria-label="Hướng dẫn lượt đầu"
+      className={`room-state-enter flex flex-col gap-3 rounded-xl border px-4 py-3 sm:flex-row sm:items-center ${notice.tone === 'success' ? 'border-rose-300/35 bg-rose-950/45' : 'border-slate-500/45 bg-slate-950/75'}`}
+    >
+      <Icon className="h-5 w-5 shrink-0 text-rose-300" aria-hidden="true" />
+      <div className="min-w-0 flex-1">
+        <h2 className="text-sm font-black text-slate-50">{notice.title}</h2>
+        <p className="mt-0.5 text-xs leading-5 text-slate-300">{notice.detail}</p>
+      </div>
+      {notice.actionLabel && notice.onAction ? (
+        <button
+          type="button"
+          onClick={notice.onAction}
+          className="shrink-0 rounded-lg border border-rose-300/35 bg-rose-400/10 px-3 py-2 text-xs font-bold text-rose-100 transition hover:bg-rose-400/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200 active:scale-[0.98]"
+        >
+          {notice.actionLabel}
+        </button>
+      ) : null}
+    </section>
+  );
+}
+
 function PrototypeTopbar({
   view,
   scene,
@@ -128,21 +169,18 @@ function PrototypeTopbar({
   const daylight = scene === 'day' || scene === 'dawn';
   return (
     <header className="flex flex-wrap items-center gap-3 border-b border-white/10 bg-black/15 px-2 pb-3">
-      <div className="grid h-9 w-9 place-items-center rounded-full border border-slate-300 font-serif text-[10px] font-black tracking-tighter">
-        TF
-      </div>
       <div>
-        <p className="text-xs font-black tracking-[0.18em] text-slate-100">TWOFOLD</p>
-        <p className="text-[10px] text-slate-400">Prototype presentation · Vòng {view.round}</p>
+        <p className="font-mono text-[10px] font-bold text-rose-200">Vòng {view.round}</p>
+        <h1 className="mt-0.5 text-sm font-black text-slate-50">{formatGamePhaseName(view.phase.type)}</h1>
       </div>
-      <div className="ml-auto flex items-center gap-2 rounded-full border border-white/10 bg-black/25 px-3 py-2 text-[10px] font-black uppercase tracking-widest">
+      <div className="ml-auto flex items-center gap-2 rounded-lg border border-white/10 bg-black/25 px-3 py-2 text-[10px] font-black">
         {daylight ? <Sun className="h-3.5 w-3.5 text-amber-300" /> : <Moon className="h-3.5 w-3.5 text-indigo-300" />}
-        {formatGamePhaseName(view.phase.type)}
+        {daylight ? 'Ban ngày' : 'Ban đêm'}
       </div>
-      <span className="rounded-md border border-white/10 bg-black/20 px-2 py-1 text-[9px] text-slate-400">
+      <span className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-[10px] font-semibold text-slate-300">
         {view.activePlayer
-          ? `Đang hành động · ${formatGamePlayerName(view.activePlayer)}`
-          : 'Hai bên cùng chọn / đang phân giải'}
+          ? `${formatGamePlayerName(view.activePlayer)} đang hành động`
+          : 'Hai bên đang chọn hoặc chờ kết quả'}
       </span>
     </header>
   );
@@ -192,7 +230,7 @@ function PrototypeHistoryRail({ events }: { readonly events: readonly GamePresen
     <aside className="flex min-h-52 flex-col rounded-xl border border-white/10 bg-slate-950/80 p-4 lg:min-h-0">
       <header className="border-b border-white/10 pb-3">
         <h2 className="flex items-center gap-2 text-sm font-bold text-slate-100">
-          <History className="h-4 w-4 text-amber-300" /> Lịch sử trận đấu
+          <History className="h-4 w-4 text-rose-300" /> Lịch sử trận đấu
         </h2>
         <p className="mt-1 text-[9px] leading-relaxed text-slate-500">
           Những diễn biến gần nhất được ghi lại theo thứ tự thời gian.
@@ -210,7 +248,7 @@ function PrototypeHistoryRail({ events }: { readonly events: readonly GamePresen
           );
         }) : (
           <li className="rounded-lg border border-dashed border-slate-800 p-3 text-center text-[10px] text-slate-500">
-            Chưa có structured event.
+            Chưa có diễn biến công khai.
           </li>
         )}
       </ol>

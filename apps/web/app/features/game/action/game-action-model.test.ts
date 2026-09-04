@@ -1,11 +1,21 @@
 import {
   AbilityId,
   CardRole,
+  GamePlayerViewV2Schema,
   PlayerGameActionSchema,
   PlayerId,
 } from '@twofold/shared-types';
+import {
+  STANDARD_DECK,
+  createInitialCard,
+  createInitialGameState,
+  createInitialPlayerState,
+  serializePlayerView,
+  transitionGameState,
+} from '@twofold/game-core';
 import { describe, expect, it } from 'vitest';
 import {
+  canStartDayAbility,
   createBloodMoonAction,
   createCouncilAccusationAction,
   createCouncilPassAction,
@@ -21,6 +31,28 @@ import {
   createPurgeAction,
   getPurgeRuleForRound,
 } from './game-action-model';
+
+function createFirstDayView() {
+  const initial = createInitialGameState('day-action-model', 'day-action-seed', {
+    [PlayerId.PLAYER_A]: createInitialPlayerState(
+      PlayerId.PLAYER_A,
+      STANDARD_DECK.map((role, index) => createInitialCard(PlayerId.PLAYER_A, index + 1, role))
+    ),
+    [PlayerId.PLAYER_B]: createInitialPlayerState(
+      PlayerId.PLAYER_B,
+      STANDARD_DECK.map((role, index) => createInitialCard(PlayerId.PLAYER_B, index + 1, role))
+    ),
+  });
+  const playerALocked = transitionGameState(initial, {
+    type: 'SETUP_LOCKED',
+    playerId: PlayerId.PLAYER_A,
+  });
+  const ready = transitionGameState(playerALocked, {
+    type: 'SETUP_LOCKED',
+    playerId: PlayerId.PLAYER_B,
+  });
+  return GamePlayerViewV2Schema.parse(serializePlayerView(ready, PlayerId.PLAYER_A));
+}
 
 describe('v0.2 web action builders', () => {
   it('builds every post-Setup action variant accepted by shared-types', () => {
@@ -96,5 +128,14 @@ describe('v0.2 web action builders', () => {
       'CUT', 'SWAP', 'REVEAL', 'LOCK', 'CUT',
     ]);
     expect(() => getPurgeRuleForRound(5)).toThrow(/Vòng 6/u);
+  });
+
+  it('only enables first-day abilities that have both source and target', () => {
+    const view = createFirstDayView();
+
+    expect(canStartDayAbility(view, 'SHOOT')).toBe(false);
+    expect(canStartDayAbility(view, 'REVIVE')).toBe(false);
+    expect(canStartDayAbility(view, 'MARK')).toBe(true);
+    expect(canStartDayAbility(view, 'PURIFY')).toBe(true);
   });
 });

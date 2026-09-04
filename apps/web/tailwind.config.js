@@ -33,10 +33,9 @@ export default {
         },
       },
       fontFamily: {
-        game: ['Inter', 'system-ui', 'sans-serif'],
+        game: ['Avenir Next', 'Segoe UI', 'system-ui', 'sans-serif'],
       },
     },
   },
   plugins: [],
 };
-

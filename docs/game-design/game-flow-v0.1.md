@@ -1,7 +1,7 @@
 # Game Flow v0.1
 
-- Phiên bản tài liệu: 0.1 — review draft 2
-- Ngày cập nhật: 01/09/2026
+- Phiên bản tài liệu: 0.1 — review draft 3
+- Ngày cập nhật: 04/09/2026
 - Chủ sở hữu: Game Designer / Product Owner
 - Trạng thái: Playtest/Review
 
@@ -10,6 +10,8 @@
 Tài liệu này mô tả đường đi đầy đủ của một người chơi từ lúc mở web đến khi kết thúc hoặc đấu lại. Đây là đầu vào chung cho UI/UX lập screen/state inventory, Game Designer kiểm tra luật, Developer dựng state machine và QA viết scenario.
 
 Flow chốt **trình tự và trách nhiệm của từng state**. Timer, giới hạn kỹ năng, thứ tự resolve chi tiết và bộ 10 lá vẫn là các quyết định riêng cần được chốt trước khi build full match.
+
+Screen, CTA, biến thể loading/wait/error và ranh giới bàn giao UI/UX–Developer được chi tiết hóa tại [Player Journey & Screen/State Inventory v0.1](player-journey-and-screen-inventory-v0.1.md).
 
 ## 2. Luồng tổng thể
 

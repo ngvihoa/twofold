@@ -1,5 +1,55 @@
 # Nhật ký kiểm tra
 
+## 04/09/2026 - Guided first Day turn
+
+- Automated unit/integration: first-turn fixture, action eligibility và SSR seat A/B; web suite **17 files, 75/75 pass** sau khi sửa một assertion privacy quá rộng.
+- Browser interaction: Đánh dấu báo thù chỉ làm A8 selectable; sau khi chọn A8, đủ 10 target B; chọn B3 xác nhận action và chuyển sang Day B; reset quay lại guide Day A.
+- Browser journey: Room host mock đi qua ready, countdown và intro tới đúng `/play/ABC123?name=Minh&preview=FIRST_TURN&seat=A`; 20 card và guide hiện đầy đủ.
+- Responsive browser: `innerWidth=433`, document `scrollWidth=428`, action panel 379px; không có document overflow.
+- Full workspace: `pnpm tf check` **4/4 PASS** — spec-reviewer 51 tests, web 75 tests + typecheck/build, game-core 88 tests và CLI check.
+
+Giới hạn: fixture local không resolve action qua authoritative engine; chưa có hai browser, network/reconnect, accessibility audit hoặc human playtest.
+
+## 04/09/2026 - Room setup, countdown và Match Intro
+
+- Automated unit: thêm pure helper cho stable setup identity, immutable swap, invalid swap và countdown; web suite **15 files, 69/69 pass**.
+- TypeScript: `pnpm --filter @twofold/web typecheck` **PASS**; `git diff --check` **PASS** tại checkpoint trước full workspace.
+- Visual desktop 1440x1000: SETUP đủ 10 role card và INTRO nêu seat/quyền đi trước, không lộ role đối thủ.
+- Responsive browser: viewport mobile thực tế của browser host `innerWidth=433`, `document.scrollWidth=428`; hai seat card, countdown và copy đều nằm trong viewport.
+- Browser interaction: đổi B1 với B4 giữ identity (`B1 = Lá B4`, `B4 = Lá B1`); khóa đội hình vào countdown; hủy sẵn sàng quay đúng về setup.
+- Full workspace: `pnpm tf check` **4/4 PASS** — spec-reviewer 51 tests, web 69 tests + typecheck/build, game-core 88 tests và CLI check.
+
+Giới hạn: mock opponent/timer, một guest fixture; chưa có hai browser thật, network/reconnect, keyboard/screen-reader audit hoặc human playtest.
+
+## 04/09/2026 - Website entry flow
+
+- Automated unit: entry helper khóa normalization/validation cho tên và room code, mock code loại ký tự dễ nhầm; web suite **14 files, 66/66 pass**.
+- TypeScript/route generation: `pnpm --filter @twofold/web typecheck` **PASS**.
+- Visual desktop 1440x1000: Home split hero/form, Room host waiting và Room guest setup được render bằng Chrome headless.
+- Visual mobile 390x844 lần đầu FAIL do headline và metric thứ ba bị cắt; sau khi giảm type scale và đổi metric thành hai cột, screenshot verify lại PASS.
+- Full workspace: `pnpm tf check` **4/4 PASS** - spec-reviewer 51 tests, web 66 tests + typecheck/build, game-core 88 tests và CLI check.
+- `git diff --check`: **PASS**, không có whitespace error.
+
+Giới hạn: mock room state; chưa có browser automation click, keyboard/screen-reader audit, Lighthouse hoặc human playtest.
+
+## 04/09/2026 — Ranh giới gameflow/UX và screen inventory
+
+- Static scope review: các diff P2.1 từng chạm session machine, room server, WebSocket và shared event contract đã được bỏ; MIG-02 Phase 1 được giữ nguyên.
+- Document coverage: inventory mới có Home/join/lobby, setup/countdown/intro, Day/Council/reaction, Night/Dawn, Purge, Final Duel, Result, rematch và create-new-room intent.
+- Privacy review: màn chờ đêm, Bình minh và Kẻ Thế Mạng có anti-leak rule; Hội đồng dùng ngưỡng trọng số, không yêu cầu ba card.
+- `pnpm tf check`: **4/4 workspace pass** — spec-reviewer 51 tests, web 63 tests + typecheck/build, game-core 88 tests, CLI check pass.
+- `git diff --check`: **PASS**, không có whitespace error.
+
+Giới hạn: static/document review; chưa có clickable prototype, browser/visual review hoặc human playtest.
+
+## 02/09/2026 — MIG-02 outcome projection và command idempotency
+
+- Runtime tách authoritative event khỏi public outcome và private recipient event; Purge không phát target ra wire.
+- State version tăng sau action hợp lệ; server dedupe command theo ID/version và session actor giữ command khi reconnect.
+- `pnpm tf check`: **4/4 workspace pass** tại commit `20581b2`; web 60/60 và game-core 84/84.
+
+Giới hạn: chưa có persisted event store, full-state digest/replay, packet reorder hoặc two-browser desync test.
+
 ## 02/09/2026 — P0.10 typed public outcomes và Phase 0 exit
 
 - Năm TDD slice khóa Council resolve, Day reveal/eliminate, Night saved privacy, Witch revive và Purge batch completion; match end được mở rộng bằng terminal event.

@@ -123,14 +123,14 @@ export function PrototypeGameCard(props: PrototypeGameCardProps) {
         disabled={!props.selectable}
         onClick={() => props.onSelect(card.id)}
         className={`group relative flex min-h-36 w-full flex-col overflow-hidden rounded-lg border p-1.5 text-left shadow-lg shadow-black/25 transition-[transform,box-shadow,opacity,filter] ${
-          props.selectable ? 'cursor-pointer ring-2 ring-amber-200/80 hover:-translate-y-2 hover:brightness-110' : 'cursor-default'
-        } ${props.selected ? 'z-10 -translate-y-1 ring-4 ring-cyan-200 shadow-cyan-200/40' : ''} ${
+          props.selectable ? 'cursor-pointer ring-2 ring-rose-200/80 hover:-translate-y-2 hover:brightness-110' : 'cursor-default'
+        } ${props.selected ? 'z-10 -translate-y-1 ring-4 ring-rose-100 shadow-rose-200/30' : ''} ${
           dead
             ? 'border-slate-700 bg-slate-950/80 opacity-45 grayscale'
             : props.kind === 'self'
-              ? 'border-amber-600/60 bg-gradient-to-br from-amber-900/70 to-slate-950'
+              ? 'border-rose-300/35 bg-gradient-to-br from-rose-950/70 to-slate-950'
               : revealed
-                ? 'border-amber-400/80 bg-gradient-to-br from-amber-900/50 to-slate-950 shadow-amber-500/10'
+                ? 'border-rose-300/60 bg-gradient-to-br from-rose-950/50 to-slate-950 shadow-rose-500/10'
                 : 'border-slate-600/70 bg-[radial-gradient(circle_at_center,_#1f2937_0_18%,_#0f172a_19%_38%,_#111827_39%)]'
         }`}
       >
@@ -158,7 +158,7 @@ export function PrototypeGameCard(props: PrototypeGameCardProps) {
           )}
           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent px-1 pb-1 pt-5">
             {role ? (
-              <strong className="block truncate text-[10px] leading-tight text-amber-50">{roleName}</strong>
+              <strong className="block truncate text-[10px] leading-tight text-rose-50">{roleName}</strong>
             ) : null}
             <span className="font-mono text-[8px] text-slate-300">{card.instanceId}</span>
           </div>
@@ -166,13 +166,13 @@ export function PrototypeGameCard(props: PrototypeGameCardProps) {
 
         <div className="space-y-1 text-[8px] text-slate-400">
           <div className="flex flex-wrap gap-1">
-            <span className="rounded bg-slate-900/70 px-1.5 py-0.5">{card.state.life}</span>
+            <span className="rounded bg-slate-900/70 px-1.5 py-0.5">{dead ? 'Đã chết' : 'Đang sống'}</span>
             <span className="rounded bg-slate-900/70 px-1.5 py-0.5">
-              {card.state.visibility}
+              {revealed ? 'Đã lộ' : 'Đang ẩn'}
             </span>
             {protectedCard ? (
               <span className="inline-flex items-center gap-1 rounded bg-emerald-950/70 px-1.5 py-0.5 text-emerald-300">
-                <Shield className="h-3 w-3" /> PROTECTION
+                <Shield className="h-3 w-3" /> Được bảo vệ
               </span>
             ) : null}
           </div>
@@ -208,14 +208,14 @@ export function PrototypeGameCard(props: PrototypeGameCardProps) {
               <div
                 data-card-tooltip={card.id}
                 data-placement={tooltipPosition.placement}
-                className={`w-72 rounded-xl border border-amber-300/25 bg-slate-950/95 p-3 text-left shadow-2xl shadow-black/60 backdrop-blur-md ${
+                className={`w-72 rounded-xl border border-rose-300/25 bg-slate-950/95 p-3 text-left shadow-2xl shadow-black/60 backdrop-blur-md ${
                   tooltipPosition.placement === 'top'
                     ? 'card-tooltip-enter-top'
                     : 'card-tooltip-enter-bottom'
                 }`}
               >
                 <div className="flex items-center justify-between gap-3">
-                  <strong className="text-sm text-amber-100">{tooltip.name}</strong>
+                  <strong className="text-sm text-rose-100">{tooltip.name}</strong>
                   <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-400">
                     {tooltip.faction}
                   </span>

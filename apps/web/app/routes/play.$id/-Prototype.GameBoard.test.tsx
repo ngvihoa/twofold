@@ -95,8 +95,8 @@ describe('PrototypeGameBoard', () => {
     );
 
     expect(html).toContain('Vai trò ẩn');
-    expect(html).toContain('DEAD');
-    expect(html).toContain('HIDDEN');
+    expect(html).toContain('Đã chết');
+    expect(html).toContain('Đang ẩn');
     expect(html).not.toContain(CardRole.WEREWOLF);
     expect(html).not.toContain('trọng số 2 phiếu');
   });

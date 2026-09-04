@@ -17,8 +17,8 @@
 | GD-05 | Information | Lập information map | Game Designer/PO | Playtest/Review | P0.10 typed outcome map + 11.125 outcome audit leak 0; còn multiplayer transport và human review |
 | GD-06 | Edge cases | Chốt thứ tự resolve v0.1 | Game Designer/PO + Dev | Đang làm | Prototype core 38/38; còn chốt priority Thợ săn/Cắt bỏ và simultaneous death mở rộng |
 | UX-01 | Visual | Moodboard và 1–2 hướng visual | UI/UX Game | Tuần này | Team chọn được một hướng để prototype |
-| UX-02 | UX Flow | Screen/state inventory | UI/UX Game | Tuần này | Bao phủ toàn bộ state trong Game Flow |
-| UX-03 | Prototype | Prototype các state cốt lõi | UI/UX Game | Ý tưởng | Có thể click từ chọn bài qua một vòng và kết quả |
+| UX-02 | UX Flow | Screen/state inventory | UI/UX Game | Playtest/Review | [Inventory v0.1](../game-design/player-journey-and-screen-inventory-v0.1.md) bao phủ Home → setup → match → result → rematch/create room; chờ review 10 scenario UX |
+| UX-03 | Prototype | Prototype các state cốt lõi bằng fixture/mock data | UI/UX Game | Đang làm | Flow đã chạy từ Home qua pre-match tới guided Day A và Day B handoff; còn Night/Defense/Dawn để đủ một vòng, result và rematch/create-new-room intent |
 | UX-04 | Information | Thiết kế hierarchy thông tin riêng/công khai | UI/UX Game | Ý tưởng | Người test hiểu pha, lượt, hành động và kết quả |
 | DEV-01 | Multiplayer | Nghiên cứu room code và realtime | Developer | Tuần này | Ghi lựa chọn, trade-off và POC plan |
 | DEV-02 | Architecture | Phác state machine authoritative | Developer | Tuần này | Có state, event, transition và validation chính |
@@ -42,7 +42,7 @@
 | WEB-06 | 05/10 | Thắng/thua, nhận thua, reconnect | Developer | Đang làm | Final Duel/result/rematch local 38/38; còn surrender + reconnect + consent multiplayer |
 | WEB-07 | 05/10 | Build pha Thanh trừng màu đỏ từ Vòng 6: Cắt bỏ, Đảo chiến tuyến, Ép lộ diện, Khóa mạch | Developer + Game Designer | Playtest/Review | Local suite 38/38 + browser V6–V9/reaction pass; còn human full-match/balance playtest |
 | WEB-08 | 05/10 | Kết quả, đấu lại, đối thủ khác | Developer + UI/UX | Ý tưởng | WEB-06 |
-| QA-01 | 19/10 | Test deterministic resolution và desync | Developer | Đang làm | Phase 0 P0.6–P0.10: 54/54, replay + 10.995 hidden action/11.125 outcome leak 0; còn serialization/transport/desync hai client |
+| QA-01 | 19/10 | Test deterministic resolution và desync | Developer | Đang làm | Runtime MIG-02: state version, outcome privacy và command dedupe pass; còn full replay/digest, persistence và desync hai client |
 | PT-01 | 19/10 | Tổ chức ít nhất 10 session với đồng nghiệp | Game Designer/PO | Ý tưởng | Build ổn định |
 | PT-02 | 19/10 | Tổng hợp comprehension/completion/duration/rematch | Game Designer/PO | Ý tưởng | PT-01 |
 | UX-05 | 19/10 | Sửa các điểm chặn hiểu luật | UI/UX Game | Ý tưởng | PT-01 |

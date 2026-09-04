@@ -9,6 +9,7 @@ import { AlertTriangle, LoaderCircle, RotateCcw, Shield } from 'lucide-react';
 import * as React from 'react';
 import {
   DAY_ACTION_ABILITY,
+  canStartDayAbility,
   createBloodMoonAction,
   createCouncilAccusationAction,
   createCouncilPassAction,
@@ -23,6 +24,7 @@ import {
   createNightPassAction,
   createPurgeAction,
   getAbilitySources,
+  getDayAbilityTargets,
   getPurgeRuleForRound,
   isLivingCard,
   type DayAbilityActionType,
@@ -192,10 +194,10 @@ export function PrototypeGameActionPanel() {
   const context = useGameInteraction();
   const { view, pendingAction, error } = context;
   return (
-    <section aria-label="Mệnh lệnh hiện tại" className="mx-auto w-full max-w-3xl rounded-2xl border border-white/20 bg-white/10 px-4 py-3 shadow-xl shadow-black/20 backdrop-blur-md">
+    <section aria-label="Mệnh lệnh hiện tại" className="mx-auto w-full max-w-3xl rounded-xl border border-rose-200/20 bg-slate-950/75 px-4 py-3 shadow-xl shadow-slate-950/25 backdrop-blur-md">
       <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-center">
         <div>
-          <p className="text-[9px] font-black uppercase tracking-[0.22em] text-amber-200">Vòng {view.round}</p>
+          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-rose-200">Mệnh lệnh hiện tại</p>
           <h2 className="text-sm font-black text-white">{formatGamePhaseName(view.phase.type)}</h2>
         </div>
         <PhaseControls context={context} />
@@ -206,8 +208,8 @@ export function PrototypeGameActionPanel() {
         </p>
       ) : null}
       {pendingAction ? (
-        <p className="mt-2 flex items-center justify-center gap-2 text-xs text-indigo-100">
-          <LoaderCircle className="h-4 w-4 animate-spin" /> Server đang xác nhận {pendingAction.type}…
+        <p className="mt-2 flex items-center justify-center gap-2 text-xs text-rose-100">
+          <LoaderCircle className="h-4 w-4 animate-spin" /> Đang xác nhận lựa chọn…
         </p>
       ) : null}
     </section>
@@ -263,7 +265,7 @@ function PhaseControls({ context }: { readonly context: GameInteractionContextVa
         <div className="flex flex-wrap items-center justify-center gap-2">
           <Prompt text="Chọn kỹ năng, sau đó nhấp source và target đang phát sáng" />
           {actions.map(([actionType, label]) => (
-            <ActionButton key={actionType} label={label} disabled={disabled || getAbilitySources(view, DAY_ACTION_ABILITY[actionType]).length === 0} onClick={() => setInteraction({ kind: 'DAY_SOURCE', actionType })} />
+            <ActionButton key={actionType} label={label} disabled={disabled || !canStartDayAbility(view, actionType)} onClick={() => setInteraction({ kind: 'DAY_SOURCE', actionType })} />
           ))}
           <ActionButton label="Bỏ lượt" tone="quiet" disabled={disabled} onClick={() => submit(createDayPassAction(view.self.id))} />
         </div>
@@ -284,7 +286,7 @@ function PhaseControls({ context }: { readonly context: GameInteractionContextVa
           {actions.map(([abilityId, label]) => (
             <ActionButton key={abilityId} label={label} disabled={disabled || getAbilitySources(view, abilityId).length === 0} onClick={() => setInteraction({ kind: 'NIGHT_SOURCE', abilityId })} />
           ))}
-          <ActionButton label="Blood Moon" disabled={disabled || !bloodMoonReady} onClick={() => setInteraction({ kind: 'BLOOD_MOON_TARGET' })} />
+          <ActionButton label="Huyết Nguyệt" disabled={disabled || !bloodMoonReady} onClick={() => setInteraction({ kind: 'BLOOD_MOON_TARGET' })} />
           <ActionButton label="Bỏ lượt" tone="quiet" disabled={disabled} onClick={() => submit(createNightPassAction(view.self.id))} />
         </div>
       );
@@ -333,7 +335,7 @@ function PhaseControls({ context }: { readonly context: GameInteractionContextVa
     case 'NIGHT_RESOLUTION':
     case 'DAWN':
     case 'PURGE_RESOLUTION':
-      return <Prompt text="Server đang công bố kết quả · thao tác tạm khóa" />;
+      return <Prompt text="Kết quả đang được công bố · thao tác tạm khóa" />;
     case 'SETUP':
       return <Prompt text="Sắp xếp và khóa bộ bài ở khu vực Setup" />;
     case 'ENDED':
@@ -345,7 +347,7 @@ function getSelectableCardIds(view: GamePlayerViewV2, interaction: InteractionSt
   if (!canSubmit) return new Set();
   switch (interaction.kind) {
     case 'DAY_SOURCE': return cardIdSet(getAbilitySources(view, DAY_ACTION_ABILITY[interaction.actionType]));
-    case 'DAY_TARGET': return cardIdSet(interaction.actionType === 'REVIVE' ? view.self.board.filter((card) => !isLivingCard(card)) : view.opponent.board.filter((card) => isLivingCard(card) && (interaction.actionType !== 'SHOOT' || card.state.visibility === 'REVEALED')));
+    case 'DAY_TARGET': return cardIdSet(getDayAbilityTargets(view, interaction.actionType));
     case 'NIGHT_SOURCE': return cardIdSet(getAbilitySources(view, interaction.abilityId));
     case 'NIGHT_TARGET': return cardIdSet(view.opponent.board.filter(isLivingCard));
     case 'BLOOD_MOON_TARGET': return cardIdSet(view.opponent.board.filter((card) => isLivingCard(card) && card.state.visibility === 'REVEALED'));
@@ -433,9 +435,9 @@ function Prompt({ text }: { readonly text: string }) {
 }
 
 function ActionButton({ label, onClick, disabled, tone = 'primary', icon }: { readonly label: string; readonly onClick: () => void; readonly disabled: boolean; readonly tone?: 'primary' | 'quiet'; readonly icon?: React.ReactNode }) {
-  return <button type="button" disabled={disabled} onClick={onClick} className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-black transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-35 ${tone === 'primary' ? 'border-amber-200/35 bg-amber-300/20 text-amber-50 hover:bg-amber-300/30' : 'border-white/15 bg-black/15 text-slate-200 hover:bg-white/10'}`}>{icon}{label}</button>;
+  return <button type="button" disabled={disabled} onClick={onClick} className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-[10px] font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-35 ${tone === 'primary' ? 'border-rose-200/35 bg-rose-400/15 text-rose-50 hover:bg-rose-400/25' : 'border-white/15 bg-black/15 text-slate-200 hover:bg-white/10'}`}>{icon}{label}</button>;
 }
 
 function CancelButton({ onClick }: { readonly onClick: () => void }) {
-  return <button type="button" onClick={onClick} className="inline-flex items-center gap-1 rounded-full border border-white/15 px-3 py-1.5 text-[10px] font-bold text-slate-200 hover:bg-white/10"><RotateCcw className="h-3 w-3" /> Chọn lại</button>;
+  return <button type="button" onClick={onClick} className="inline-flex items-center gap-1 rounded-lg border border-white/15 px-3 py-2 text-[10px] font-bold text-slate-200 transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200 active:scale-[0.98]"><RotateCcw className="h-3 w-3" /> Chọn lại</button>;
 }

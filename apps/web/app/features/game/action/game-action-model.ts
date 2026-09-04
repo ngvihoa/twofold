@@ -55,6 +55,29 @@ export function getAbilitySources(
   return view.self.board.filter((card) => hasAvailableAbility(card, abilityId));
 }
 
+/** Target hợp lệ để bắt đầu một skill Ban ngày, dùng chung cho CTA và card picker. */
+export function getDayAbilityTargets(
+  view: GamePlayerViewV2,
+  actionType: DayAbilityActionType
+) {
+  if (actionType === 'REVIVE') {
+    return view.self.board.filter((card) => !isLivingCard(card));
+  }
+  return view.opponent.board.filter((card) =>
+    isLivingCard(card)
+    && (actionType !== 'SHOOT' || card.state.visibility === 'REVEALED')
+  );
+}
+
+/** Chỉ mở một Day skill khi tồn tại cả source lẫn target hợp lệ. */
+export function canStartDayAbility(
+  view: GamePlayerViewV2,
+  actionType: DayAbilityActionType
+): boolean {
+  return getAbilitySources(view, DAY_ACTION_ABILITY[actionType]).length > 0
+    && getDayAbilityTargets(view, actionType).length > 0;
+}
+
 /** Rule Purge được xác định theo chu kỳ bắt đầu từ Vòng 6. */
 export function getPurgeRuleForRound(round: number): PurgeOrder['rule'] {
   if (!Number.isInteger(round) || round < 6) {
