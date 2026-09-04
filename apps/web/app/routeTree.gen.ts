@@ -8,80 +8,80 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from './routes/__root';
-import { Route as IndexRouteImport } from './routes/index';
-import { Route as PlayIdRouteRouteImport } from './routes/play.$id/route';
-import { Route as RoomIdRouteImport } from './routes/room.$id';
+import { Route as rootRouteImport } from './routes/__root'
+import { Route as IndexRouteImport } from './routes/index'
+import { Route as PlayIdRouteRouteImport } from './routes/play.$id/route'
+import { Route as RoomIdRouteImport } from './routes/room.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const PlayIdRouteRoute = PlayIdRouteRouteImport.update({
   id: '/play/$id',
   path: '/play/$id',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const RoomIdRoute = RoomIdRouteImport.update({
   id: '/room/$id',
   path: '/room/$id',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute;
-  '/play/$id': typeof PlayIdRouteRoute;
-  '/room/$id': typeof RoomIdRoute;
+  '/': typeof IndexRoute
+  '/play/$id': typeof PlayIdRouteRoute
+  '/room/$id': typeof RoomIdRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute;
-  '/play/$id': typeof PlayIdRouteRoute;
-  '/room/$id': typeof RoomIdRoute;
+  '/': typeof IndexRoute
+  '/play/$id': typeof PlayIdRouteRoute
+  '/room/$id': typeof RoomIdRoute
 }
 export interface FileRoutesById {
-  __root__: typeof rootRouteImport;
-  '/': typeof IndexRoute;
-  '/play/$id': typeof PlayIdRouteRoute;
-  '/room/$id': typeof RoomIdRoute;
+  __root__: typeof rootRouteImport
+  '/': typeof IndexRoute
+  '/play/$id': typeof PlayIdRouteRoute
+  '/room/$id': typeof RoomIdRoute
 }
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath;
-  fullPaths: '/' | '/play/$id' | '/room/$id';
-  fileRoutesByTo: FileRoutesByTo;
-  to: '/' | '/play/$id' | '/room/$id';
-  id: '__root__' | '/' | '/play/$id' | '/room/$id';
-  fileRoutesById: FileRoutesById;
+  fileRoutesByFullPath: FileRoutesByFullPath
+  fullPaths: '/' | '/play/$id' | '/room/$id'
+  fileRoutesByTo: FileRoutesByTo
+  to: '/' | '/play/$id' | '/room/$id'
+  id: '__root__' | '/' | '/play/$id' | '/room/$id'
+  fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute;
-  PlayIdRouteRoute: typeof PlayIdRouteRoute;
-  RoomIdRoute: typeof RoomIdRoute;
+  IndexRoute: typeof IndexRoute
+  PlayIdRouteRoute: typeof PlayIdRouteRoute
+  RoomIdRoute: typeof RoomIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
     '/': {
-      id: '/';
-      path: '/';
-      fullPath: '/';
-      preLoaderRoute: typeof IndexRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/play/$id': {
-      id: '/play/$id';
-      path: '/play/$id';
-      fullPath: '/play/$id';
-      preLoaderRoute: typeof PlayIdRouteRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+      id: '/play/$id'
+      path: '/play/$id'
+      fullPath: '/play/$id'
+      preLoaderRoute: typeof PlayIdRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/room/$id': {
-      id: '/room/$id';
-      path: '/room/$id';
-      fullPath: '/room/$id';
-      preLoaderRoute: typeof RoomIdRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+      id: '/room/$id'
+      path: '/room/$id'
+      fullPath: '/room/$id'
+      preLoaderRoute: typeof RoomIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -89,7 +89,16 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   PlayIdRouteRoute: PlayIdRouteRoute,
   RoomIdRoute: RoomIdRoute,
-};
+}
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>();
+  ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}

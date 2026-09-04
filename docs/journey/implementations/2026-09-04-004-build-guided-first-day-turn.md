@@ -58,7 +58,7 @@ Không có. Rule engine, ability eligibility authoritative, reveal/private bound
 | T-004 | Browser interaction | Seat A, chọn Đánh dấu báo thù → A8 → B3 | Chỉ A8 sáng ở source; 10 target B hợp lệ; xác nhận và sang Day B | Đúng expected; reset về guide Day A | PASS |
 | T-005 | Browser journey | Room host mock → ready → countdown → intro → play | URL giữ room/name/seat và mở guide Day A | Tới `/play/ABC123?name=Minh&preview=FIRST_TURN&seat=A`, 20 card | PASS |
 | T-006 | Responsive browser | Mobile viewport override | Không document overflow, action panel và guide nằm trong viewport | `innerWidth=433`, `scrollWidth=428`, panel 379px | PASS |
-| T-007 | Full workspace | `pnpm tf check` | 4/4 workspace pass | spec-reviewer 51, web 75 + typecheck/build, game-core 88, CLI pass | PASS |
+| T-007 | Full workspace sau rebase `28ebf7a` | `pnpm tf check` | 4/4 workspace pass | spec-reviewer 51, web 72 + typecheck/build, game-core 84, CLI pass | PASS |
 
 ### Lệnh đã chạy
 
@@ -72,11 +72,11 @@ pnpm tf check
 ### Output quan trọng
 
 ```text
-Web: 17 files, 75/75 tests passed
+Web: 17 files, 72/72 tests passed
 Typecheck: PASS
 Full workspace: 4/4 PASS
 spec-reviewer: 51 tests passed
-game-core: 12 files, 88/88 tests passed
+game-core: 11 files, 84/84 tests passed
 First action: A8 Kẻ báo thù → B3
 Next phase: Ban ngày · Người chơi B hành động
 Room handoff URL: /play/ABC123?name=Minh&preview=FIRST_TURN&seat=A
@@ -92,8 +92,18 @@ Room handoff URL: /play/ABC123?name=Minh&preview=FIRST_TURN&seat=A
 - Actual: FAIL vì own board hợp lệ hiển thị hai role Ma sói.
 - Root cause: Xác định; assertion quét toàn document thay vì opponent card boundary.
 - Fix/decision: Assert `B1 · Vai trò ẩn` tồn tại và `B1 · Ma sói` không tồn tại.
-- Verify lại: PASS; web suite 17 files, 75/75.
+- Verify lại trước rebase: PASS; web suite 17 files, 75/75. Sau khi chọn MIG-02 remote làm nguồn chuẩn và bỏ ba test migration local bị trùng, suite tích hợp còn 72/72 và vẫn PASS.
 - Commit fix: Chưa commit.
+
+### F-002 — Push bị từ chối vì remote đã có MIG-02 mới
+
+- Reproduction: `git push` khi local còn dựa trên `a723c1f` nhưng remote đã tiến tới `28ebf7a`.
+- Expected: fast-forward hai commit UX lên nhánh hiện tại.
+- Actual: FAIL với `fetch first`; MIG-02 local chồng lên MIG-02 chính thức `20581b2` ở core, session, server và shared contract.
+- Root cause: Xác định; Developer đã merge implementation outcome projection và command idempotency trong lúc UX đang được build.
+- Fix/decision: Rebase lên `28ebf7a`, giữ MIG-02 remote làm nguồn chuẩn, bỏ replay/test/journey migration local bị trùng và chỉ chuyển UX/gameflow lên trên.
+- Verify lại: PASS; không còn conflict marker, diff UX không chạm core/server/session/shared event contract và `pnpm tf check` đạt 4/4.
+- Commit sau rebase: `0e97723`.
 
 ## Quyết định sau implementation
 
@@ -133,7 +143,7 @@ Room handoff URL: /play/ABC123?name=Minh&preview=FIRST_TURN&seat=A
 - Code: `apps/web/app/features/game/preview/first-turn-preview.ts`, `apps/web/app/routes/play.$id/-FirstTurnPreview.tsx`, game action model/panel/board/card và route handoff.
 - Docs/ADR: record này; journey index, conversation index, verification log và task tracker.
 - Screenshot/video: browser screenshot của Day A desktop và mobile trong phiên QA.
-- Test report: full workspace 4/4; web 75/75; game-core 88/88; browser click-through PASS.
+- Test report sau rebase: full workspace 4/4; web 72/72; game-core 84/84; browser click-through PASS trước rebase và không thay đổi code UX trong lúc resolve.
 - Commit/PR: `0e97723`.
 
 ## Bước tiếp theo

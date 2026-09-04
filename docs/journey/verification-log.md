@@ -2,11 +2,11 @@
 
 ## 04/09/2026 - Guided first Day turn
 
-- Automated unit/integration: first-turn fixture, action eligibility và SSR seat A/B; web suite **17 files, 75/75 pass** sau khi sửa một assertion privacy quá rộng.
+- Automated unit/integration: first-turn fixture, action eligibility và SSR seat A/B; web suite sau rebase **17 files, 72/72 pass**. Checkpoint 75/75 trước rebase gồm ba test MIG-02 local đã bị loại vì trùng implementation remote.
 - Browser interaction: Đánh dấu báo thù chỉ làm A8 selectable; sau khi chọn A8, đủ 10 target B; chọn B3 xác nhận action và chuyển sang Day B; reset quay lại guide Day A.
 - Browser journey: Room host mock đi qua ready, countdown và intro tới đúng `/play/ABC123?name=Minh&preview=FIRST_TURN&seat=A`; 20 card và guide hiện đầy đủ.
 - Responsive browser: `innerWidth=433`, document `scrollWidth=428`, action panel 379px; không có document overflow.
-- Full workspace: `pnpm tf check` **4/4 PASS** — spec-reviewer 51 tests, web 75 tests + typecheck/build, game-core 88 tests và CLI check.
+- Full workspace sau rebase `28ebf7a`: `pnpm tf check` **4/4 PASS** — spec-reviewer 51 tests, web 72 tests + typecheck/build, game-core 84 tests và CLI check.
 
 Giới hạn: fixture local không resolve action qua authoritative engine; chưa có hai browser, network/reconnect, accessibility audit hoặc human playtest.
 
