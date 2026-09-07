@@ -24,6 +24,7 @@ Mục tiêu không phải chép nguyên transcript. Mỗi entry cần giúp mộ
 | [04/09/2026 - Website entry](implementations/2026-09-04-002-build-website-entry-flow.md) | Từ screen inventory sang flow chạy được | Home create/join, validation/loading, Room waiting và setup preview bằng mock state |
 | [04/09/2026 - Room setup đến Match Intro](implementations/2026-09-04-003-build-room-setup-countdown-intro-flow.md) | Hoàn tất lát pre-match UX | Đối thủ xuất hiện, đổi vị trí 10 lá, ready hai phía, countdown có thể hủy và intro nêu quyền đi trước |
 | [04/09/2026 - Guided first Day turn](implementations/2026-09-04-004-build-guided-first-day-turn.md) | Từ Match Intro vào gameplay | First-turn fixture giữ privacy, chỉ mở action có target, hướng dẫn skill/source/target và xác nhận sang Day B |
+| [07/09/2026 - Khôi phục card-first UX](implementations/2026-09-07-001-restore-card-first-gameplay-ux.md) | Sửa interaction sau playtest trực tiếp | Day/Night/Defense bắt đầu từ card source đang sáng; bỏ skill picker toàn cục, giữ action đặc biệt và pass ở khu lệnh |
 
 ## Các tài liệu hỗ trợ
 
@@ -69,3 +70,4 @@ Mục tiêu không phải chép nguyên transcript. Mỗi entry cần giúp mộ
 - Ngày 04/09/2026 lát entry UX đầu tiên được build trong `apps/web`: mock flow chạy từ Home tới Room waiting/setup mà không triển khai backend room.
 - Ngày 04/09/2026 lát pre-match UX nối tiếp đã chạy được từ opponent arrival qua setup/ready/countdown tới Match Intro; browser interaction xác nhận swap giữ identity và hủy countdown quay lại setup.
 - Ngày 04/09/2026 gameplay preview đã nối liền từ Room tới Day A: action không có target bị khóa, browser hoàn tất Đánh dấu báo thù từ A8 lên B3 và chuyển đúng trạng thái Day B.
+- Ngày 07/09/2026 playtest trực tiếp bác bỏ skill-first UX; runtime web được chuyển sang card-first cho Day/Night/Defense và browser xác minh A8 → B3 → Day B.

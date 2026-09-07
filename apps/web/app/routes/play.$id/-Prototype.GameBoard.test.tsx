@@ -102,10 +102,10 @@ describe('PrototypeGameBoard', () => {
   });
 
   it.each([
-    ['DAY_A', 1, 'Xạ thủ bắn'],
+    ['DAY_A', 1, 'Chọn lá đang phát sáng để dùng kỹ năng'],
     ['COUNCIL_PLAN', 2, 'Chọn voter'],
-    ['NIGHT_PLAN', 2, 'Ma sói tấn công'],
-    ['DUSK_DEFENSE', 2, 'Đặt khiên'],
+    ['NIGHT_PLAN', 2, 'Chọn lá đang phát sáng để khóa lệnh đêm'],
+    ['DUSK_DEFENSE', 2, 'Chọn Bảo vệ đang phát sáng để đặt khiên'],
     ['PURGE_PLAN', 6, 'Thanh trừng CUT'],
     ['FINAL_DUEL', 6, 'Ma sói'],
     ['DAWN', 2, 'thao tác tạm khóa'],

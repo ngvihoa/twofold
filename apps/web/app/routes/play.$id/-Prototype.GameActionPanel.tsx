@@ -5,7 +5,7 @@ import {
   type GamePlayerViewV2,
   type PlayerGameAction,
 } from '@twofold/shared-types';
-import { AlertTriangle, LoaderCircle, RotateCcw, Shield } from 'lucide-react';
+import { AlertTriangle, LoaderCircle, RotateCcw } from 'lucide-react';
 import * as React from 'react';
 import {
   DAY_ACTION_ABILITY,
@@ -60,6 +60,13 @@ type InteractionState =
   | { readonly kind: 'REACTION_SOURCE' }
   | { readonly kind: 'PURGE_OWN' }
   | { readonly kind: 'PURGE_OPPONENT'; readonly ownTargetId: CardId };
+
+const DAY_CARD_ACTIONS = ['SHOOT', 'MARK', 'PURIFY', 'REVIVE'] as const;
+const NIGHT_CARD_ABILITIES = [
+  AbilityId.WEREWOLF_ATTACK,
+  AbilityId.SEER_INSPECT,
+  AbilityId.WITCH_POISON,
+] as const;
 
 interface GameInteractionContextValue {
   readonly view: GamePlayerViewV2;
@@ -163,7 +170,11 @@ export function PrototypeGameInteractionProvider({
           opponentTargetId: cardId,
         }));
         return;
-      case 'IDLE':
+      case 'IDLE': {
+        const nextInteraction = getCardFirstInteraction(view, cardId);
+        if (nextInteraction) setInteraction(nextInteraction);
+        return;
+      }
       case 'COUNCIL_GUESS':
         return;
     }
@@ -257,35 +268,20 @@ function PhaseControls({ context }: { readonly context: GameInteractionContextVa
     case 'DAY_A':
     case 'DAY_B': {
       if (view.activePlayer !== view.self.id) return <Prompt text="Đang chờ lượt Ban ngày của đối thủ" />;
-      const actions = [
-        ['SHOOT', 'Xạ thủ bắn'], ['MARK', 'Đánh dấu báo thù'],
-        ['PURIFY', 'Thanh tẩy'], ['REVIVE', 'Hồi sinh'],
-      ] as const;
       return (
         <div className="flex flex-wrap items-center justify-center gap-2">
-          <Prompt text="Chọn kỹ năng, sau đó nhấp source và target đang phát sáng" />
-          {actions.map(([actionType, label]) => (
-            <ActionButton key={actionType} label={label} disabled={disabled || !canStartDayAbility(view, actionType)} onClick={() => setInteraction({ kind: 'DAY_SOURCE', actionType })} />
-          ))}
+          <Prompt text="Chọn lá đang phát sáng để dùng kỹ năng" />
           <ActionButton label="Bỏ lượt" tone="quiet" disabled={disabled} onClick={() => submit(createDayPassAction(view.self.id))} />
         </div>
       );
     }
     case 'NIGHT_PLAN': {
-      const actions = [
-        [AbilityId.WEREWOLF_ATTACK, 'Ma sói tấn công'],
-        [AbilityId.SEER_INSPECT, 'Tiên tri soi'],
-        [AbilityId.WITCH_POISON, 'Phù thủy dùng độc'],
-      ] as const;
       const bloodMoon = view.self.specialAbilities.find((ability) => ability.abilityId === 'BLOOD_MOON');
       const bloodMoonReady = Boolean(bloodMoon && view.round >= bloodMoon.unlockRound && view.round >= bloodMoon.readyRound);
       if (view.self.submissions.night) return <Prompt text="Lệnh đêm đã khóa · đang chờ đối thủ" />;
       return (
         <div className="flex flex-wrap items-center justify-center gap-2">
-          <Prompt text="Chọn nguồn lệnh rồi nhấp mục tiêu đối thủ" />
-          {actions.map(([abilityId, label]) => (
-            <ActionButton key={abilityId} label={label} disabled={disabled || getAbilitySources(view, abilityId).length === 0} onClick={() => setInteraction({ kind: 'NIGHT_SOURCE', abilityId })} />
-          ))}
+          <Prompt text="Chọn lá đang phát sáng để khóa lệnh đêm" />
           <ActionButton label="Huyết Nguyệt" disabled={disabled || !bloodMoonReady} onClick={() => setInteraction({ kind: 'BLOOD_MOON_TARGET' })} />
           <ActionButton label="Bỏ lượt" tone="quiet" disabled={disabled} onClick={() => submit(createNightPassAction(view.self.id))} />
         </div>
@@ -295,8 +291,7 @@ function PhaseControls({ context }: { readonly context: GameInteractionContextVa
       if (view.self.submissions.defense) return <Prompt text="Khiên đã khóa · đang chờ đối thủ" />;
       return (
         <div className="flex flex-wrap items-center justify-center gap-2">
-          <Prompt text="Chọn Bảo vệ rồi nhấp một lá khác bên mình" />
-          <ActionButton icon={<Shield className="h-3.5 w-3.5" />} label="Đặt khiên" disabled={disabled || getAbilitySources(view, AbilityId.GUARD_PROTECT).length === 0} onClick={() => setInteraction({ kind: 'DEFENSE_SOURCE' })} />
+          <Prompt text="Chọn Bảo vệ đang phát sáng để đặt khiên" />
           <ActionButton label="Không đặt khiên" tone="quiet" disabled={disabled} onClick={() => submit(createDefensePassAction(view.self.id))} />
         </div>
       );
@@ -367,8 +362,59 @@ function getSelectableCardIds(view: GamePlayerViewV2, interaction: InteractionSt
     case 'REACTION_SOURCE': return cardIdSet(getAbilitySources(view, AbilityId.SUBSTITUTE_SACRIFICE).filter((card) => card.id !== view.self.submissions.council.pendingTargetId));
     case 'PURGE_OWN': return cardIdSet(getPurgeOwnTargets(view, getPurgeRuleForRound(view.round)));
     case 'PURGE_OPPONENT': return cardIdSet(view.opponent.board.filter(isLivingCard));
-    case 'IDLE':
+    case 'IDLE': return getIdleSelectableCardIds(view);
     case 'COUNCIL_GUESS': return new Set();
+  }
+}
+
+function getIdleSelectableCardIds(view: GamePlayerViewV2): ReadonlySet<CardId> {
+  switch (view.phase.type) {
+    case 'DAY_A':
+    case 'DAY_B':
+      if (view.activePlayer !== view.self.id) return new Set();
+      return cardIdSet(DAY_CARD_ACTIONS.flatMap((actionType) =>
+        canStartDayAbility(view, actionType)
+          ? getAbilitySources(view, DAY_ACTION_ABILITY[actionType])
+          : []
+      ));
+    case 'NIGHT_PLAN':
+      if (view.self.submissions.night) return new Set();
+      return cardIdSet(NIGHT_CARD_ABILITIES.flatMap((abilityId) =>
+        getAbilitySources(view, abilityId)
+      ));
+    case 'DUSK_DEFENSE':
+      if (view.self.submissions.defense) return new Set();
+      return cardIdSet(getAbilitySources(view, AbilityId.GUARD_PROTECT));
+    default:
+      return new Set();
+  }
+}
+
+function getCardFirstInteraction(
+  view: GamePlayerViewV2,
+  sourceId: CardId
+): InteractionState | null {
+  switch (view.phase.type) {
+    case 'DAY_A':
+    case 'DAY_B': {
+      const actionType = DAY_CARD_ACTIONS.find((candidate) =>
+        canStartDayAbility(view, candidate)
+        && getAbilitySources(view, DAY_ACTION_ABILITY[candidate]).some((card) => card.id === sourceId)
+      );
+      return actionType ? { kind: 'DAY_TARGET', actionType, sourceId } : null;
+    }
+    case 'NIGHT_PLAN': {
+      const abilityId = NIGHT_CARD_ABILITIES.find((candidate) =>
+        getAbilitySources(view, candidate).some((card) => card.id === sourceId)
+      );
+      return abilityId ? { kind: 'NIGHT_TARGET', abilityId, sourceId } : null;
+    }
+    case 'DUSK_DEFENSE':
+      return getAbilitySources(view, AbilityId.GUARD_PROTECT).some((card) => card.id === sourceId)
+        ? { kind: 'DEFENSE_TARGET', sourceId }
+        : null;
+    default:
+      return null;
   }
 }
 

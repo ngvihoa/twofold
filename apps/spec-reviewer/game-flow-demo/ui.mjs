@@ -136,6 +136,25 @@ let dawnPresentation = null;
 let actionTimer = null;
 let actionPresentation = null;
 let travelingCardId = null;
+let nightDraft = { round: null, main: null, seer: null, defense: null };
+
+function currentNightDraft() {
+  if (nightDraft.round !== state.round) nightDraft = { round: state.round, main: null, seer: null, defense: null };
+  return nightDraft;
+}
+
+function bundleBotNight(main) {
+  const seer = botSourceFor("seer");
+  const guard = botSourceFor("guard");
+  const target = living("A").find((card) => card.seerInspected !== "light");
+  const protectedCard = living("B").find((card) => card.id !== guard?.id && card.instanceId !== state.players.B.lastGuardTarget);
+  return {
+    type: "night.bundle", seat: "B",
+    main: main.kind === "inspect" ? { kind: "pass" } : main,
+    seer: seer?.uses.seer > 0 && target ? { kind: "inspect", source: seer.id, target: target.id } : null,
+    defense: guard?.uses.guard > 0 && protectedCard ? { source: guard.id, target: protectedCard.id } : null,
+  };
+}
 let deferredCombatMoveId = null;
 let moveSequence = 0;
 let playedMoveId = null;
@@ -249,7 +268,8 @@ function runBotTurn() {
   botTimer = null;
   if (!botNeedsTurn()) return;
   try {
-    const action = botAction();
+    const candidate = botAction();
+    const action = candidate.type === "night.submit" ? bundleBotNight(candidate) : candidate;
     const beforeState = structuredClone(state);
     const nextState = dispatch(state, action);
     if (action.type === "setup.submit") {
@@ -274,7 +294,7 @@ function runBotTurn() {
       state = nextState;
     } else {
       state = nextState;
-      showMove(action, "B");
+      if (action.type !== "night.bundle") showMove(action, "B");
     }
     botError = null;
     feedback = "BOT B đã khóa hành động.";
@@ -342,23 +362,7 @@ function renderWithCardTravel(cardId) {
   const travelY = destinationRect.top - originRect.top;
   const scaleX = destinationRect.width / originRect.width;
   const scaleY = destinationRect.height / originRect.height;
-  const duration = 4200;
-  const path = document.createElement("div");
-  const pathStartX = originRect.left + originRect.width / 2;
-  const pathStartY = originRect.top + originRect.height / 2;
-  const pathEndX = destinationRect.left + destinationRect.width / 2;
-  const pathEndY = destinationRect.top + destinationRect.height / 2;
-  const pathDistance = Math.hypot(pathEndX - pathStartX, pathEndY - pathStartY);
-  const pathAngle = Math.atan2(pathEndY - pathStartY, pathEndX - pathStartX) * 180 / Math.PI;
-  path.className = "card-travel-path";
-  Object.assign(path.style, {
-    left: `${pathStartX}px`,
-    top: `${pathStartY}px`,
-    width: `${pathDistance}px`,
-    transform: `rotate(${pathAngle}deg)`,
-    animationDuration: `${duration}ms`,
-  });
-  document.body.append(path);
+  const duration = 800;
   ghost.style.setProperty("--travel-x", `${travelX}px`);
   ghost.style.setProperty("--travel-y", `${travelY}px`);
   ghost.style.setProperty("--travel-mid-x", `${travelX * .58}px`);
@@ -370,7 +374,6 @@ function renderWithCardTravel(cardId) {
   ghost.style.animation = `card-ghost-travel ${duration}ms cubic-bezier(.45,0,.2,1) both`;
   setTimeout(() => {
     ghost.remove();
-    path.remove();
     if (deferredCombatMoveId === deferredMoveId) {
       deferredCombatMoveId = null;
       requestAnimationFrame(playCombatEffect);
@@ -401,7 +404,7 @@ function startActionPresentation(action, actor, beforeState, resolvedState) {
   feedback = `Bên ${actor} đang trình diễn hành động. Thao tác tạm khóa.`;
   if (newlyRevealed(action.source, beforeState, resolvedState)) renderWithCardTravel(action.source);
   else render();
-  actionTimer = setTimeout(advanceActionPresentation, action.source ? 4700 : 1500);
+  actionTimer = setTimeout(advanceActionPresentation, action.source ? 1300 : 1500);
 }
 
 function advanceActionPresentation() {
@@ -418,7 +421,7 @@ function advanceActionPresentation() {
     let targetTravels = false;
     if (newlyRevealed(action.target, beforeOutcome, resolvedState)) targetTravels = renderWithCardTravel(action.target);
     else render();
-    actionTimer = setTimeout(advanceActionPresentation, targetTravels ? 8000 : 4200);
+    actionTimer = setTimeout(advanceActionPresentation, targetTravels ? 4600 : 4200);
     return;
   }
   finishActionPresentation();
@@ -540,6 +543,8 @@ function runNightResolution() {
     const moves = [
       { action: ownAction, actor: "A" },
       { action: opponentAction, actor: "B" },
+      { action: structuredClone(beforeState.players.A.seerOrder), actor: "A" },
+      { action: structuredClone(beforeState.players.B.seerOrder), actor: "B" },
     ].flatMap(({ action, actor }) => {
       if (!action || moveKind(action) === "pass") return [];
       if (actor === seat) return [{ action, actor }];
@@ -616,7 +621,7 @@ function advanceDawnPresentation() {
     let cardTravels = false;
     if (travelId) cardTravels = renderWithCardTravel(travelId);
     else render();
-    dawnTimer = setTimeout(advanceDawnPresentation, cardTravels ? 8000 : 4200);
+    dawnTimer = setTimeout(advanceDawnPresentation, cardTravels ? 4600 : 4200);
     return;
   }
 
@@ -757,6 +762,8 @@ function actionForOwnCard(card) {
   }
   if (state.phase === "dusk-defense" && card.role === "guard" && card.uses.guard > 0) return { kind: "defend", label: "Đặt khiên" };
   if (state.phase === "night-plan") {
+    if (alreadyLocked()) return null;
+    if (card.role === "guard" && card.uses.guard > 0) return { kind: "defend", label: "Chuẩn bị khiên" };
     if (card.role === "wolf" && !state.players.A.eliminationSpent) return { kind: "attack", label: "Tấn công" };
     if (card.role === "seer" && card.uses.seer > 0) return { kind: "inspect", label: "Soi role" };
     if (card.role === "witch" && card.uses.poison > 0 && !state.players.A.eliminationSpent) return { kind: "poison", label: "Dùng độc" };
@@ -819,7 +826,12 @@ function cardMarkup(card, isOwn, setupIndex = -1) {
   const targetable = directTargetIds().has(card.id);
   const selectedSource = interaction?.source === card.id;
   const selected = selectedSource || interaction?.target === card.id || interaction?.voters?.includes(card.id);
-  const selectionPhase = selectedSource && state.phase === "night-plan"
+  const planned = ["night-plan", "night-resolution"].includes(state.phase) && isOwn
+    ? Object.values(currentNightDraft()).find((order) => order?.source === card.id)
+    : null;
+  const selectionPhase = planned
+    ? (ownPlayer().night ? "ĐÃ KHÓA LỆNH" : "ĐÃ ĐẶT LỆNH")
+    : selectedSource && state.phase === "night-plan"
     ? "ĐÃ CHỌN · ĐÊM"
     : selectedSource && state.phase.startsWith("day-")
       ? "ĐÃ CHỌN · NGÀY"
@@ -1106,7 +1118,7 @@ function battlefieldActionMarkup() {
     const stage = actionPresentation.stage === "source" ? "Đang đưa nhân vật lên sân" : "Đang công bố kết quả";
     return `<div class="battle-action turn-presentation presentation-${actionPresentation.actor.toLowerCase()}"><span class="dawn-lock">THAO TÁC ĐANG KHÓA</span><p class="battle-step">Bên ${actionPresentation.actor} đang hành động</p><strong>${stage}</strong><p>Nguồn lệnh di chuyển trước; mục tiêu, lộ bài và thương vong chỉ xuất hiện ở nhịp kế tiếp.</p></div>`;
   }
-  if (state.phase === "night-resolution") return `<div class="battle-action night-verdict"><span class="verdict-moon">☾</span><strong>Lệnh đã khóa kín</strong><p>Chỉ vị trí có khiên được hiển thị. Source, action và target đêm chờ Bình minh resolve sau 3,2 giây.</p></div>`;
+  if (state.phase === "night-resolution") return `<div class="battle-action night-verdict"><span class="verdict-moon">☾</span><strong>Hai bên đã khóa đêm</strong><p>Kế hoạch vẫn bí mật. Trời sáng sẽ công bố kết quả.</p></div>`;
   if (botError) return `<div class="battle-action"><p class="battle-step">BOT đã dừng để tránh retry vô hạn</p><strong>Không thể tạo hành động hợp lệ</strong><p>${botError}</p><button type="button" data-reset>Reset ván</button></div>`;
   if (state.phase === "purge") {
     if (botNeedsTurn() || alreadyLocked()) return `<div class="battle-action bot-battle"><span class="bot-orbit" aria-hidden="true"></span><strong>Đã khóa Thanh trừng</strong><p>BOT B đang chọn kín; hai lựa chọn sẽ resolve đồng thời.</p></div>`;
@@ -1120,6 +1132,7 @@ function battlefieldActionMarkup() {
     const canSacrifice = Boolean(substituteId && substituteId !== outcome.target);
     return `<div class="battle-action"><p class="battle-step">Reaction kín · ${outcome.target} sắp bị Treo cổ</p><strong>${canSacrifice ? "Kẻ Thế Mạng có thể can thiệp" : "Không có reaction hợp lệ"}</strong><p>${outcome.target} đã lộ role. ${canSacrifice ? "Chết thay chỉ cứu mạng, không che lại target." : "Xác nhận để Hội đồng tiếp tục resolve."}</p><div class="battle-buttons">${canSacrifice ? `<button type="button" data-council-reaction="yes">Dùng Kẻ Thế Mạng</button>` : ""}<button type="button" data-council-reaction="no">${canSacrifice ? "Không dùng" : "Tiếp tục"}</button></div></div>`;
   }
+  if (state.phase === "night-plan" && alreadyLocked()) return `<div class="battle-action bot-battle"><strong>Đã khóa kế hoạch đêm</strong><p>Đang chờ đối thủ. Kết quả xuất hiện lúc bình minh.</p></div>`;
   if (botNeedsTurn() || !activeForSeat() || alreadyLocked()) return `<div class="battle-action bot-battle"><span class="bot-orbit" aria-hidden="true"></span><strong>BOT B đang cân nhắc</strong><p>Bạn có khoảng 1,7 giây để nhìn trạng thái bàn trước khi bot đi.</p></div>`;
   if (state.phase === "council") {
     const power = votePower(interaction?.voters);
@@ -1142,6 +1155,11 @@ function battlefieldActionMarkup() {
   const special = state.round >= SPECIAL_CARD.unlockRound && state.phase === "night-plan"
     ? `<button class="special-action-card ${state.players.A.bloodMoonReadyRound <= state.round ? "ready" : "cooldown"}" type="button" ${state.players.A.bloodMoonReadyRound <= state.round ? "data-special-action" : "disabled"}><span>ROUND 6+</span><strong>◐ ${SPECIAL_CARD.name}</strong><small>${state.players.A.bloodMoonReadyRound <= state.round ? "Sẵn sàng · đánh role đã lộ" : `Hồi lại Vòng ${state.players.A.bloodMoonReadyRound}`}</small></button>`
     : "";
+  if (state.phase === "night-plan") {
+    const draft = currentNightDraft();
+    const labels = { main: "Skill đêm chính", seer: "Tiên tri", defense: "Bảo vệ" };
+    return `<div class="battle-action prompt-night"><p class="battle-step">Ban đêm: chuẩn bị, sáng mai: kết quả</p><strong>Chọn theo thứ tự bạn muốn</strong><p>Một skill đêm chính + một lượt Tiên tri + một lượt Bảo vệ. Mỗi mục đều có thể bỏ qua.</p><div class="night-plan-slots">${Object.entries(labels).map(([key, label]) => `<div><strong>${label}</strong><span>${draft[key] ? `${draft[key].source || SPECIAL_CARD.name} → ${draft[key].target}` : "Bỏ qua nếu không chọn"}</span>${draft[key] ? `<button type="button" data-night-clear="${key}">Bỏ lựa chọn</button>` : ""}</div>`).join("")}</div>${special}<button type="button" class="primary" data-night-lock>${draft.main || draft.seer || draft.defense ? "Khóa lệnh đêm" : "Bỏ qua đêm"}</button></div>`;
+  }
   const phasePrompt = state.phase.startsWith("day-")
     ? { className: "prompt-day", step: "Bước 2 · Trời đang sáng", title: "Chọn nhân vật đang phát sáng để dùng kỹ năng", detail: "Nhấp nhân vật nguồn, sau đó chọn lá mục tiêu đang sáng trên bàn." }
     : state.phase === "night-plan"
@@ -1272,10 +1290,10 @@ function commitDirectAction(action) {
       return;
     }
     state = nextState;
-    if (action.type !== "night.submit" && action.type !== "council.submit" && action.type !== "purge.submit") showMove(action, "A");
+    if (!["night.submit", "night.bundle", "council.submit", "purge.submit"].includes(action.type)) showMove(action, "A");
     interaction = null;
-    feedback = action.type === "night.submit"
-      ? "Lệnh đêm của A đã khóa bí mật. Chờ B chọn xong để trình diễn A → B."
+    feedback = ["night.submit", "night.bundle"].includes(action.type)
+      ? "Đã khóa đêm. Đang chờ đối thủ; kết quả xuất hiện lúc bình minh."
       : "Hành động đã khóa. BOT B đang suy nghĩ.";
   } catch (error) {
     feedback = error.message;
@@ -1286,6 +1304,13 @@ function commitDirectAction(action) {
 
 function chooseDirectTarget(target) {
   if (!interaction || !directTargetIds().has(target)) return;
+  if (state.phase === "night-plan") {
+    const slot = interaction.kind === "inspect" ? "seer" : interaction.kind === "defend" ? "defense" : "main";
+    currentNightDraft()[slot] = { kind: interaction.kind, source: interaction.source, target };
+    interaction = null;
+    feedback = "Đã đặt lệnh. Bạn có thể đổi lựa chọn trước khi khóa đêm.";
+    return render();
+  }
   if (interaction.kind === "accuse") {
     const voters = [...interaction.voters];
     const targetCard = state.players.B.board.find((card) => card.id === target);
@@ -1308,6 +1333,15 @@ function directPass() {
 }
 
 document.addEventListener("click", (event) => {
+  const clearNight = event.target.closest("[data-night-clear]")?.dataset.nightClear;
+  if (clearNight && state.phase === "night-plan" && !alreadyLocked()) {
+    currentNightDraft()[clearNight] = null;
+    return render();
+  }
+  if (event.target.closest("[data-night-lock]") && state.phase === "night-plan" && !alreadyLocked()) {
+    const draft = currentNightDraft();
+    return commitDirectAction({ type: "night.bundle", seat: "A", main: draft.main || { kind: "pass" }, seer: draft.seer, defense: draft.defense });
+  }
   const councilReaction = event.target.closest("[data-council-reaction]")?.dataset.councilReaction;
   if (councilReaction) return commitDirectAction({ type: "council.react", seat: "A", use: councilReaction === "yes" });
   const directTarget = event.target.closest("[data-direct-target]");
@@ -1348,6 +1382,7 @@ document.addEventListener("click", (event) => {
   }
   const rematchButton = event.target.closest("[data-rematch]");
   if (rematchButton || event.target.closest("[data-reset]")) {
+    nightDraft = { round: null, main: null, seer: null, defense: null };
     state = rematchButton
       ? dispatch(state, { type: "match.rematch", seed: `codex-web-${Date.now()}` })
       : createPageGame(`codex-web-${Date.now()}`);

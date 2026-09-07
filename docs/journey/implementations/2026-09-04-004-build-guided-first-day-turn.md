@@ -154,3 +154,5 @@ Room handoff URL: /play/ABC123?name=Minh&preview=FIRST_TURN&seat=A
 ## Giới hạn bằng chứng
 
 Browser test dùng một fixture local và không resolve role action qua authoritative engine. Chưa có hai client thật, network/reconnect, keyboard-only/screen-reader audit hoặc human comprehension playtest. `AGENT.md` không tồn tại; implementation tuân theo `AGENTS.md` và các journey instructions hiện có.
+
+> Cập nhật 07/09/2026: playtest trực tiếp đã thay interaction skill → source → target bằng card source → target. Xem [implementation 2026-09-07-001](2026-09-07-001-restore-card-first-gameplay-ux.md).

@@ -625,8 +625,8 @@ function stageNight(state) {
 
 function resolveNight(state) {
   const pendingDeaths = [];
-  for (const seat of ["A", "B"]) {
-    const action = state.players[seat].night;
+  for (const { seat, action } of ["A", "B"].flatMap((seat) =>
+    [state.players[seat].night, state.players[seat].seerOrder].filter(Boolean).map((action) => ({ seat, action })))) {
     if (action.kind === "pass") {
       addLog(state, `${seat} bỏ Main Order ban đêm.`);
       continue;
@@ -677,6 +677,8 @@ function resolveNight(state) {
     const player = state.players[seat];
     player.defense = null;
     player.night = null;
+    player.seerOrder = null;
+    player.nightBundle = false;
     player.eliminationSpent = false;
     if (player.revengeTarget) {
       addLog(state, `Dấu báo thù của ${seat} hết hiệu lực tại bình minh.`);
@@ -704,6 +706,35 @@ function submitNight(state, action) {
   state.players[action.seat].night = { ...action };
   addLog(state, `${action.seat} đã khóa Main Order ban đêm.`);
   if (state.players.A.night && state.players.B.night) stageNight(state);
+}
+
+function submitNightBundle(state, action) {
+  if (state.phase !== "night-plan") throw new Error("Hiện không phải pha chuẩn bị đêm.");
+  assertSeat(action.seat);
+  const player = state.players[action.seat];
+  if (player.night) throw new Error("Đêm đã khóa.");
+  const main = { ...action.main, type: "night.submit", seat: action.seat };
+  if (!["pass", "attack", "poison", "bloodmoon"].includes(main.kind)) throw new Error("Chọn tối đa một skill đêm chính.");
+  validateNightAction(state, main);
+  const seer = action.seer ? { ...action.seer, type: "night.submit", seat: action.seat } : null;
+  if (seer) {
+    if (seer.kind !== "inspect") throw new Error("Lượt Tiên tri chỉ dùng soi hoặc kết liễu.");
+    validateNightAction(state, seer);
+  }
+  // Reuse defense validation on a private copy; shields resolve only after both locks.
+  const defenseCheck = clone(state);
+  defenseCheck.phase = "dusk-defense";
+  defenseCheck.players[otherSeat(action.seat)].defense = null;
+  submitDefense(defenseCheck, { ...action.defense, type: "defense.submit", seat: action.seat, pass: !action.defense });
+  player.defense = defenseCheck.players[action.seat].defense;
+  player.night = main;
+  player.seerOrder = seer;
+  player.nightBundle = true;
+  addLog(state, `${action.seat} đã khóa kế hoạch đêm. Nội dung vẫn bí mật.`);
+  if (state.players.A.night && state.players.B.night) {
+    for (const seat of ["A", "B"]) if (state.players[seat].defense === "PASS") state.players[seat].defense = "";
+    resolveDefenses(state);
+  }
 }
 
 function submitNightResolution(state) {
@@ -746,6 +777,7 @@ export function dispatch(currentState, action) {
   else if (action.type === "day.submit") submitDay(state, action);
   else if (action.type === "defense.submit") submitDefense(state, action);
   else if (action.type === "night.submit") submitNight(state, action);
+  else if (action.type === "night.bundle") submitNightBundle(state, action);
   else if (action.type === "night.resolve") submitNightResolution(state);
   else if (action.type === "final.submit") submitFinalGuess(state, action);
   else throw new Error("Action type không hợp lệ.");

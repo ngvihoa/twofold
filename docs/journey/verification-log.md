@@ -1,5 +1,15 @@
 # Nhật ký kiểm tra
 
+## 07/09/2026 - Khôi phục card-first gameplay UX
+
+- Red regression: SSR first-turn test fail trước fix vì A8/A9 còn disabled và prompt vẫn yêu cầu chọn skill trước.
+- Focused green: first-turn preview **2/2 pass**; A8/A9 bật, A7 khóa, không render nút skill toàn cục.
+- Web suite: **17 files, 72/72 pass**; typecheck và route generation PASS.
+- Browser interaction: Day A hiển thị A8/A9 có thể chọn; click A8 chuyển thẳng sang target state, 10 lá B mở; click B3 khóa Đánh dấu báo thù và chuyển sang Day B.
+- Full workspace: `pnpm tf check` **4/4 PASS** — spec-reviewer 51, web 72 + typecheck/build, game-core 84 và CLI pass.
+
+Giới hạn: browser chỉ chạy first-turn fixture một client; Night/Defense chưa có click-through fixture và chưa có human comprehension/keyboard/screen-reader audit.
+
 ## 04/09/2026 - Guided first Day turn
 
 - Automated unit/integration: first-turn fixture, action eligibility và SSR seat A/B; web suite sau rebase **17 files, 72/72 pass**. Checkpoint 75/75 trước rebase gồm ba test MIG-02 local đã bị loại vì trùng implementation remote.

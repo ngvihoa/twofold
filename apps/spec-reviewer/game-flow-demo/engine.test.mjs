@@ -3,6 +3,39 @@ import test from "node:test";
 
 import { createGame, dispatch, privateView, publicView, ROLE_DEFS } from "./engine.mjs";
 
+test("night bundle locks attack, seer and guard together and resolves only at dawn", () => {
+  let game = createGame("night-bundle");
+  game.phase = "night-plan";
+  const wolf = cardWithRole(game, "A", "wolf");
+  const seer = cardWithRole(game, "A", "seer");
+  const guard = cardWithRole(game, "A", "guard");
+  const target = cardWithRole(game, "B", "wolf");
+  const inspected = cardWithRole(game, "B", "villager");
+  game = dispatch(game, { type: "night.bundle", seat: "A", main: { kind: "attack", source: wolf.id, target: target.id }, seer: { kind: "inspect", source: seer.id, target: inspected.id }, defense: { source: guard.id, target: wolf.id } });
+  assert.equal(game.phase, "night-plan");
+  assert.equal(cardWithRole(game, "B", "villager").seerInspected, null);
+  assert.throws(() => dispatch(game, { type: "night.bundle", seat: "A", main: { kind: "pass" } }), /khóa/);
+  game = dispatch(game, { type: "night.bundle", seat: "B", main: { kind: "attack", source: target.id, target: wolf.id } });
+  assert.equal(game.phase, "night-resolution");
+  assert.equal(game.players.B.board.find((c) => c.id === target.id).alive, true);
+  game = dispatch(game, { type: "night.resolve" });
+  assert.equal(game.players.A.board.find((c) => c.id === wolf.id).alive, true);
+  assert.equal(game.players.B.board.find((c) => c.id === target.id).alive, false);
+  assert.equal(cardWithRole(game, "B", "villager").seerInspected, "light");
+});
+
+test("night bundle can skip all slots and rejects invalid guard atomically", () => {
+  const game = createGame("night-skip");
+  game.phase = "night-plan";
+  const guard = cardWithRole(game, "A", "guard");
+  assert.throws(() => dispatch(game, { type: "night.bundle", seat: "A", main: { kind: "pass" }, defense: { source: guard.id, target: guard.id } }), /tự bảo vệ/);
+  assert.equal(game.players.A.night, null);
+  let next = dispatch(game, { type: "night.bundle", seat: "A", main: { kind: "pass" } });
+  next = dispatch(next, { type: "night.bundle", seat: "B", main: { kind: "pass" } });
+  next = dispatch(next, { type: "night.resolve" });
+  assert.equal(next.round, 2);
+});
+
 function cardWithRole(state, seat, role) {
   return state.players[seat].board.find((card) => card.role === role);
 }

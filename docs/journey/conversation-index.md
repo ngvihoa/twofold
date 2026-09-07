@@ -24,6 +24,7 @@ File này giúp team biết cuộc trò chuyện nào đã được chuyển th�
 | CONV-009 | 04/09/2026 | Bắt đầu build flow khi user vào website | Implement Home → create/join intent → Room waiting/setup bằng mock state; không chạm backend room | Đã tổng hợp | Implementation 2026-09-04-002, `apps/web`, task tracker và verification log |
 | CONV-010 | 04/09/2026 | Tiếp tục player journey sau entry | Implement opponent arrival → setup reorder → ready hai phía → countdown → Match Intro bằng mock state; không chạm backend room | Đã tổng hợp | Implementation 2026-09-04-003, `apps/web`, task tracker và verification log |
 | CONV-011 | 04/09/2026 | Tiếp tục sau Match Intro rồi commit/push | Build guided Day A gameplay preview, khóa action không có target và kiểm chứng handoff Day B; không chạm backend room | Đã tổng hợp | Implementation 2026-09-04-004, `apps/web`, task tracker và verification log |
+| CONV-012 | 07/09/2026 | PO tự chơi guided Day A trên web | Phát hiện skill-first UX không chơi được; kiểm tra lịch sử loại giả thuyết merge conflict và chốt khôi phục card-first cho gameplay | Đã tổng hợp | Implementation 2026-09-07-001, `apps/web`, task tracker và verification log |
 
 ## Cách thêm một nguồn mới
 

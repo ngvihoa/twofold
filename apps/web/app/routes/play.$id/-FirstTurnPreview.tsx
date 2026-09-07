@@ -69,7 +69,7 @@ export function FirstTurnPreview({ roomId, playerName, seat }: FirstTurnPreviewP
     notice = {
       tone: 'guide',
       title: `${playerName}, bạn đi trước`,
-      detail: 'Chọn một kỹ năng khả dụng, chọn lá nguồn đang sáng, rồi chọn mục tiêu. Bạn cũng có thể bỏ lượt.',
+      detail: 'Chọn lá đang phát sáng để dùng kỹ năng, rồi chọn mục tiêu. Bạn cũng có thể bỏ lượt.',
       actionLabel: 'Đã hiểu',
       onAction: () => setGuideVisible(false),
     };

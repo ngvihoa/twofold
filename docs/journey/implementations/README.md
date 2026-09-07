@@ -23,6 +23,9 @@ Ví dụ:
 
 | ID | Ngày | Implementation | Trạng thái | Commit/PR |
 |---|---:|---|---|---|
+| [2026-09-07-003](2026-09-07-003-night-plan-bundle-trial.md) | 07/09/2026 | Ba lựa chọn đêm và khóa chung | Thử nghiệm; reviewer 53/53 pass | Chưa commit |
+| [2026-09-07-002](2026-09-07-002-shorten-card-reveal-motion.md) | 07/09/2026 | Rút motion di chuyển/lật bài, bỏ đường nối | Chờ playtest | Chưa commit |
+| [2026-09-07-001](2026-09-07-001-restore-card-first-gameplay-ux.md) | 07/09/2026 | Khôi phục card-first UX cho Day, Night và Defense | Hoàn thành trên working tree; full check 4/4 + browser pass | Chưa commit |
 | [2026-09-04-004](2026-09-04-004-build-guided-first-day-turn.md) | 04/09/2026 | Nối Match Intro với guided Day A action và Day B handoff | Hoàn thành; full check 4/4 + browser journey pass | `0e97723` |
 | [2026-09-04-003](2026-09-04-003-build-room-setup-countdown-intro-flow.md) | 04/09/2026 | Build opponent arrival, setup reorder, ready, countdown và Match Intro | Hoàn thành; full check 4/4 + browser interaction pass | `0e97723` |
 | [2026-09-04-002](2026-09-04-002-build-website-entry-flow.md) | 04/09/2026 | Build Home, create/join intent, Room waiting và setup preview | Hoàn thành; 66/66 web test | `0e97723` |
