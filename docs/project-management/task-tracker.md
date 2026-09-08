@@ -58,6 +58,8 @@ Motion playtest 07/09/2026: reviewer đã rút bước di chuyển/lộ bài t�
 
 Web presentation sync 09/09/2026: port motion primitives của prototype (seer beam/lens/scanline, shield dome/ripple, combat trail/projectile/impact, council/outcome) vào presentation layer của web. Bảo vệ phát motion đặt khiên ngay khi submit lựa chọn, giữ icon tới khi motion xong và không phát lại lúc night resolution; `CARD_SAVED` chỉ trình diễn nhịp chặn đòn. Structured events vẫn giữ information boundary authoritative và action bị khóa trong queue.
 
+Resolution projection fix 09/09/2026: web giữ board/phase trước resolution rồi áp dụng card outcome theo đúng cursor của presentation queue. `CARD_ELIMINATED` và reveal phía đối thủ chỉ transition trực tiếp trên lá; reveal lá của viewer vẫn có markup riêng; `CARD_REVIVED` dùng aura chữa thương và các dấu cộng xanh. Nhờ đó Treo cổ/Thanh tẩy không replay outcome thừa sau khi phase đã chuyển.
+
 | Ngày | ID task | Blocker | Người xử lý | Hạn | Trạng thái |
 |---|---|---|---|---|---|
 | — | — | — | — | — | — |

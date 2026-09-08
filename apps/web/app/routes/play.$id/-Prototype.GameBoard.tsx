@@ -155,6 +155,10 @@ function PrototypeGameArena({
                 kind="opponent"
                 card={card}
                 animateReveal={newlyRevealedOpponentCardIds.has(card.id)}
+                animateElimination={
+                  currentPresentation?.type === 'CARD_ELIMINATED' &&
+                  currentPresentation.cardId === card.id
+                }
                 intentIndicators={privateCardIntents.get(card.id)}
                 suppressEffects={
                   isCardInGameResolution(currentPresentation, card.id) ||
@@ -190,6 +194,10 @@ function PrototypeGameArena({
                 key={card.id}
                 kind="self"
                 card={card}
+                animateElimination={
+                  currentPresentation?.type === 'CARD_ELIMINATED' &&
+                  currentPresentation.cardId === card.id
+                }
                 intentIndicators={privateCardIntents.get(card.id)}
                 suppressEffects={
                   isCardInGameResolution(currentPresentation, card.id) ||

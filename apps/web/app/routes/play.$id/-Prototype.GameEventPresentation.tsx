@@ -1,4 +1,7 @@
-import type { GamePresentationEventV2 } from '@twofold/shared-types';
+import type {
+  GamePresentationEventV2,
+  PlayerId,
+} from '@twofold/shared-types';
 import {
   Eye,
   Moon,
@@ -25,9 +28,24 @@ import {
 
 const PRESENTATION_DURATION_MS = 2_200;
 const RESOLUTION_PRESENTATION_DURATION_MS = 4_200;
+const CARD_OUTCOME_DURATION_MS = 900;
 
-export function getPresentationDurationMs(event: GamePresentationEventV2): number {
-  return getGameResolutionEffect(event)
+export function isSilentCardOutcomePresentation(
+  event: GamePresentationEventV2,
+  viewerId?: PlayerId
+): boolean {
+  if (event.type === 'CARD_ELIMINATED') return true;
+  return event.type === 'CARD_REVEALED' && event.owner !== viewerId;
+}
+
+export function getPresentationDurationMs(
+  event: GamePresentationEventV2,
+  viewerId?: PlayerId
+): number {
+  if (isSilentCardOutcomePresentation(event, viewerId)) {
+    return CARD_OUTCOME_DURATION_MS;
+  }
+  return getGameResolutionEffect(event, viewerId)
     ? RESOLUTION_PRESENTATION_DURATION_MS
     : PRESENTATION_DURATION_MS;
 }
@@ -44,7 +62,7 @@ const PRESENTATION_CLASS = {
 } as const satisfies Record<GamePresentationKind, string>;
 
 /** Phát tuần tự event hiện tại rồi báo actor chuyển sang event kế tiếp. */
-export function PrototypeGameEventPresentation() {
+export function PrototypeGameEventPresentation({ viewerId }: { readonly viewerId: PlayerId }) {
   const actor = GamePresentationActorContext.useActorRef();
   const current = GamePresentationActorContext.useSelector(
     selectCurrentPresentation
@@ -58,22 +76,25 @@ export function PrototypeGameEventPresentation() {
     if (current === null) return;
     const timeoutId = window.setTimeout(() => {
       actor.send({ type: 'PRESENTATION_COMPLETED' });
-    }, getPresentationDurationMs(current));
+    }, getPresentationDurationMs(current, viewerId));
     return () => window.clearTimeout(timeoutId);
-  }, [actor, current]);
+  }, [actor, current, viewerId]);
 
   if (current === null || kind === null) return null;
 
   return (
     <>
-      <PrototypeGameResolutionEffect event={current} />
-      <PrototypeGameEventPresentationCard
-        current={current}
-        kind={kind}
-        queuedCount={queuedCount}
-        onSkipCurrent={() => actor.send({ type: 'SKIP_CURRENT' })}
-        onSkipAll={() => actor.send({ type: 'SKIP_ALL' })}
-      />
+      <PrototypeGameResolutionEffect event={current} viewerId={viewerId} />
+      {isSilentCardOutcomePresentation(current, viewerId) ? null : (
+        <PrototypeGameEventPresentationCard
+          current={current}
+          kind={kind}
+          queuedCount={queuedCount}
+          viewerId={viewerId}
+          onSkipCurrent={() => actor.send({ type: 'SKIP_CURRENT' })}
+          onSkipAll={() => actor.send({ type: 'SKIP_ALL' })}
+        />
+      )}
     </>
   );
 }
@@ -84,6 +105,7 @@ export interface PrototypeGameEventPresentationCardProps {
   readonly queuedCount: number;
   readonly onSkipCurrent: () => void;
   readonly onSkipAll: () => void;
+  readonly viewerId?: PlayerId;
 }
 
 /** Markup thuần của một event để render test không cần khởi tạo actor React. */
@@ -93,9 +115,10 @@ export function PrototypeGameEventPresentationCard({
   queuedCount,
   onSkipCurrent,
   onSkipAll,
+  viewerId,
 }: PrototypeGameEventPresentationCardProps) {
   const message = formatGameHistoryMessage(current);
-  const durationMs = getPresentationDurationMs(current);
+  const durationMs = getPresentationDurationMs(current, viewerId);
 
   return (
     <div

@@ -1,14 +1,22 @@
 import {
   AbilityId,
+  CardRole,
+  Faction,
   PlayerId,
   type GamePresentationEventPayloadV2,
   type GamePresentationEventV2,
 } from '@twofold/shared-types';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { getPresentationDurationMs } from './-Prototype.GameEventPresentation';
+import {
+  getPresentationDurationMs,
+  isSilentCardOutcomePresentation,
+} from './-Prototype.GameEventPresentation';
 import {
   getGameResolutionEffect,
   isCardInGameResolution,
+  ResolutionEffectMarkup,
 } from './-Prototype.GameResolutionEffect';
 
 function event(payload: GamePresentationEventPayloadV2): GamePresentationEventV2 {
@@ -72,5 +80,65 @@ describe('prototype game resolution effect', () => {
     const pass = event({ type: 'COUNCIL_PASSED', playerId: PlayerId.PLAYER_A });
     expect(getGameResolutionEffect(pass)).toBeNull();
     expect(getPresentationDurationMs(pass)).toBe(2_200);
+  });
+
+  it('advances reveal/elimination on the board without duplicate effect markup', () => {
+    const eliminated = event({
+      type: 'CARD_ELIMINATED',
+      cardId: 'B2',
+      instanceId: 'B:2',
+      owner: PlayerId.PLAYER_B,
+      role: null,
+      faction: null,
+    });
+
+    expect(getGameResolutionEffect(eliminated)).toBeNull();
+    expect(isSilentCardOutcomePresentation(eliminated)).toBe(true);
+    expect(getPresentationDurationMs(eliminated)).toBe(900);
+  });
+
+  it('shows reveal markup only when the revealed card belongs to the viewer', () => {
+    const selfReveal = event({
+      type: 'CARD_REVEALED',
+      cardId: 'A2',
+      instanceId: 'A:2',
+      owner: PlayerId.PLAYER_A,
+      role: CardRole.PRIEST,
+      faction: Faction.VILLAGE,
+    });
+
+    expect(isSilentCardOutcomePresentation(selfReveal, PlayerId.PLAYER_A)).toBe(false);
+    expect(getGameResolutionEffect(selfReveal, PlayerId.PLAYER_A)).toMatchObject({
+      kind: 'revealed',
+      targetCardId: 'A2',
+    });
+    expect(getPresentationDurationMs(selfReveal, PlayerId.PLAYER_A)).toBe(4_200);
+    expect(isSilentCardOutcomePresentation(selfReveal, PlayerId.PLAYER_B)).toBe(true);
+    expect(getGameResolutionEffect(selfReveal, PlayerId.PLAYER_B)).toBeNull();
+    expect(getPresentationDurationMs(selfReveal, PlayerId.PLAYER_B)).toBe(900);
+  });
+
+  it('keeps a dedicated healing presentation for revived cards', () => {
+    const revived = event({
+      type: 'CARD_REVIVED',
+      cardId: 'A5',
+      instanceId: 'A:5',
+      owner: PlayerId.PLAYER_A,
+      role: CardRole.VILLAGER,
+      faction: Faction.VILLAGE,
+    });
+
+    expect(isSilentCardOutcomePresentation(revived, PlayerId.PLAYER_A)).toBe(false);
+    expect(getGameResolutionEffect(revived, PlayerId.PLAYER_A)).toMatchObject({
+      kind: 'revived',
+      targetCardId: 'A5',
+    });
+    expect(getPresentationDurationMs(revived, PlayerId.PLAYER_A)).toBe(4_200);
+
+    const html = renderToStaticMarkup(createElement(ResolutionEffectMarkup, {
+      effect: { kind: 'revived', sourceCardId: null, targetCardId: 'A5' },
+    }));
+    expect(html).toContain('game-fx-healing-aura');
+    expect(html.match(/>\+<\/b>/gu)).toHaveLength(12);
   });
 });

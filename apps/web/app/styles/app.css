@@ -215,6 +215,16 @@
   pointer-events: none;
 }
 
+.card-eliminated-resolution {
+  animation: card-eliminated-resolution 900ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes card-eliminated-resolution {
+  0%, 24% { opacity: 1; filter: none; transform: translateY(0) scale(1); }
+  42% { opacity: 1; filter: brightness(2.2) saturate(0.25); transform: translateY(-5px) scale(1.06) rotate(-2deg); }
+  100% { opacity: 0.45; filter: grayscale(1); transform: translateY(7px) scale(0.94); }
+}
+
 /* Glow effects */
 .glow-wolf {
   box-shadow: 0 0 20px rgba(225, 29, 72, 0.4), inset 0 0 10px rgba(225, 29, 72, 0.2);
@@ -271,6 +281,7 @@
 @media (prefers-reduced-motion: reduce) {
   .opponent-card-reveal,
   .opponent-card-reveal::after,
+  .card-eliminated-resolution,
   .card-tooltip-enter-top,
   .card-tooltip-enter-bottom {
     animation: none;
@@ -517,30 +528,67 @@
 .game-fx-council-failed strong { font-size: 9px; letter-spacing: 0.12em; }
 .game-fx-council-failed { border-color: rgb(144 157 184 / 0.68); background: rgb(18 22 31 / 0.95); color: #dbe2ef; animation-name: game-fx-council-failed; }
 
-.game-fx-card-outcome {
+.game-fx-self-reveal,
+.game-fx-healing-aura {
   position: absolute;
   left: var(--game-fx-end-x);
   top: var(--game-fx-end-y);
   display: grid;
-  min-width: 150px;
+  width: 178px;
+  height: 178px;
+  place-content: center;
   justify-items: center;
-  gap: 4px;
-  padding: 14px;
-  border: 1px solid rgb(254 202 202 / 0.72);
+  gap: 5px;
+  border: 2px solid rgb(253 230 138 / 0.78);
   border-radius: 50%;
-  background: radial-gradient(circle, rgb(69 10 10 / 0.95), rgb(15 23 42 / 0.92));
-  color: #fecaca;
-  box-shadow: 0 0 34px rgb(239 68 68 / 0.55);
+  background: radial-gradient(circle, rgb(120 53 15 / 0.88), rgb(15 23 42 / 0.92) 70%);
+  color: #fef3c7;
+  box-shadow: 0 0 34px rgb(245 158 11 / 0.58), inset 0 0 28px rgb(253 230 138 / 0.18);
   opacity: 0;
   transform: translate(-50%, -50%) scale(0.45);
-  animation: game-fx-card-outcome 3.3s 0.25s ease-in-out both;
+  animation: game-fx-self-reveal 3.35s 0.2s ease-in-out both;
 }
 
-.game-fx-card-outcome span { font-size: 32px; }
-.game-fx-card-outcome strong { font-size: 10px; letter-spacing: 0.14em; }
-.game-fx-card-outcome small { font: 850 9px monospace; }
-.game-fx-card-revealed { border-color: rgb(253 230 138 / 0.8); background: radial-gradient(circle, rgb(120 53 15 / 0.9), rgb(15 23 42 / 0.92)); color: #fef3c7; box-shadow: 0 0 34px rgb(245 158 11 / 0.58); }
-.game-fx-card-revived { border-color: rgb(167 243 208 / 0.8); background: radial-gradient(circle, rgb(6 78 59 / 0.9), rgb(15 23 42 / 0.92)); color: #d1fae5; box-shadow: 0 0 34px rgb(16 185 129 / 0.55); }
+.game-fx-self-reveal span { font-size: 36px; text-shadow: 0 0 18px #fde68a; }
+.game-fx-self-reveal strong,
+.game-fx-healing-aura strong { z-index: 2; font-size: 9px; letter-spacing: 0.13em; }
+.game-fx-self-reveal small,
+.game-fx-healing-aura small { z-index: 2; font: 850 10px monospace; }
+
+.game-fx-healing-aura {
+  overflow: visible;
+  border-color: rgb(110 231 183 / 0.82);
+  background: radial-gradient(circle, rgb(6 95 70 / 0.82), rgb(2 44 34 / 0.82) 62%, transparent 74%);
+  color: #d1fae5;
+  box-shadow: 0 0 38px rgb(52 211 153 / 0.72), inset 0 0 32px rgb(167 243 208 / 0.25);
+  animation-name: game-fx-healing-aura;
+}
+
+.game-fx-healing-aura > i {
+  position: absolute;
+  inset: 18px;
+  border: 2px solid rgb(167 243 208 / 0.72);
+  border-radius: 50%;
+  box-shadow: 0 0 22px rgb(52 211 153 / 0.62);
+  animation: game-fx-healing-ring 1.35s ease-out 2 both;
+}
+
+.game-fx-heal-particles {
+  position: absolute;
+  inset: -70px;
+}
+
+.game-fx-heal-particles b {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  color: #6ee7b7;
+  font: 950 25px/1 monospace;
+  text-shadow: 0 0 8px #34d399, 0 0 18px rgb(16 185 129 / 0.9);
+  opacity: 0;
+  transform: translate(var(--game-heal-x), var(--game-heal-y)) scale(0.45);
+  animation: game-fx-heal-plus 1.9s var(--game-heal-delay) ease-out both;
+}
 
 [data-card-id].game-fx-inspect-source { animation: game-fx-seer-source-pulse 3.1s ease-in-out both; }
 [data-card-id].game-fx-inspect-target { z-index: 14; animation: game-fx-inspected-card 3.4s 0.35s ease-in-out both; }
@@ -560,8 +608,7 @@
 [data-card-id].game-fx-shoot-target,
 [data-card-id].game-fx-bloodmoon-target { z-index: 13; animation: game-fx-combat-hit 1.18s 0.44s cubic-bezier(0.2, 0.84, 0.24, 1) both; }
 [data-card-id].game-fx-revive-target { z-index: 14; animation: game-fx-revived-card 3.5s ease-in-out both; }
-[data-card-id].game-fx-eliminated-target { z-index: 15; animation: game-fx-eliminated-card 3.6s ease-in-out both; }
-[data-card-id].game-fx-revealed-target { z-index: 15; animation: opponent-card-reveal 900ms 0.45s cubic-bezier(0.4, 0, 0.2, 1) both; }
+[data-card-id].game-fx-revealed-target { z-index: 15; animation: game-fx-self-card-reveal 3.5s ease-in-out both; }
 [data-card-id].game-fx-revived-target { z-index: 15; animation: game-fx-revived-card 3.5s ease-in-out both; }
 
 @keyframes game-fx-seer-beam { 0% { opacity: 0; transform: rotate(var(--game-fx-angle)) scaleX(0); } 22%, 72% { opacity: 1; transform: rotate(var(--game-fx-angle)) scaleX(1); } 100% { opacity: 0; transform: rotate(var(--game-fx-angle)) scaleX(1); } }
@@ -581,9 +628,12 @@
 @keyframes game-fx-condemned-card { 0%, 100% { filter: brightness(1); transform: translateY(0); } 35% { filter: sepia(0.6) brightness(1.15); transform: translateY(-10px) rotate(-2deg); } 43% { transform: translateY(-10px) rotate(2deg); } 54%, 78% { filter: grayscale(0.8) brightness(0.64); transform: translateY(7px); } }
 @keyframes game-fx-combat-lunge { 0%, 100% { transform: translateY(0) scale(1); } 32% { transform: translateY(-17px) scale(1.13) rotate(-2deg); filter: brightness(1.6) saturate(1.2); } 58% { transform: translateY(-5px) scale(1.05); } }
 @keyframes game-fx-combat-hit { 0%, 38% { transform: translateY(0); filter: brightness(1); } 48% { transform: translateY(0) translateX(-9px) rotate(-4deg) scale(1.07); filter: brightness(2.2) saturate(0.3); } 58% { transform: translateY(0) translateX(8px) rotate(3deg); } 68% { transform: translateY(0) translateX(-4px) rotate(-1deg); } 100% { transform: translateY(0); filter: brightness(1); } }
-@keyframes game-fx-card-outcome { 0% { opacity: 0; transform: translate(-50%, -50%) scale(0.45); } 22%, 76% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -55%) scale(1.08); } }
-@keyframes game-fx-eliminated-card { 0%, 100% { transform: translateY(0); } 30% { filter: brightness(1.5); transform: translateY(-8px) scale(1.06); } 56%, 86% { filter: grayscale(1) brightness(0.45); transform: translateY(8px) scale(0.96); } }
 @keyframes game-fx-revived-card { 0%, 100% { filter: brightness(1); transform: translateY(0); } 35%, 75% { filter: brightness(1.55) saturate(1.35); transform: translateY(-8px) scale(1.06); box-shadow: 0 0 34px rgb(52 211 153 / 0.68); } }
+@keyframes game-fx-self-reveal { 0% { opacity: 0; transform: translate(-50%, -50%) scale(0.45) rotate(-16deg); } 24%, 76% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -55%) scale(1.08); } }
+@keyframes game-fx-self-card-reveal { 0%, 100% { filter: brightness(1); transform: translateY(0); } 38%, 72% { filter: brightness(1.5) saturate(1.2); transform: translateY(-7px) scale(1.06); box-shadow: 0 0 0 2px #fde68a, 0 0 34px rgb(245 158 11 / 0.66); } }
+@keyframes game-fx-healing-aura { 0% { opacity: 0; transform: translate(-50%, -50%) scale(0.4); } 18%, 80% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -54%) scale(1.12); } }
+@keyframes game-fx-healing-ring { 0% { opacity: 0; transform: scale(0.35); } 35% { opacity: 1; } 100% { opacity: 0; transform: scale(1.35); } }
+@keyframes game-fx-heal-plus { 0% { opacity: 0; transform: translate(var(--game-heal-x), var(--game-heal-y)) scale(0.45); } 18%, 72% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--game-heal-x), calc(var(--game-heal-y) - 145px)) scale(1.15) rotate(12deg); } }
 
 @media (prefers-reduced-motion: reduce) {
   .game-presentation-event,

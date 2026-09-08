@@ -1,4 +1,8 @@
-import { AbilityId, type GamePresentationEventV2 } from '@twofold/shared-types';
+import {
+  AbilityId,
+  type GamePresentationEventV2,
+  type PlayerId,
+} from '@twofold/shared-types';
 import * as React from 'react';
 
 export type GameResolutionEffectKind =
@@ -6,7 +10,6 @@ export type GameResolutionEffectKind =
   | 'bloodmoon'
   | 'council'
   | 'defend'
-  | 'eliminated'
   | 'inspect'
   | 'poison'
   | 'purify'
@@ -53,7 +56,8 @@ const ABILITY_EFFECT = {
 
 /** Chỉ dùng target/source đã có trong recipient event; không đoán thông tin ẩn. */
 export function getGameResolutionEffect(
-  event: GamePresentationEventV2
+  event: GamePresentationEventV2,
+  viewerId?: PlayerId
 ): ResolutionEffect | null {
   if (event.type === 'ABILITY_RESOLVED' && event.targetCardId) {
     if (event.abilityId === AbilityId.GUARD_PROTECT) return null;
@@ -66,10 +70,7 @@ export function getGameResolutionEffect(
   if (event.type === 'CARD_SAVED') {
     return { kind: 'saved', sourceCardId: null, targetCardId: event.cardId };
   }
-  if (event.type === 'CARD_ELIMINATED') {
-    return { kind: 'eliminated', sourceCardId: null, targetCardId: event.cardId };
-  }
-  if (event.type === 'CARD_REVEALED') {
+  if (event.type === 'CARD_REVEALED' && event.owner === viewerId) {
     return { kind: 'revealed', sourceCardId: null, targetCardId: event.cardId };
   }
   if (event.type === 'CARD_REVIVED') {
@@ -138,10 +139,12 @@ function measureEffect(effect: ResolutionEffect): EffectGeometry | null {
 /** Motion layer port từ prototype: beam/lens, dome/ripple và projectile/impact. */
 export function PrototypeGameResolutionEffect({
   event,
+  viewerId,
 }: {
   readonly event: GamePresentationEventV2;
+  readonly viewerId: PlayerId;
 }) {
-  const effect = getGameResolutionEffect(event);
+  const effect = getGameResolutionEffect(event, viewerId);
   if (!effect) return null;
   return <PrototypeGameResolutionMotion effect={effect} effectKey={event.id} />;
 }
@@ -193,7 +196,7 @@ export function PrototypeGameResolutionMotion({
   );
 }
 
-function ResolutionEffectMarkup({ effect }: { readonly effect: ResolutionEffect }) {
+export function ResolutionEffectMarkup({ effect }: { readonly effect: ResolutionEffect }) {
   if (effect.kind === 'inspect') {
     return (
       <>
@@ -237,22 +240,35 @@ function ResolutionEffectMarkup({ effect }: { readonly effect: ResolutionEffect 
       </div>
     );
   }
-  if (
-    effect.kind === 'eliminated' ||
-    effect.kind === 'revealed' ||
-    effect.kind === 'revived'
-  ) {
-    const outcome = {
-      eliminated: ['BỊ LOẠI', '☠'],
-      revealed: ['ĐÃ LỘ DIỆN', '◉'],
-      revived: ['ĐÃ HỒI SINH', '✦'],
-    } as const;
-    const [label, symbol] = outcome[effect.kind];
+  if (effect.kind === 'revealed') {
     return (
-      <div className={`game-fx-card-outcome game-fx-card-${effect.kind}`}>
-        <span>{symbol}</span>
-        <strong>{label}</strong>
+      <div className="game-fx-self-reveal">
+        <span>◉</span>
+        <strong>LÁ CỦA BẠN ĐÃ LỘ DIỆN</strong>
         <small>{effect.targetCardId}</small>
+      </div>
+    );
+  }
+  if (effect.kind === 'revived') {
+    return (
+      <div className="game-fx-healing-aura">
+        <i />
+        <strong>HỒI SINH</strong>
+        <small>{effect.targetCardId}</small>
+        <span className="game-fx-heal-particles">
+          {HEAL_PARTICLES.map((particle, index) => (
+            <b
+              key={index}
+              style={{
+                '--game-heal-delay': `${particle.delay}ms`,
+                '--game-heal-x': `${particle.x}px`,
+                '--game-heal-y': `${particle.y}px`,
+              } as React.CSSProperties}
+            >
+              +
+            </b>
+          ))}
+        </span>
       </div>
     );
   }
@@ -267,3 +283,18 @@ function ResolutionEffectMarkup({ effect }: { readonly effect: ResolutionEffect 
     </>
   );
 }
+
+const HEAL_PARTICLES = [
+  { x: -58, y: 35, delay: 0 },
+  { x: -34, y: 62, delay: 180 },
+  { x: -12, y: 42, delay: 420 },
+  { x: 14, y: 68, delay: 90 },
+  { x: 38, y: 46, delay: 330 },
+  { x: 60, y: 70, delay: 520 },
+  { x: -48, y: 82, delay: 610 },
+  { x: -22, y: 94, delay: 760 },
+  { x: 5, y: 86, delay: 680 },
+  { x: 30, y: 104, delay: 850 },
+  { x: 52, y: 92, delay: 940 },
+  { x: 0, y: 116, delay: 1_020 },
+] as const;

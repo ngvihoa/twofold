@@ -1,12 +1,14 @@
 import type { CardId, PlayerGameAction } from '@twofold/shared-types';
 import type { GameTransport } from '../../features/game/session/game-transport';
 import { GamePresentationActorContext } from '../../features/game/presentation/game-presentation-context';
+import { usePresentedGameView } from '../../features/game/presentation/game-presented-view';
 import { GamePresentationSync } from '../../features/game/presentation/game-presentation-sync';
 import { GameSessionActorContext } from '../../features/game/session/game-session-context';
 import {
   getPresentationEvents,
   selectCurrentPresentation,
   selectIsPresenting,
+  selectLastPresentedSequence,
 } from '../../features/game/presentation/game-presentation-machine';
 import {
   selectCanSubmit,
@@ -70,10 +72,20 @@ function GameSessionContent() {
   const currentPresentation = GamePresentationActorContext.useSelector(
     selectCurrentPresentation
   );
+  const lastPresentedSequence = GamePresentationActorContext.useSelector(
+    selectLastPresentedSequence
+  );
   const presentationEvents = useMemo(
     () => view ? getPresentationEvents(view) : [],
     [view]
   );
+  const presentedView = usePresentedGameView({
+    current: currentPresentation,
+    events: presentationEvents,
+    isPresenting,
+    lastPresentedSequence,
+    view,
+  });
   const [defensePlacement, setDefensePlacement] = useState<{
     readonly effect: ResolutionEffect;
     readonly effectKey: string;
@@ -128,12 +140,12 @@ function GameSessionContent() {
           effectKey={defensePlacement.effectKey}
         />
       ) : (
-        <PrototypeGameEventPresentation />
+        <PrototypeGameEventPresentation viewerId={view.viewerId} />
       )}
     </>
   ) : null;
 
-  if (view === null) {
+  if (view === null || presentedView === null) {
     return (
       <section className="mx-auto flex w-full max-w-xl flex-1 items-center justify-center p-6 text-center">
         <div className="w-full rounded-2xl border border-slate-800 bg-surface/70 p-8">
@@ -165,12 +177,12 @@ function GameSessionContent() {
     );
   }
 
-  if (view.phase.type === 'SETUP') {
+  if (presentedView.phase.type === 'SETUP') {
     return (
       <>
         {presentation}
         <GameSetupPanel
-          player={view.self}
+          player={presentedView.self}
           pendingAction={pendingAction}
           error={error}
           canSubmit={canSubmit && !isPresenting && defensePlacement === null}
@@ -188,7 +200,7 @@ function GameSessionContent() {
         className="fixed inset-x-0 bottom-0 top-14 min-h-0 overflow-hidden"
       >
         <PrototypeGameBoard
-          view={view}
+          view={presentedView}
           currentPresentation={currentPresentation}
           defensePlacement={defensePlacement}
           pendingAction={pendingAction}

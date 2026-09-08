@@ -22,6 +22,7 @@ export type PrototypeGameCardProps =
   | ({ readonly kind: 'opponent'; readonly card: PublicCardViewV2 } & CardInteractionProps);
 
 interface CardInteractionProps {
+  readonly animateElimination?: boolean;
   readonly animateReveal?: boolean;
   readonly intentIndicators?: readonly CardIntentIndicator[];
   readonly suppressEffects?: boolean;
@@ -113,6 +114,7 @@ export function PrototypeGameCard(props: PrototypeGameCardProps) {
         className={cn(
           'group relative flex h-fit w-full flex-col overflow-hidden rounded-lg border p-1.5 px-1 text-left shadow-lg shadow-black/25 transition-[transform,box-shadow,opacity,filter]',
           props.animateReveal && 'opponent-card-reveal',
+          props.animateElimination && 'card-eliminated-resolution',
           props.selectable
             ? 'cursor-pointer ring-2 ring-amber-200/80 hover:-translate-y-2 hover:brightness-110'
             : 'cursor-default',
