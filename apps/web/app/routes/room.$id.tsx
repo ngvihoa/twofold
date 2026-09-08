@@ -19,6 +19,7 @@ import {
 import * as React from 'react';
 import {
   advanceMockCountdown,
+  createAuthoritativePlaySearch,
   createMockSetupCards,
   swapMockSetupCards,
   type MockRoomStage,
@@ -106,12 +107,7 @@ function RoomLobbyComponent() {
       navigate({
         to: '/play/$id',
         params: { id: roomId },
-        search: {
-          name,
-          reconnectSessionId: undefined,
-          preview: 'FIRST_TURN',
-          seat: selfSeat,
-        },
+        search: createAuthoritativePlaySearch(name, selfSeat),
       });
     }, 1800);
     return () => clearTimeout(timer);

@@ -7,6 +7,19 @@ export interface MockSetupCard {
   readonly role: CardRole;
 }
 
+/** Search state cho handoff gameplay thật; preview chỉ được mở qua URL QA. */
+export function createAuthoritativePlaySearch(
+  playerName: string,
+  seat: 'A' | 'B'
+) {
+  return {
+    name: playerName,
+    reconnectSessionId: undefined,
+    preview: undefined,
+    seat,
+  } as const;
+}
+
 export function createMockSetupCards(
   seat: 'A' | 'B',
   deck: readonly CardRole[]

@@ -18,7 +18,7 @@
 | GD-06 | Edge cases | Chốt thứ tự resolve v0.1 | Game Designer/PO + Dev | Đang làm | Prototype core 38/38; còn chốt priority Thợ săn/Cắt bỏ và simultaneous death mở rộng |
 | UX-01 | Visual | Moodboard và 1–2 hướng visual | UI/UX Game | Tuần này | Team chọn được một hướng để prototype |
 | UX-02 | UX Flow | Screen/state inventory | UI/UX Game | Playtest/Review | [Inventory v0.1](../game-design/player-journey-and-screen-inventory-v0.1.md) bao phủ Home → setup → match → result → rematch/create room; chờ review 10 scenario UX |
-| UX-03 | Prototype | Prototype các state cốt lõi bằng fixture/mock data | UI/UX Game | Đang làm | Flow đã chạy từ Home qua pre-match tới guided Day A và Day B handoff; Day/Night/Defense/Council/Reaction/Purge đều bắt đầu trực tiếp từ card hợp lệ và có regression test; còn Dawn để đủ một vòng, result và rematch/create-new-room intent |
+| UX-03 | Prototype | Prototype các state cốt lõi bằng fixture/mock data | UI/UX Game | Đang làm | Normal Room → Play handoff đã trở lại authoritative session; `FIRST_TURN` chỉ còn là QA fixture. Day/Night/Defense/Council/Reaction/Purge bắt đầu trực tiếp từ card hợp lệ; còn Dawn, result và rematch/create-new-room intent |
 | UX-04 | Information | Thiết kế hierarchy thông tin riêng/công khai | UI/UX Game | Ý tưởng | Người test hiểu pha, lượt, hành động và kết quả |
 | DEV-01 | Multiplayer | Nghiên cứu room code và realtime | Developer | Tuần này | Ghi lựa chọn, trade-off và POC plan |
 | DEV-02 | Architecture | Phác state machine authoritative | Developer | Tuần này | Có state, event, transition và validation chính |

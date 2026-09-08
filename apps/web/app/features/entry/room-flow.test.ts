@@ -2,6 +2,7 @@ import { CardRole } from '@twofold/shared-types';
 import { describe, expect, it } from 'vitest';
 import {
   advanceMockCountdown,
+  createAuthoritativePlaySearch,
   createMockSetupCards,
   swapMockSetupCards,
 } from './room-flow';
@@ -30,5 +31,14 @@ describe('mock room UX flow', () => {
     expect(advanceMockCountdown(3)).toBe(2);
     expect(advanceMockCountdown(2)).toBe(1);
     expect(advanceMockCountdown(1)).toBeNull();
+  });
+
+  it('hands the normal room journey to authoritative gameplay, not a preview', () => {
+    expect(createAuthoritativePlaySearch('Minh', 'A')).toEqual({
+      name: 'Minh',
+      reconnectSessionId: undefined,
+      preview: undefined,
+      seat: 'A',
+    });
   });
 });
