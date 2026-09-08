@@ -170,6 +170,29 @@ describe('PrototypeGameBoard', () => {
     expect(html).toContain('data-card-effect="PURGE_LOCK"');
   });
 
+  it('holds status icons until the card resolution animation has completed', () => {
+    const card = createView().self.board[0];
+    const html = renderToStaticMarkup(
+      <PrototypeGameCard
+        kind="self"
+        card={{
+          ...card,
+          effects: [{
+            kind: 'PROTECTION',
+            appliedRound: 2,
+            expires: { type: 'AFTER_PHASE', phase: 'NIGHT_RESOLUTION', round: 2 },
+          }],
+        }}
+        suppressEffects
+        selectable={false}
+        selected={false}
+        onSelect={vi.fn()}
+      />
+    );
+
+    expect(html).not.toContain('data-card-effect="PROTECTION"');
+  });
+
   it('renders only effects present in the filtered opponent card view', () => {
     const card = createView().opponent.board[0];
     const html = renderToStaticMarkup(

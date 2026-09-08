@@ -4,6 +4,8 @@ import { GamePresentationSync } from '../../features/game/presentation/game-pres
 import { GameSessionActorContext } from '../../features/game/session/game-session-context';
 import {
   getPresentationEvents,
+  selectCurrentPresentation,
+  selectIsPresenting,
 } from '../../features/game/presentation/game-presentation-machine';
 import {
   selectCanSubmit,
@@ -57,6 +59,12 @@ function GameSessionContent() {
   const pendingAction = GameSessionActorContext.useSelector(selectPendingAction);
   const error = GameSessionActorContext.useSelector(selectSessionError);
   const canSubmit = GameSessionActorContext.useSelector(selectCanSubmit);
+  const isPresenting = GamePresentationActorContext.useSelector(
+    selectIsPresenting
+  );
+  const currentPresentation = GamePresentationActorContext.useSelector(
+    selectCurrentPresentation
+  );
   const presentationEvents = useMemo(
     () => view ? getPresentationEvents(view) : [],
     [view]
@@ -115,7 +123,7 @@ function GameSessionContent() {
           player={view.self}
           pendingAction={pendingAction}
           error={error}
-          canSubmit={canSubmit}
+          canSubmit={canSubmit && !isPresenting}
           onSubmit={(action) => actor.send({ type: 'SUBMIT_ACTION', action })}
         />
       </>
@@ -131,9 +139,10 @@ function GameSessionContent() {
       >
         <PrototypeGameBoard
           view={view}
+          currentPresentation={currentPresentation}
           pendingAction={pendingAction}
           error={error}
-          canSubmit={canSubmit}
+          canSubmit={canSubmit && !isPresenting}
           onSubmit={(action) => actor.send({ type: 'SUBMIT_ACTION', action })}
         />
       </div>

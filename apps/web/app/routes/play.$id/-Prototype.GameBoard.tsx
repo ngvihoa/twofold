@@ -24,6 +24,7 @@ import {
 } from './-Prototype.GameActionPanel';
 import { PrototypeGameCard } from './-Prototype.GameCard';
 import type { CardIntentIndicator } from './-Prototype.GameCardEffects';
+import { isCardInGameResolution } from './-Prototype.GameResolutionEffect';
 
 export interface PrototypeGameBoardProps {
   readonly view: GamePlayerViewV2;
@@ -31,6 +32,7 @@ export interface PrototypeGameBoardProps {
   readonly error: GameSessionError | null;
   readonly canSubmit: boolean;
   readonly onSubmit: (action: PlayerGameAction) => void;
+  readonly currentPresentation?: GamePresentationEventV2 | null;
   readonly notice?: PrototypeGameBoardNotice;
 }
 
@@ -81,6 +83,7 @@ export function PrototypeGameBoard(props: PrototypeGameBoardProps) {
       <PrototypeGameArena
         view={props.view}
         notice={props.notice}
+        currentPresentation={props.currentPresentation ?? null}
         newlyRevealedOpponentCardIds={newlyRevealedOpponentCardIds}
         privateCardIntents={privateCardIntents}
       />
@@ -91,11 +94,13 @@ export function PrototypeGameBoard(props: PrototypeGameBoardProps) {
 function PrototypeGameArena({
   view,
   notice,
+  currentPresentation,
   newlyRevealedOpponentCardIds,
   privateCardIntents,
 }: {
   readonly view: GamePlayerViewV2;
   readonly notice?: PrototypeGameBoardNotice;
+  readonly currentPresentation: GamePresentationEventV2 | null;
   readonly newlyRevealedOpponentCardIds: ReadonlySet<CardId>;
   readonly privateCardIntents: ReadonlyMap<CardId, readonly CardIntentIndicator[]>;
 }) {
@@ -139,6 +144,7 @@ function PrototypeGameArena({
                 card={card}
                 animateReveal={newlyRevealedOpponentCardIds.has(card.id)}
                 intentIndicators={privateCardIntents.get(card.id)}
+                suppressEffects={isCardInGameResolution(currentPresentation, card.id)}
                 selectable={interaction.selectableCardIds.has(card.id)}
                 selected={interaction.selectedCardIds.has(card.id)}
                 onSelect={interaction.selectCard}
@@ -169,6 +175,7 @@ function PrototypeGameArena({
                 kind="self"
                 card={card}
                 intentIndicators={privateCardIntents.get(card.id)}
+                suppressEffects={isCardInGameResolution(currentPresentation, card.id)}
                 selectable={interaction.selectableCardIds.has(card.id)}
                 selected={interaction.selectedCardIds.has(card.id)}
                 onSelect={interaction.selectCard}

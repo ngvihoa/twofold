@@ -103,16 +103,20 @@ const INTENT_PRESENTATION = {
 export function PrototypeGameCardEffects({
   effects,
   intents,
+  suppressEffects = false,
   view,
 }: {
   readonly effects: readonly VisibleCardEffectV2[];
   readonly intents: readonly CardIntentIndicator[];
+  readonly suppressEffects?: boolean;
   readonly view: 'self' | 'opponent';
 }) {
   const visibleEffects =
-    view === 'self'
-      ? effects
-      : effects.filter((effect) => OPPONENT_EFFECT_VISIBILITY[effect.kind]);
+    suppressEffects
+      ? []
+      : view === 'self'
+        ? effects
+        : effects.filter((effect) => OPPONENT_EFFECT_VISIBILITY[effect.kind]);
 
   return (
     <div

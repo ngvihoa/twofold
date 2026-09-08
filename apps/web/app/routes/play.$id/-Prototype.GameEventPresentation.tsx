@@ -8,7 +8,7 @@ import {
   Sun,
   Users,
 } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, type CSSProperties } from 'react';
 import { cn } from '../../lib/classnames';
 import { GamePresentationActorContext } from '../../features/game/presentation/game-presentation-context';
 import { formatGameHistoryMessage } from '../../features/game/presentation/game-history-message';
@@ -18,8 +18,19 @@ import {
   selectQueuedPresentationCount,
   type GamePresentationKind,
 } from '../../features/game/presentation/game-presentation-machine';
+import {
+  PrototypeGameResolutionEffect,
+  getGameResolutionEffect,
+} from './-Prototype.GameResolutionEffect';
 
 const PRESENTATION_DURATION_MS = 2_200;
+const RESOLUTION_PRESENTATION_DURATION_MS = 4_200;
+
+export function getPresentationDurationMs(event: GamePresentationEventV2): number {
+  return getGameResolutionEffect(event)
+    ? RESOLUTION_PRESENTATION_DURATION_MS
+    : PRESENTATION_DURATION_MS;
+}
 
 const PRESENTATION_CLASS = {
   DAY: 'border-amber-300/40 bg-amber-950/95 text-amber-50',
@@ -47,20 +58,23 @@ export function PrototypeGameEventPresentation() {
     if (current === null) return;
     const timeoutId = window.setTimeout(() => {
       actor.send({ type: 'PRESENTATION_COMPLETED' });
-    }, PRESENTATION_DURATION_MS);
+    }, getPresentationDurationMs(current));
     return () => window.clearTimeout(timeoutId);
   }, [actor, current]);
 
   if (current === null || kind === null) return null;
 
   return (
-    <PrototypeGameEventPresentationCard
-      current={current}
-      kind={kind}
-      queuedCount={queuedCount}
-      onSkipCurrent={() => actor.send({ type: 'SKIP_CURRENT' })}
-      onSkipAll={() => actor.send({ type: 'SKIP_ALL' })}
-    />
+    <>
+      <PrototypeGameResolutionEffect event={current} />
+      <PrototypeGameEventPresentationCard
+        current={current}
+        kind={kind}
+        queuedCount={queuedCount}
+        onSkipCurrent={() => actor.send({ type: 'SKIP_CURRENT' })}
+        onSkipAll={() => actor.send({ type: 'SKIP_ALL' })}
+      />
+    </>
   );
 }
 
@@ -81,6 +95,7 @@ export function PrototypeGameEventPresentationCard({
   onSkipAll,
 }: PrototypeGameEventPresentationCardProps) {
   const message = formatGameHistoryMessage(current);
+  const durationMs = getPresentationDurationMs(current);
 
   return (
     <div
@@ -93,6 +108,9 @@ export function PrototypeGameEventPresentationCard({
         role="status"
         data-presentation-kind={kind}
         data-presentation-sequence={current.sequence}
+        style={
+          { '--game-presentation-duration': `${durationMs}ms` } as CSSProperties
+        }
         className={cn(
           'game-presentation-event pointer-events-auto relative w-full max-w-lg overflow-hidden rounded-2xl border px-4 py-3 shadow-2xl backdrop-blur-md',
           PRESENTATION_CLASS[kind]

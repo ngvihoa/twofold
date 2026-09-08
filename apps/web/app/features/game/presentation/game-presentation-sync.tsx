@@ -1,5 +1,5 @@
 import type { GamePresentationEventV2 } from '@twofold/shared-types';
-import { useEffect, useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 import { GamePresentationActorContext } from './game-presentation-context';
 
 export interface GamePresentationSyncProps {
@@ -19,7 +19,7 @@ export function GamePresentationSync({
   const actor = GamePresentationActorContext.useActorRef();
   const hydratedGameId = useRef<string | null>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (hydratedGameId.current !== gameId) {
       actor.send({ type: 'RESET' });
       actor.send({ type: 'HYDRATE', events });

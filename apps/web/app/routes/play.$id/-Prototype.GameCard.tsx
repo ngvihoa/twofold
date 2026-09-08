@@ -24,6 +24,7 @@ export type PrototypeGameCardProps =
 interface CardInteractionProps {
   readonly animateReveal?: boolean;
   readonly intentIndicators?: readonly CardIntentIndicator[];
+  readonly suppressEffects?: boolean;
   readonly selectable: boolean;
   readonly selected: boolean;
   readonly onSelect: (cardId: CardId) => void;
@@ -167,6 +168,7 @@ export function PrototypeGameCard(props: PrototypeGameCardProps) {
           <PrototypeGameCardEffects
             effects={card.effects}
             intents={props.intentIndicators ?? NO_CARD_INTENTS}
+            suppressEffects={props.suppressEffects}
             view={props.kind}
           />
         </div>
