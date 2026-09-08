@@ -7,6 +7,7 @@ import {
 } from '@twofold/shared-types';
 import { AlertTriangle, LoaderCircle, RotateCcw } from 'lucide-react';
 import * as React from 'react';
+import { cn } from '../../lib/classnames';
 import {
   DAY_ACTION_ABILITY,
   canStartDayAbility,
@@ -67,6 +68,12 @@ const NIGHT_CARD_ABILITIES = [
   AbilityId.SEER_INSPECT,
   AbilityId.WITCH_POISON,
 ] as const;
+const IDLE_INTERACTION: InteractionState = { kind: 'IDLE' };
+
+interface ScopedInteractionState {
+  readonly scope: string;
+  readonly interaction: InteractionState;
+}
 
 interface GameInteractionContextValue {
   readonly view: GamePlayerViewV2;
@@ -92,12 +99,41 @@ export function PrototypeGameInteractionProvider({
   onSubmit,
   children,
 }: PrototypeGameInteractionProviderProps) {
-  const [interaction, setInteraction] = React.useState<InteractionState>({ kind: 'IDLE' });
+  const interactionScope = `${view.round}:${view.phase.type}`;
+  const [scopedInteraction, setScopedInteraction] =
+    React.useState<ScopedInteractionState>(() => ({
+      scope: interactionScope,
+      interaction: IDLE_INTERACTION,
+    }));
+  const interaction =
+    scopedInteraction.scope === interactionScope
+      ? scopedInteraction.interaction
+      : IDLE_INTERACTION;
+  const setInteraction = React.useCallback<
+    React.Dispatch<React.SetStateAction<InteractionState>>
+  >(
+    (nextInteraction) => {
+      setScopedInteraction((current) => {
+        const currentInteraction =
+          current.scope === interactionScope
+            ? current.interaction
+            : IDLE_INTERACTION;
+        return {
+          scope: interactionScope,
+          interaction:
+            typeof nextInteraction === 'function'
+              ? nextInteraction(currentInteraction)
+              : nextInteraction,
+        };
+      });
+    },
+    [interactionScope]
+  );
   const submit = React.useCallback((action: PlayerGameAction) => {
     if (!canSubmit) return;
     setInteraction({ kind: 'IDLE' });
     onSubmit(action);
-  }, [canSubmit, onSubmit]);
+  }, [canSubmit, onSubmit, setInteraction]);
   const selectableCardIds = getSelectableCardIds(view, interaction, canSubmit);
   const selectedCardIds = getSelectedCardIds(interaction);
 

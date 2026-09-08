@@ -1,4 +1,5 @@
 import { STANDARD_DECK } from '@twofold/game-core';
+import { copyTextToClipboard } from '../features/lobby/copy-text-to-clipboard';
 import { CardRole } from '@twofold/shared-types';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import {
@@ -118,8 +119,8 @@ function RoomLobbyComponent() {
 
   const copyRoomCode = async () => {
     try {
-      await navigator.clipboard.writeText(roomId);
-      setCopyState('copied');
+      const copied = await copyTextToClipboard(roomId);
+      setCopyState(copied ? 'copied' : 'failed');
     } catch {
       setCopyState('failed');
     }

@@ -1,9 +1,15 @@
-import type {
-  GamePresentationEventV2,
-  GamePlayerViewV2,
-  PlayerGameAction,
+import {
+  AbilityId,
+  type CardId,
+  type CardRuntimeStateV2,
+  type GamePresentationEventV2,
+  type GamePlayerViewV2,
+  type PlayerGameAction,
 } from '@twofold/shared-types';
-import { CheckCircle2, History, Info, Moon, Shield, Skull, Sun, Trophy } from 'lucide-react';
+import { CheckCircle2, Info, History, Moon, Shield, Skull, Sun, Trophy, X } from 'lucide-react';
+import * as React from 'react';
+import { createPortal } from 'react-dom';
+import { cn } from '../../lib/classnames';
 import {
   formatGamePhaseName,
   formatGamePlayerName,
@@ -17,6 +23,7 @@ import {
   usePrototypeCardInteraction,
 } from './-Prototype.GameActionPanel';
 import { PrototypeGameCard } from './-Prototype.GameCard';
+import type { CardIntentIndicator } from './-Prototype.GameCardEffects';
 
 export interface PrototypeGameBoardProps {
   readonly view: GamePlayerViewV2;
@@ -45,17 +52,38 @@ type PrototypeScene = 'day' | 'dusk' | 'night' | 'dawn' | 'purge';
  * duy nhất và component không resolve gameplay rule.
  */
 export function PrototypeGameBoard(props: PrototypeGameBoardProps) {
-  const phaseKey = `${props.view.round}:${props.view.phase.type}`;
+  const previousOpponentVisibilityRef = React.useRef(
+    createOpponentVisibilitySnapshot(props.view.opponent.board)
+  );
+  const newlyRevealedOpponentCardIds = getNewlyRevealedOpponentCardIds(
+    previousOpponentVisibilityRef.current,
+    props.view.opponent.board
+  );
+  const privateCardIntents = getPrivateCardIntentIndicators(
+    props.view,
+    props.pendingAction
+  );
+
+  React.useEffect(() => {
+    previousOpponentVisibilityRef.current = createOpponentVisibilitySnapshot(
+      props.view.opponent.board
+    );
+  }, [props.view.opponent.board]);
+
   return (
     <PrototypeGameInteractionProvider
-      key={phaseKey}
       view={props.view}
       pendingAction={props.pendingAction}
       error={props.error}
       canSubmit={props.canSubmit}
       onSubmit={props.onSubmit}
     >
-      <PrototypeGameArena view={props.view} notice={props.notice} />
+      <PrototypeGameArena
+        view={props.view}
+        notice={props.notice}
+        newlyRevealedOpponentCardIds={newlyRevealedOpponentCardIds}
+        privateCardIntents={privateCardIntents}
+      />
     </PrototypeGameInteractionProvider>
   );
 }
@@ -63,26 +91,41 @@ export function PrototypeGameBoard(props: PrototypeGameBoardProps) {
 function PrototypeGameArena({
   view,
   notice,
+  newlyRevealedOpponentCardIds,
+  privateCardIntents,
 }: {
   readonly view: GamePlayerViewV2;
   readonly notice?: PrototypeGameBoardNotice;
+  readonly newlyRevealedOpponentCardIds: ReadonlySet<CardId>;
+  readonly privateCardIntents: ReadonlyMap<CardId, readonly CardIntentIndicator[]>;
 }) {
   const scene = getPrototypeScene(view.phase.type);
   const selfAlive = countLivingCards(view.self.board);
   const opponentAlive = countLivingCards(view.opponent.board);
   const interaction = usePrototypeCardInteraction();
+  const historyEvents = getPresentationEvents(view);
+  const [historyOpen, setHistoryOpen] = React.useState(false);
+  const closeHistory = React.useCallback(() => setHistoryOpen(false), []);
 
   return (
     <div
       data-prototype-layout="arena-side-rail"
       data-prototype-scene={scene}
-      className={`relative mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-3 overflow-hidden p-3 sm:p-4 ${getSceneClass(scene)}`}
+      className={cn(
+        'relative mx-auto flex h-full min-h-0 w-full max-w-[1600px] flex-col gap-3 overflow-hidden p-3 sm:p-4',
+        getSceneClass(scene)
+      )}
     >
-      <PrototypeTopbar view={view} scene={scene} />
+      <PrototypeTopbar
+        view={view}
+        scene={scene}
+        historyCount={historyEvents.length}
+        onOpenHistory={() => setHistoryOpen(true)}
+      />
       {notice ? <PrototypeBoardNotice notice={notice} /> : null}
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_19rem]">
-        <main className="grid min-w-0 grid-rows-[auto_minmax(17rem,1fr)_auto] gap-2">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-hidden lg:grid-cols-[minmax(0,1fr)_19rem]">
+        <main className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(7rem,1fr)_auto] gap-2 overflow-hidden sm:grid-rows-[auto_minmax(10rem,1fr)_auto]">
           <PrototypeBoardSection
             title={`Đối thủ · ${view.opponent.id}`}
             hint="Vai trò công khai được nhấn sáng"
@@ -94,6 +137,8 @@ function PrototypeGameArena({
                 key={card.id}
                 kind="opponent"
                 card={card}
+                animateReveal={newlyRevealedOpponentCardIds.has(card.id)}
+                intentIndicators={privateCardIntents.get(card.id)}
                 selectable={interaction.selectableCardIds.has(card.id)}
                 selected={interaction.selectedCardIds.has(card.id)}
                 onSelect={interaction.selectCard}
@@ -101,7 +146,10 @@ function PrototypeGameArena({
             ))}
           </PrototypeBoardSection>
 
-          <section className={`relative flex min-h-0 items-center justify-center overflow-y-auto rounded-xl border p-3 sm:p-5 ${getBattlefieldClass(scene)}`}>
+          <section className={cn(
+            'relative flex min-h-0 items-center justify-center overflow-y-auto rounded-xl border p-3 sm:p-5',
+            getBattlefieldClass(scene)
+          )}>
             <div className="pointer-events-none absolute inset-x-6 top-1/2 border-t border-dashed border-white/10" />
             <div className="relative z-10 w-full">
               {view.result ? <PrototypeResult view={view} /> : null}
@@ -120,6 +168,7 @@ function PrototypeGameArena({
                 key={card.id}
                 kind="self"
                 card={card}
+                intentIndicators={privateCardIntents.get(card.id)}
                 selectable={interaction.selectableCardIds.has(card.id)}
                 selected={interaction.selectedCardIds.has(card.id)}
                 onSelect={interaction.selectCard}
@@ -128,8 +177,13 @@ function PrototypeGameArena({
           </PrototypeBoardSection>
         </main>
 
-        <PrototypeHistoryRail events={getPresentationEvents(view)} />
+        <PrototypeHistoryRail events={historyEvents} />
       </div>
+      <PrototypeHistorySheet
+        events={historyEvents}
+        open={historyOpen}
+        onClose={closeHistory}
+      />
     </div>
   );
 }
@@ -159,12 +213,99 @@ function PrototypeBoardNotice({ notice }: { readonly notice: PrototypeGameBoardN
   );
 }
 
+type OpponentVisibilitySnapshot = ReadonlyMap<
+  CardId,
+  CardRuntimeStateV2['visibility']
+>;
+
+function createOpponentVisibilitySnapshot(
+  cards: GamePlayerViewV2['opponent']['board']
+): OpponentVisibilitySnapshot {
+  return new Map(cards.map((card) => [card.id, card.state.visibility]));
+}
+
+export function getNewlyRevealedOpponentCardIds(
+  previous: OpponentVisibilitySnapshot,
+  cards: GamePlayerViewV2['opponent']['board']
+): ReadonlySet<CardId> {
+  return new Set(
+    cards
+      .filter(
+        (card) =>
+          previous.get(card.id) === 'HIDDEN' &&
+          card.state.visibility === 'REVEALED'
+      )
+      .map((card) => card.id)
+  );
+}
+
+export function getPrivateCardIntentIndicators(
+  view: GamePlayerViewV2,
+  pendingAction: PlayerGameAction | null
+): ReadonlyMap<CardId, readonly CardIntentIndicator[]> {
+  const indicators = new Map<CardId, CardIntentIndicator[]>();
+  const addIndicator = (cardId: CardId, indicator: CardIntentIndicator) => {
+    const current = indicators.get(cardId) ?? [];
+    if (!current.includes(indicator)) {
+      indicators.set(cardId, [...current, indicator]);
+    }
+  };
+  const councilOrder =
+    pendingAction?.type === 'COUNCIL_ACCUSATION_SUBMIT' &&
+    pendingAction.playerId === view.self.id
+      ? pendingAction.order
+      : view.self.submissions.council.accusation;
+  if (councilOrder?.type === 'ACCUSE') {
+    addIndicator(councilOrder.targetId, 'PENDING_HANGING');
+  }
+
+  const pendingCouncilTargetId =
+    view.self.submissions.council.pendingTargetId;
+  if (pendingCouncilTargetId) {
+    addIndicator(pendingCouncilTargetId, 'PENDING_HANGING');
+  }
+
+  const defenseOrder =
+    pendingAction?.type === 'DEFENSE_SUBMIT' &&
+    pendingAction.playerId === view.self.id
+      ? pendingAction.order
+      : view.self.submissions.defense;
+  if (defenseOrder?.type === 'PROTECT') {
+    addIndicator(defenseOrder.targetId, 'PENDING_PROTECTION');
+  }
+
+  const nightOrder =
+    pendingAction?.type === 'NIGHT_SUBMIT' &&
+    pendingAction.playerId === view.self.id
+      ? pendingAction.order
+      : view.self.submissions.night;
+  if (nightOrder?.type === 'BLOOD_MOON') {
+    addIndicator(nightOrder.targetId, 'PENDING_BLOOD_MOON');
+  } else if (nightOrder?.type === 'USE_ABILITY') {
+    const indicatorByAbility = {
+      [AbilityId.WEREWOLF_ATTACK]: 'PENDING_ATTACK',
+      [AbilityId.SEER_INSPECT]: 'PENDING_INSPECTION',
+      [AbilityId.WITCH_POISON]: 'PENDING_POISON',
+    } as const satisfies Record<
+      typeof nightOrder.abilityId,
+      CardIntentIndicator
+    >;
+    addIndicator(nightOrder.targetId, indicatorByAbility[nightOrder.abilityId]);
+  }
+
+  return indicators;
+}
+
 function PrototypeTopbar({
   view,
   scene,
+  historyCount,
+  onOpenHistory,
 }: {
   readonly view: GamePlayerViewV2;
   readonly scene: PrototypeScene;
+  readonly historyCount: number;
+  readonly onOpenHistory: () => void;
 }) {
   const daylight = scene === 'day' || scene === 'dawn';
   return (
@@ -177,11 +318,28 @@ function PrototypeTopbar({
         {daylight ? <Sun className="h-3.5 w-3.5 text-amber-300" /> : <Moon className="h-3.5 w-3.5 text-indigo-300" />}
         {daylight ? 'Ban ngày' : 'Ban đêm'}
       </div>
-      <span className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-[10px] font-semibold text-slate-300">
-        {view.activePlayer
-          ? `${formatGamePlayerName(view.activePlayer)} đang hành động`
-          : 'Hai bên đang chọn hoặc chờ kết quả'}
-      </span>
+      <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+        <span className="rounded-md border border-white/10 bg-black/20 px-2 py-1 text-xs text-slate-400">
+          {view.activePlayer
+            ? `Đang hành động · ${formatGamePlayerName(view.activePlayer)}`
+            : 'Hai bên cùng chọn / đang phân giải'}
+        </span>
+        <button
+          type="button"
+          data-history-sheet-trigger
+          className="inline-flex items-center gap-1.5 rounded-md border border-white/15 bg-black/25 px-2 py-1 text-xs font-bold text-slate-200 hover:bg-white/10 lg:hidden"
+          onClick={onOpenHistory}
+          aria-label={`Mở lịch sử trận đấu, ${historyCount} diễn biến`}
+        >
+          <History className="h-4 w-4 text-amber-300" />
+          Lịch sử
+          {historyCount > 0 ? (
+            <span className="rounded-full bg-amber-300/20 px-1.5 text-amber-100">
+              {historyCount}
+            </span>
+          ) : null}
+        </button>
+      </div>
     </header>
   );
 }
@@ -205,7 +363,7 @@ function PrototypeBoardSection({
         <h2 className="flex items-center gap-2 font-black uppercase tracking-[0.12em] text-slate-200">
           {icon}{title}
         </h2>
-        <span className="text-right text-[9px] text-slate-400">{hint} · {alive}/10 sống</span>
+        <span className="text-right text-xs text-slate-400">{hint} · {alive}/10 sống</span>
       </header>
       <div className="overflow-x-auto px-1 py-2">
         <div className="grid min-w-[680px] grid-cols-10 gap-1.5">{children}</div>
@@ -225,22 +383,145 @@ function PrototypeResult({ view }: { readonly view: GamePlayerViewV2 }) {
 }
 
 function PrototypeHistoryRail({ events }: { readonly events: readonly GamePresentationEventV2[] }) {
+  return (
+    <aside
+      data-history-rail
+      className="hidden min-h-0 max-h-[calc(100dvh-7rem)] flex-col overflow-hidden rounded-xl border border-white/10 bg-slate-950/80 p-4 lg:sticky lg:top-4 lg:flex"
+    >
+      <PrototypeHistoryContent events={events} />
+    </aside>
+  );
+}
+
+export function PrototypeHistorySheet({
+  events,
+  open,
+  onClose,
+}: {
+  readonly events: readonly GamePresentationEventV2[];
+  readonly open: boolean;
+  readonly onClose: () => void;
+}) {
+  const sheetRef = React.useRef<HTMLElement>(null);
+  const closeButtonRef = React.useRef<HTMLButtonElement>(null);
+
+  React.useEffect(() => {
+    if (!open) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+
+      const focusableElements = sheetRef.current?.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (!focusableElements || focusableElements.length === 0) return;
+
+      const first = focusableElements[0];
+      const last = focusableElements[focusableElements.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', handleKeyDown);
+    closeButtonRef.current?.focus();
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+      previouslyFocused?.focus();
+    };
+  }, [onClose, open]);
+
+  if (!open) return null;
+
+  const sheet = (
+    <div data-history-sheet className="fixed inset-0 z-[100] isolate lg:hidden">
+      <button
+        type="button"
+        className="history-sheet-backdrop absolute inset-0 bg-black/70 backdrop-blur-sm"
+        onClick={onClose}
+        aria-label="Đóng lịch sử trận đấu"
+      />
+      <section
+        ref={sheetRef}
+        data-side="right"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="history-sheet-title"
+        className="history-sheet-content absolute inset-y-0 right-0 z-10 flex h-dvh max-h-dvh min-h-0 w-[85vw] max-w-sm flex-col overflow-hidden border-l border-white/15 bg-slate-950 p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl shadow-black"
+      >
+        <PrototypeHistoryContent
+          events={events}
+          onClose={onClose}
+          closeButtonRef={closeButtonRef}
+          titleId="history-sheet-title"
+        />
+      </section>
+    </div>
+  );
+
+  return typeof document === 'undefined'
+    ? sheet
+    : createPortal(sheet, document.body);
+}
+
+function PrototypeHistoryContent({
+  events,
+  onClose,
+  closeButtonRef,
+  titleId,
+}: {
+  readonly events: readonly GamePresentationEventV2[];
+  readonly onClose?: () => void;
+  readonly closeButtonRef?: React.Ref<HTMLButtonElement>;
+  readonly titleId?: string;
+}) {
   const recentEvents = events.slice(-12).reverse();
   return (
-    <aside className="flex min-h-52 flex-col rounded-xl border border-white/10 bg-slate-950/80 p-4 lg:min-h-0">
-      <header className="border-b border-white/10 pb-3">
-        <h2 className="flex items-center gap-2 text-sm font-bold text-slate-100">
-          <History className="h-4 w-4 text-rose-300" /> Lịch sử trận đấu
-        </h2>
-        <p className="mt-1 text-[9px] leading-relaxed text-slate-500">
-          Những diễn biến gần nhất được ghi lại theo thứ tự thời gian.
-        </p>
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <header className="flex shrink-0 items-start justify-between gap-3 border-b border-white/10 pb-3">
+        <div>
+          <h2 id={titleId} className="flex items-center gap-2 text-sm font-bold text-slate-100">
+            <History className="h-4 w-4 text-amber-300" /> Lịch sử trận đấu
+          </h2>
+          <p className="mt-1 text-xs leading-relaxed text-slate-500">
+            Những diễn biến gần nhất được ghi lại theo thứ tự thời gian.
+          </p>
+        </div>
+        {onClose ? (
+          <button
+            ref={closeButtonRef}
+            type="button"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-white/10 text-slate-300 hover:bg-white/10 hover:text-white"
+            onClick={onClose}
+            aria-label="Đóng lịch sử trận đấu"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        ) : null}
       </header>
-      <ol className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto">
+      <ol
+        data-history-scroll
+        tabIndex={0}
+        aria-label="Danh sách diễn biến trận đấu"
+        className="mt-3 min-h-0 flex-1 touch-pan-y space-y-2 overflow-y-auto overscroll-contain pr-1"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
         {recentEvents.length > 0 ? recentEvents.map((event) => {
           const message = formatGameHistoryMessage(event);
           return (
-            <li key={event.id} className="border-l-2 border-slate-700 pl-2 text-[10px] leading-relaxed text-slate-400">
+            <li key={event.id} className="border-l-2 border-slate-700 pl-2 text-xs leading-relaxed text-slate-400">
               <span className="font-mono text-slate-500">#{event.sequence} · V{event.round}</span>
               <strong className="block text-slate-200">{message.title}</strong>
               <span className="block text-slate-400">{message.detail}</span>
@@ -252,7 +533,7 @@ function PrototypeHistoryRail({ events }: { readonly events: readonly GamePresen
           </li>
         )}
       </ol>
-    </aside>
+    </div>
   );
 }
 

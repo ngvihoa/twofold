@@ -14,6 +14,7 @@ import {
   setup,
   type SnapshotFrom,
 } from 'xstate';
+import { createClientCommandId } from './create-client-command-id';
 import type { GameTransport } from './game-transport';
 
 type MessagePayload<TType extends ServerWsMessage['type']> = Extract<
@@ -236,7 +237,7 @@ export const gameSessionMachine = setup({
     assignedPlayerId: null,
     sessionId: input.reconnectSessionId ?? null,
     view: null,
-    createCommandId: input.createCommandId ?? (() => crypto.randomUUID()),
+    createCommandId: input.createCommandId ?? createClientCommandId,
     pendingCommand: null,
     error: null,
   }),

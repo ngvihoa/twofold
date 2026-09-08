@@ -125,13 +125,18 @@ function GameSessionContent() {
   return (
     <>
       {presentation}
-      <PrototypeGameBoard
-        view={view}
-        pendingAction={pendingAction}
-        error={error}
-        canSubmit={canSubmit}
-        onSubmit={(action) => actor.send({ type: 'SUBMIT_ACTION', action })}
-      />
+      <div
+        data-gameplay-viewport
+        className="fixed inset-x-0 bottom-0 top-14 min-h-0 overflow-hidden"
+      >
+        <PrototypeGameBoard
+          view={view}
+          pendingAction={pendingAction}
+          error={error}
+          canSubmit={canSubmit}
+          onSubmit={(action) => actor.send({ type: 'SUBMIT_ACTION', action })}
+        />
+      </div>
     </>
   );
 }

@@ -1,5 +1,12 @@
 # Nhật ký kiểm tra
 
+## 08/09/2026 - Hợp nhất main để phát hành bản thử đêm
+
+- Hợp nhất `origin/main` tại `cd05177` với commit gameplay `e232c0c`.
+- Giữ flow Home/Room/first-turn và chọn card trước; tích hợp private intent/effects, reveal animation, history sheet mobile, scoped interaction và clipboard fallback từ main.
+- Web 92/92 test, game-core 84/84 test và web typecheck PASS sau giải quyết conflict. Reviewer 53/53 PASS trước merge; merge không thay đổi reviewer.
+- Không đưa các HTML standalone hoặc ghi chú local chưa theo dõi vào commit.
+
 ## 07/09/2026 - Khôi phục card-first gameplay UX
 
 - Red regression: SSR first-turn test fail trước fix vì A8/A9 còn disabled và prompt vẫn yêu cầu chọn skill trước.
