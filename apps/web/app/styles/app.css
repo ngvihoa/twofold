@@ -611,6 +611,11 @@
 [data-card-id].game-fx-revealed-target { z-index: 15; animation: game-fx-self-card-reveal 3.5s ease-in-out both; }
 [data-card-id].game-fx-revived-target { z-index: 15; animation: game-fx-revived-card 3.5s ease-in-out both; }
 
+.game-card-private-intel-name {
+  text-shadow: 0 0 7px rgb(125 211 252 / 0.92), 0 0 14px rgb(59 130 246 / 0.58);
+  animation: game-card-private-intel-reveal 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 @keyframes game-fx-seer-beam { 0% { opacity: 0; transform: rotate(var(--game-fx-angle)) scaleX(0); } 22%, 72% { opacity: 1; transform: rotate(var(--game-fx-angle)) scaleX(1); } 100% { opacity: 0; transform: rotate(var(--game-fx-angle)) scaleX(1); } }
 @keyframes game-fx-seer-lens { 0% { opacity: 0; transform: translate(-50%, -50%) scale(0.45) rotate(-18deg); } 24%, 76% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1.08); } }
 @keyframes game-fx-seer-scanline { 0% { opacity: 0; transform: translateY(-48px); } 16%, 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(92px); } }
@@ -634,10 +639,12 @@
 @keyframes game-fx-healing-aura { 0% { opacity: 0; transform: translate(-50%, -50%) scale(0.4); } 18%, 80% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -54%) scale(1.12); } }
 @keyframes game-fx-healing-ring { 0% { opacity: 0; transform: scale(0.35); } 35% { opacity: 1; } 100% { opacity: 0; transform: scale(1.35); } }
 @keyframes game-fx-heal-plus { 0% { opacity: 0; transform: translate(var(--game-heal-x), var(--game-heal-y)) scale(0.45); } 18%, 72% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--game-heal-x), calc(var(--game-heal-y) - 145px)) scale(1.15) rotate(12deg); } }
+@keyframes game-card-private-intel-reveal { 0% { opacity: 0; filter: blur(7px); transform: scale(0.72); } 100% { opacity: 1; filter: blur(0); transform: scale(1); } }
 
 @media (prefers-reduced-motion: reduce) {
   .game-presentation-event,
   .game-presentation-progress,
+  .game-card-private-intel-name,
   .game-resolution-fx-layer *,
   [data-card-id][class*="game-fx-"] {
     animation: none;

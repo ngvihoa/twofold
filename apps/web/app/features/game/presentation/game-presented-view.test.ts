@@ -1,9 +1,11 @@
 import {
+  AbilityId,
   CardRole,
   Faction,
   GamePlayerViewV2Schema,
   PlayerId,
   type GamePresentationEventV2,
+  type PrivateIntelEntry,
 } from '@twofold/shared-types';
 import {
   STANDARD_DECK,
@@ -13,7 +15,7 @@ import {
   serializePlayerView,
 } from '@twofold/game-core';
 import { describe, expect, it } from 'vitest';
-import { applyCardOutcomeToPresentedView } from './game-presented-view';
+import { applyPresentationEventToPresentedView } from './game-presented-view';
 
 function createView() {
   const players = {
@@ -40,6 +42,35 @@ function envelope(sequence: number) {
 }
 
 describe('presented game view', () => {
+  it('adds private Seer intel only when its result reaches the presentation cursor', () => {
+    const initial = createView();
+    const intel = {
+      id: 'intel:A1:B1:round:2',
+      sourceAbilityId: AbilityId.SEER_INSPECT,
+      sourceInstanceId: initial.self.board[0].instanceId,
+      targetInstanceId: initial.opponent.board[0].instanceId,
+      observedAtSlotId: initial.opponent.board[0].id,
+      discoveredRole: CardRole.WEREWOLF,
+      discoveredRound: 2,
+    } satisfies PrivateIntelEntry;
+    const authoritative = {
+      ...initial,
+      self: { ...initial.self, privateIntel: [intel] },
+    };
+    const result = {
+      ...envelope(2),
+      type: 'PRIVATE_INSPECTION_RESULT',
+      intelId: intel.id,
+      targetCardId: initial.opponent.board[0].id,
+      discoveredRole: CardRole.WEREWOLF,
+    } satisfies GamePresentationEventV2;
+
+    expect(initial.self.privateIntel).toEqual([]);
+    expect(
+      applyPresentationEventToPresentedView(initial, authoritative, result).self.privateIntel
+    ).toEqual([intel]);
+  });
+
   it('reveals and eliminates a card in separate presentation beats', () => {
     const initial = createView();
     const authoritative = {
@@ -77,14 +108,14 @@ describe('presented game view', () => {
       faction: Faction.WEREWOLF,
     } satisfies GamePresentationEventV2;
 
-    const afterReveal = applyCardOutcomeToPresentedView(initial, authoritative, reveal);
+    const afterReveal = applyPresentationEventToPresentedView(initial, authoritative, reveal);
     expect(afterReveal.opponent.board[0]).toMatchObject({
       role: CardRole.WEREWOLF,
       state: { life: 'ALIVE', visibility: 'REVEALED' },
     });
     expect(afterReveal.phase).toEqual(initial.phase);
 
-    const afterElimination = applyCardOutcomeToPresentedView(
+    const afterElimination = applyPresentationEventToPresentedView(
       afterReveal,
       authoritative,
       eliminated

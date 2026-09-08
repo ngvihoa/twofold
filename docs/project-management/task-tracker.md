@@ -60,6 +60,10 @@ Web presentation sync 09/09/2026: port motion primitives của prototype (seer b
 
 Resolution projection fix 09/09/2026: web giữ board/phase trước resolution rồi áp dụng card outcome theo đúng cursor của presentation queue. `CARD_ELIMINATED` và reveal phía đối thủ chỉ transition trực tiếp trên lá; reveal lá của viewer vẫn có markup riêng; `CARD_REVIVED` dùng aura chữa thương và các dấu cộng xanh. Nhờ đó Treo cổ/Thanh tẩy không replay outcome thừa sau khi phase đã chuyển.
 
+Private Seer intel presentation 09/09/2026: sau motion soi, event `PRIVATE_INSPECTION_RESULT` mới đưa intel vào presented view và phủ tên role lên mặt úp của đúng opponent card theo `targetInstanceId`. Dữ liệu chỉ lấy từ `self.privateIntel`; opponent không nhận markup hay dấu hiệu bị soi.
+
+Shooter eligibility fix 09/09/2026: web chỉ highlight/mở target picker của Xạ thủ khi đối thủ có ít nhất hai role đã lộ, khớp validation authoritative; trạng thái chỉ có một lá lộ không còn dẫn tới command chắc chắn bị server từ chối.
+
 | Ngày | ID task | Blocker | Người xử lý | Hạn | Trạng thái |
 |---|---|---|---|---|---|
 | — | — | — | — | — | — |

@@ -21,6 +21,7 @@ import {
 import {
   PrototypeGameBoard,
   PrototypeHistorySheet,
+  getInspectedOpponentRoles,
   getNewlyRevealedOpponentCardIds,
   getPrivateCardIntentIndicators,
 } from './-Prototype.GameBoard';
@@ -137,6 +138,48 @@ describe('PrototypeGameBoard', () => {
     expect(html).not.toContain('>HIDDEN<');
     expect(html).not.toContain(CardRole.WEREWOLF);
     expect(html).not.toContain('trọng số 2 phiếu');
+  });
+
+  it('shows inspected role text over a hidden opponent card without flipping its face', () => {
+    const card = createView().opponent.board[0];
+    const html = renderToStaticMarkup(
+      <PrototypeGameCard
+        kind="opponent"
+        card={card}
+        inspectedRole={CardRole.WEREWOLF}
+        selectable={false}
+        selected={false}
+        onSelect={vi.fn()}
+      />
+    );
+
+    expect(html).toContain('data-private-intel-role="WEREWOLF"');
+    expect(html).toContain('Ma sói');
+    expect(html).toContain('src="/logo.png"');
+    expect(html).not.toContain('/characters/ma-soi.png');
+  });
+
+  it('derives inspected roles only from the viewer private intel', () => {
+    const view = createView();
+    const target = view.opponent.board[0];
+    const inspected = getInspectedOpponentRoles({
+      ...view,
+      self: {
+        ...view.self,
+        privateIntel: [{
+          id: 'intel:A1:B1:round:2',
+          sourceAbilityId: AbilityId.SEER_INSPECT,
+          sourceInstanceId: view.self.board[0].instanceId,
+          targetInstanceId: target.instanceId,
+          observedAtSlotId: target.id,
+          discoveredRole: CardRole.WEREWOLF,
+          discoveredRound: 2,
+        }],
+      },
+    });
+
+    expect(inspected.get(target.instanceId)).toBe(CardRole.WEREWOLF);
+    expect(inspected.size).toBe(1);
   });
 
   it('renders private effects supplied by the self card view', () => {
@@ -429,6 +472,38 @@ describe('PrototypeGameBoard', () => {
       interaction: { kind: 'COUNCIL_VOTERS', voterIds: ['A1'] },
     });
     expect(getCardFirstSelection(view, 'A2')).toBeNull();
+  });
+
+  it('does not highlight Shooter when only one opponent role is revealed', () => {
+    const base = createView();
+    const view = GamePlayerViewV2Schema.parse({
+      ...base,
+      phase: { type: 'DAY_A' },
+      activePlayer: PlayerId.PLAYER_A,
+      opponent: {
+        ...base.opponent,
+        board: base.opponent.board.map((card, index) => index === 0
+          ? {
+              ...card,
+              state: { ...card.state, visibility: 'REVEALED' as const },
+              role: STANDARD_DECK[index],
+            }
+          : card),
+      },
+    });
+    const html = renderToStaticMarkup(
+      <PrototypeGameBoard
+        view={view}
+        pendingAction={null}
+        error={null}
+        canSubmit
+        onSubmit={vi.fn()}
+      />
+    );
+
+    expect(html.match(/<button[^>]*data-card-id="A7"[^>]*>/u)?.[0])
+      .toContain('disabled');
+    expect(getCardFirstSelection(view, 'A7')).toBeNull();
   });
 
   it('starts Purge from cards without a start-selection button', () => {

@@ -9,12 +9,28 @@ type CardOutcomeEvent = Extract<
   { type: 'CARD_REVEALED' | 'CARD_ELIMINATED' | 'CARD_REVIVED' }
 >;
 
-/** Áp dụng đúng một outcome card lên board đang trình diễn, không đổi phase sớm. */
-export function applyCardOutcomeToPresentedView(
+/** Áp dụng đúng một event lên view đang trình diễn, không đổi phase sớm. */
+export function applyPresentationEventToPresentedView(
   presented: GamePlayerViewV2,
   authoritative: GamePlayerViewV2,
   event: GamePresentationEventV2
 ): GamePlayerViewV2 {
+  if (event.type === 'PRIVATE_INSPECTION_RESULT') {
+    const intel = authoritative.self.privateIntel.find(
+      (entry) => entry.id === event.intelId
+    );
+    if (!intel || presented.self.privateIntel.some((entry) => entry.id === intel.id)) {
+      return presented;
+    }
+    return {
+      ...presented,
+      self: {
+        ...presented.self,
+        privateIntel: [...presented.self.privateIntel, intel],
+      },
+    };
+  }
+
   if (
     event.type !== 'CARD_REVEALED' &&
     event.type !== 'CARD_ELIMINATED' &&
@@ -73,7 +89,7 @@ interface PresentationCursor {
 }
 
 /**
- * Giữ snapshot cuối khỏi xuất hiện tức thì và tiến board theo current event.
+ * Giữ snapshot cuối khỏi xuất hiện tức thì và tiến board/intel theo current event.
  * History/authoritative view vẫn nguyên vẹn; đây chỉ là projection cho render.
  */
 export function usePresentedGameView({
@@ -111,7 +127,7 @@ export function usePresentedGameView({
     if (current && current.sequence > cursor.sequence) {
       setPresented((previous) =>
         previous
-          ? applyCardOutcomeToPresentedView(previous, view, current)
+          ? applyPresentationEventToPresentedView(previous, view, current)
           : view
       );
       return;

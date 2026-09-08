@@ -29,6 +29,7 @@ import {
   createNightAbilityAction,
   createNightPassAction,
   createPurgeAction,
+  getDayAbilityTargets,
   getPurgeRuleForRound,
 } from './game-action-model';
 
@@ -137,5 +138,31 @@ describe('v0.2 web action builders', () => {
     expect(canStartDayAbility(view, 'REVIVE')).toBe(false);
     expect(canStartDayAbility(view, 'MARK')).toBe(true);
     expect(canStartDayAbility(view, 'PURIFY')).toBe(true);
+  });
+
+  it('keeps Shooter unavailable until the opponent has at least two revealed roles', () => {
+    const initial = createFirstDayView();
+    const withRevealedCards = (count: number) => GamePlayerViewV2Schema.parse({
+      ...initial,
+      opponent: {
+        ...initial.opponent,
+        board: initial.opponent.board.map((card, index) => index < count
+          ? {
+              ...card,
+              state: { ...card.state, visibility: 'REVEALED' as const },
+              role: STANDARD_DECK[index],
+            }
+          : card),
+      },
+    });
+
+    const oneRevealed = withRevealedCards(1);
+    expect(getDayAbilityTargets(oneRevealed, 'SHOOT')).toEqual([]);
+    expect(canStartDayAbility(oneRevealed, 'SHOOT')).toBe(false);
+
+    const twoRevealed = withRevealedCards(2);
+    expect(getDayAbilityTargets(twoRevealed, 'SHOOT').map((card) => card.id))
+      .toEqual(['B1', 'B2']);
+    expect(canStartDayAbility(twoRevealed, 'SHOOT')).toBe(true);
   });
 });

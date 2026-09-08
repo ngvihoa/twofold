@@ -63,6 +63,14 @@ export function getDayAbilityTargets(
   if (actionType === 'REVIVE') {
     return view.self.board.filter((card) => !isLivingCard(card));
   }
+  if (
+    actionType === 'SHOOT' &&
+    view.opponent.board.filter(
+      (card) => card.state.visibility === 'REVEALED'
+    ).length < 2
+  ) {
+    return [];
+  }
   return view.opponent.board.filter((card) =>
     isLivingCard(card)
     && (actionType !== 'SHOOT' || card.state.visibility === 'REVEALED')

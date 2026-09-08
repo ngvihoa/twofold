@@ -1,6 +1,7 @@
 import {
   AbilityId,
   type CardId,
+  type CardRole,
   type CardRuntimeStateV2,
   type GamePresentationEventV2,
   type GamePlayerViewV2,
@@ -68,6 +69,7 @@ export function PrototypeGameBoard(props: PrototypeGameBoardProps) {
   const privateCardIntents = new Map(
     getPrivateCardIntentIndicators(props.view, props.pendingAction)
   );
+  const inspectedOpponentRoles = getInspectedOpponentRoles(props.view);
   if (props.defensePlacement) {
     privateCardIntents.delete(props.defensePlacement.targetCardId);
   }
@@ -93,6 +95,7 @@ export function PrototypeGameBoard(props: PrototypeGameBoardProps) {
         defensePlacement={props.defensePlacement ?? null}
         newlyRevealedOpponentCardIds={newlyRevealedOpponentCardIds}
         privateCardIntents={privateCardIntents}
+        inspectedOpponentRoles={inspectedOpponentRoles}
       />
     </PrototypeGameInteractionProvider>
   );
@@ -105,6 +108,7 @@ function PrototypeGameArena({
   defensePlacement,
   newlyRevealedOpponentCardIds,
   privateCardIntents,
+  inspectedOpponentRoles,
 }: {
   readonly view: GamePlayerViewV2;
   readonly notice?: PrototypeGameBoardNotice;
@@ -115,6 +119,7 @@ function PrototypeGameArena({
   } | null;
   readonly newlyRevealedOpponentCardIds: ReadonlySet<CardId>;
   readonly privateCardIntents: ReadonlyMap<CardId, readonly CardIntentIndicator[]>;
+  readonly inspectedOpponentRoles: ReadonlyMap<string, CardRole>;
 }) {
   const scene = getPrototypeScene(view.phase.type);
   const selfAlive = countLivingCards(view.self.board);
@@ -154,6 +159,7 @@ function PrototypeGameArena({
                 key={card.id}
                 kind="opponent"
                 card={card}
+                inspectedRole={inspectedOpponentRoles.get(card.instanceId)}
                 animateReveal={newlyRevealedOpponentCardIds.has(card.id)}
                 animateElimination={
                   currentPresentation?.type === 'CARD_ELIMINATED' &&
@@ -329,6 +335,18 @@ export function getPrivateCardIntentIndicators(
   }
 
   return indicators;
+}
+
+/** Intel Tiên tri là dữ liệu local-only, được nối theo occupant instance. */
+export function getInspectedOpponentRoles(
+  view: GamePlayerViewV2
+): ReadonlyMap<string, CardRole> {
+  return new Map(
+    view.self.privateIntel.map((intel) => [
+      intel.targetInstanceId,
+      intel.discoveredRole,
+    ])
+  );
 }
 
 function PrototypeTopbar({

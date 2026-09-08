@@ -1,4 +1,5 @@
 import {
+  type CardRole,
   type CardId,
   type PrivateCardViewV2,
   type PublicCardViewV2,
@@ -19,7 +20,11 @@ import {
 
 export type PrototypeGameCardProps =
   | ({ readonly kind: 'self'; readonly card: PrivateCardViewV2 } & CardInteractionProps)
-  | ({ readonly kind: 'opponent'; readonly card: PublicCardViewV2 } & CardInteractionProps);
+  | ({
+      readonly kind: 'opponent';
+      readonly card: PublicCardViewV2;
+      readonly inspectedRole?: CardRole;
+    } & CardInteractionProps);
 
 interface CardInteractionProps {
   readonly animateElimination?: boolean;
@@ -50,7 +55,13 @@ export function PrototypeGameCard(props: PrototypeGameCardProps) {
   const revealed = card.state.visibility === 'REVEALED';
   const role =
     props.kind === 'self' ? props.card.role.id : props.card.role;
-  const roleName = role ? formatGameRoleName(role) : 'Vai trò ẩn';
+  const inspectedRole =
+    props.kind === 'opponent' && !revealed ? props.inspectedRole : undefined;
+  const roleName = role
+    ? formatGameRoleName(role)
+    : inspectedRole
+      ? formatGameRoleName(inspectedRole)
+      : 'Vai trò ẩn';
   const tooltip = role ? getGameRoleTooltipContent(role) : null;
 
   const showTooltip = React.useCallback(() => {
@@ -159,9 +170,19 @@ export function PrototypeGameCard(props: PrototypeGameCardProps) {
               decoding="async"
               className="h-[100px] w-full object-contain" />
           )}
-          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent px-1 pb-1 pt-5">
-            {role ? (
-              <strong className="block truncate text-xs leading-tight text-amber-50">{roleName}</strong>
+          <div
+            className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent px-1 pb-1 pt-5"
+            data-private-intel-role={inspectedRole}
+          >
+            {role || inspectedRole ? (
+              <strong
+                className={cn(
+                  'block truncate text-xs leading-tight',
+                  role ? 'text-amber-50' : 'game-card-private-intel-name text-sky-100'
+                )}
+              >
+                {roleName}
+              </strong>
             ) : null}
             {/* <span className="font-mono text-xs text-slate-300">{card.instanceId}</span> */}
           </div>
