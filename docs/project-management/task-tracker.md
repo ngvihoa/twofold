@@ -56,7 +56,7 @@ Thử nghiệm đêm 07/09/2026: PO duyệt thử ba lựa chọn độc lập (
 
 Motion playtest 07/09/2026: reviewer đã rút bước di chuyển/lộ bài từ 4,2s xuống 0,8s, bỏ đường nối và lật mặt tại ô đích. Đồng bộ thời gian chờ trình diễn; spec-reviewer 51/51 test pass. Chờ PO đánh giá nhịp chuyển động trên local.
 
-Web presentation sync 09/09/2026: port motion primitives của prototype (seer beam/lens/scanline, shield dome/ripple, combat trail/projectile/impact, council/outcome) vào presentation layer của web. Structured events vẫn giữ information boundary authoritative; action bị khóa trong queue và status effect icon chỉ xuất hiện sau animation tương ứng.
+Web presentation sync 09/09/2026: port motion primitives của prototype (seer beam/lens/scanline, shield dome/ripple, combat trail/projectile/impact, council/outcome) vào presentation layer của web. Bảo vệ phát motion đặt khiên ngay khi submit lựa chọn, giữ icon tới khi motion xong và không phát lại lúc night resolution; `CARD_SAVED` chỉ trình diễn nhịp chặn đòn. Structured events vẫn giữ information boundary authoritative và action bị khóa trong queue.
 
 | Ngày | ID task | Blocker | Người xử lý | Hạn | Trạng thái |
 |---|---|---|---|---|---|

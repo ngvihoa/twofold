@@ -13,9 +13,10 @@ export type GameResolutionEffectKind =
   | 'revealed'
   | 'revive'
   | 'revived'
+  | 'saved'
   | 'shoot';
 
-interface ResolutionEffect {
+export interface ResolutionEffect {
   readonly kind: GameResolutionEffectKind;
   readonly sourceCardId: string | null;
   readonly targetCardId: string;
@@ -55,6 +56,7 @@ export function getGameResolutionEffect(
   event: GamePresentationEventV2
 ): ResolutionEffect | null {
   if (event.type === 'ABILITY_RESOLVED' && event.targetCardId) {
+    if (event.abilityId === AbilityId.GUARD_PROTECT) return null;
     return {
       kind: ABILITY_EFFECT[event.abilityId],
       sourceCardId: event.sourceCardId,
@@ -62,7 +64,7 @@ export function getGameResolutionEffect(
     };
   }
   if (event.type === 'CARD_SAVED') {
-    return { kind: 'defend', sourceCardId: null, targetCardId: event.cardId };
+    return { kind: 'saved', sourceCardId: null, targetCardId: event.cardId };
   }
   if (event.type === 'CARD_ELIMINATED') {
     return { kind: 'eliminated', sourceCardId: null, targetCardId: event.cardId };
@@ -140,13 +142,20 @@ export function PrototypeGameResolutionEffect({
   readonly event: GamePresentationEventV2;
 }) {
   const effect = getGameResolutionEffect(event);
+  if (!effect) return null;
+  return <PrototypeGameResolutionMotion effect={effect} effectKey={event.id} />;
+}
+
+export function PrototypeGameResolutionMotion({
+  effect,
+  effectKey,
+}: {
+  readonly effect: ResolutionEffect;
+  readonly effectKey: string;
+}) {
   const [geometry, setGeometry] = React.useState<EffectGeometry | null>(null);
 
   React.useLayoutEffect(() => {
-    if (!effect) {
-      setGeometry(null);
-      return;
-    }
     const source = effect.sourceCardId ? findCard(effect.sourceCardId) : null;
     const target = findCard(effect.targetCardId);
     source?.classList.add(`game-fx-${effect.kind}-source`);
@@ -159,7 +168,7 @@ export function PrototypeGameResolutionEffect({
     };
   }, [effect?.kind, effect?.sourceCardId, effect?.targetCardId]);
 
-  if (!effect || !geometry) return null;
+  if (!geometry) return null;
   const style = {
     '--game-fx-angle': `${geometry.angle}deg`,
     '--game-fx-distance': `${geometry.distance}px`,
@@ -173,7 +182,7 @@ export function PrototypeGameResolutionEffect({
 
   return (
     <div
-      key={event.id}
+      key={effectKey}
       className="game-resolution-fx-layer"
       data-resolution-effect={effect.kind}
       style={style}
@@ -198,13 +207,14 @@ function ResolutionEffectMarkup({ effect }: { readonly effect: ResolutionEffect 
       </>
     );
   }
-  if (effect.kind === 'defend') {
+  if (effect.kind === 'defend' || effect.kind === 'saved') {
+    const placed = effect.kind === 'defend';
     return (
       <>
         <div className="game-fx-shield-dome">
           <i />
           <span>◈</span>
-          <strong>KHIÊN ĐÃ ĐẶT</strong>
+          <strong>{placed ? 'KHIÊN ĐÃ ĐẶT' : 'KHIÊN ĐÃ CHẶN ĐÒN'}</strong>
           <small>{effect.targetCardId}</small>
         </div>
         <div className="game-fx-shield-ripple" />

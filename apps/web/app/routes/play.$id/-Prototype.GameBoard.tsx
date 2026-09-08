@@ -33,6 +33,10 @@ export interface PrototypeGameBoardProps {
   readonly canSubmit: boolean;
   readonly onSubmit: (action: PlayerGameAction) => void;
   readonly currentPresentation?: GamePresentationEventV2 | null;
+  readonly defensePlacement?: {
+    readonly sourceCardId: CardId;
+    readonly targetCardId: CardId;
+  } | null;
   readonly notice?: PrototypeGameBoardNotice;
 }
 
@@ -61,10 +65,12 @@ export function PrototypeGameBoard(props: PrototypeGameBoardProps) {
     previousOpponentVisibilityRef.current,
     props.view.opponent.board
   );
-  const privateCardIntents = getPrivateCardIntentIndicators(
-    props.view,
-    props.pendingAction
+  const privateCardIntents = new Map(
+    getPrivateCardIntentIndicators(props.view, props.pendingAction)
   );
+  if (props.defensePlacement) {
+    privateCardIntents.delete(props.defensePlacement.targetCardId);
+  }
 
   React.useEffect(() => {
     previousOpponentVisibilityRef.current = createOpponentVisibilitySnapshot(
@@ -84,6 +90,7 @@ export function PrototypeGameBoard(props: PrototypeGameBoardProps) {
         view={props.view}
         notice={props.notice}
         currentPresentation={props.currentPresentation ?? null}
+        defensePlacement={props.defensePlacement ?? null}
         newlyRevealedOpponentCardIds={newlyRevealedOpponentCardIds}
         privateCardIntents={privateCardIntents}
       />
@@ -95,12 +102,17 @@ function PrototypeGameArena({
   view,
   notice,
   currentPresentation,
+  defensePlacement,
   newlyRevealedOpponentCardIds,
   privateCardIntents,
 }: {
   readonly view: GamePlayerViewV2;
   readonly notice?: PrototypeGameBoardNotice;
   readonly currentPresentation: GamePresentationEventV2 | null;
+  readonly defensePlacement: {
+    readonly sourceCardId: CardId;
+    readonly targetCardId: CardId;
+  } | null;
   readonly newlyRevealedOpponentCardIds: ReadonlySet<CardId>;
   readonly privateCardIntents: ReadonlyMap<CardId, readonly CardIntentIndicator[]>;
 }) {
@@ -144,7 +156,11 @@ function PrototypeGameArena({
                 card={card}
                 animateReveal={newlyRevealedOpponentCardIds.has(card.id)}
                 intentIndicators={privateCardIntents.get(card.id)}
-                suppressEffects={isCardInGameResolution(currentPresentation, card.id)}
+                suppressEffects={
+                  isCardInGameResolution(currentPresentation, card.id) ||
+                  defensePlacement?.sourceCardId === card.id ||
+                  defensePlacement?.targetCardId === card.id
+                }
                 selectable={interaction.selectableCardIds.has(card.id)}
                 selected={interaction.selectedCardIds.has(card.id)}
                 onSelect={interaction.selectCard}
@@ -175,7 +191,11 @@ function PrototypeGameArena({
                 kind="self"
                 card={card}
                 intentIndicators={privateCardIntents.get(card.id)}
-                suppressEffects={isCardInGameResolution(currentPresentation, card.id)}
+                suppressEffects={
+                  isCardInGameResolution(currentPresentation, card.id) ||
+                  defensePlacement?.sourceCardId === card.id ||
+                  defensePlacement?.targetCardId === card.id
+                }
                 selectable={interaction.selectableCardIds.has(card.id)}
                 selected={interaction.selectedCardIds.has(card.id)}
                 onSelect={interaction.selectCard}

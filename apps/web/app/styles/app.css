@@ -546,6 +546,7 @@
 [data-card-id].game-fx-inspect-target { z-index: 14; animation: game-fx-inspected-card 3.4s 0.35s ease-in-out both; }
 [data-card-id].game-fx-defend-source { animation: game-fx-guard-source-pulse 2.8s ease-in-out both; }
 [data-card-id].game-fx-defend-target { z-index: 14; animation: game-fx-defended-card 3.35s ease-in-out both; }
+[data-card-id].game-fx-saved-target { z-index: 14; animation: game-fx-defended-card 3.35s ease-in-out both; }
 [data-card-id].game-fx-council-target { z-index: 15; animation: game-fx-condemned-card 4s 0.45s both; }
 [data-card-id].game-fx-attack-source,
 [data-card-id].game-fx-poison-source,

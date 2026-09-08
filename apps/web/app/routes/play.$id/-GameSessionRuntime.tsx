@@ -1,3 +1,4 @@
+import type { CardId, PlayerGameAction } from '@twofold/shared-types';
 import type { GameTransport } from '../../features/game/session/game-transport';
 import { GamePresentationActorContext } from '../../features/game/presentation/game-presentation-context';
 import { GamePresentationSync } from '../../features/game/presentation/game-presentation-sync';
@@ -14,9 +15,13 @@ import {
   selectSessionError,
   selectView,
 } from '../../features/game/session/game-session-machine';
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PrototypeGameBoard } from './-Prototype.GameBoard';
 import { PrototypeGameEventPresentation } from './-Prototype.GameEventPresentation';
+import {
+  PrototypeGameResolutionMotion,
+  type ResolutionEffect,
+} from './-Prototype.GameResolutionEffect';
 import { GameSetupPanel } from './-GameSetupPanel';
 
 export interface GameSessionRuntimeProps {
@@ -69,6 +74,44 @@ function GameSessionContent() {
     () => view ? getPresentationEvents(view) : [],
     [view]
   );
+  const [defensePlacement, setDefensePlacement] = useState<{
+    readonly effect: ResolutionEffect;
+    readonly effectKey: string;
+    readonly sourceCardId: CardId;
+    readonly targetCardId: CardId;
+  } | null>(null);
+  const defenseTimerRef = useRef<number | null>(null);
+  const defenseSequenceRef = useRef(0);
+
+  useEffect(() => () => {
+    if (defenseTimerRef.current !== null) {
+      window.clearTimeout(defenseTimerRef.current);
+    }
+  }, []);
+
+  const submitAction = useCallback((action: PlayerGameAction) => {
+    if (action.type === 'DEFENSE_SUBMIT' && action.order.type === 'PROTECT') {
+      if (defenseTimerRef.current !== null) {
+        window.clearTimeout(defenseTimerRef.current);
+      }
+      defenseSequenceRef.current += 1;
+      setDefensePlacement({
+        effect: {
+          kind: 'defend',
+          sourceCardId: action.order.sourceId,
+          targetCardId: action.order.targetId,
+        },
+        effectKey: `defense-placement:${defenseSequenceRef.current}`,
+        sourceCardId: action.order.sourceId,
+        targetCardId: action.order.targetId,
+      });
+      defenseTimerRef.current = window.setTimeout(() => {
+        setDefensePlacement(null);
+        defenseTimerRef.current = null;
+      }, 3_500);
+    }
+    actor.send({ type: 'SUBMIT_ACTION', action });
+  }, [actor]);
 
   const retryConnection = () => {
     actor.send({
@@ -79,7 +122,14 @@ function GameSessionContent() {
   const presentation = view ? (
     <>
       <GamePresentationSync gameId={view.gameId} events={presentationEvents} />
-      <PrototypeGameEventPresentation />
+      {defensePlacement ? (
+        <PrototypeGameResolutionMotion
+          effect={defensePlacement.effect}
+          effectKey={defensePlacement.effectKey}
+        />
+      ) : (
+        <PrototypeGameEventPresentation />
+      )}
     </>
   ) : null;
 
@@ -123,8 +173,8 @@ function GameSessionContent() {
           player={view.self}
           pendingAction={pendingAction}
           error={error}
-          canSubmit={canSubmit && !isPresenting}
-          onSubmit={(action) => actor.send({ type: 'SUBMIT_ACTION', action })}
+          canSubmit={canSubmit && !isPresenting && defensePlacement === null}
+          onSubmit={submitAction}
         />
       </>
     );
@@ -140,10 +190,11 @@ function GameSessionContent() {
         <PrototypeGameBoard
           view={view}
           currentPresentation={currentPresentation}
+          defensePlacement={defensePlacement}
           pendingAction={pendingAction}
           error={error}
-          canSubmit={canSubmit && !isPresenting}
-          onSubmit={(action) => actor.send({ type: 'SUBMIT_ACTION', action })}
+          canSubmit={canSubmit && !isPresenting && defensePlacement === null}
+          onSubmit={submitAction}
         />
       </div>
     </>

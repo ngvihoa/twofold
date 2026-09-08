@@ -50,10 +50,22 @@ describe('prototype game resolution effect', () => {
     });
 
     expect(getGameResolutionEffect(saved)).toEqual({
-      kind: 'defend',
+      kind: 'saved',
       sourceCardId: null,
       targetCardId: 'B2',
     });
+  });
+
+  it('does not replay guard placement when night resolution emits the ability event', () => {
+    const guardResolution = event({
+      type: 'ABILITY_RESOLVED',
+      abilityId: AbilityId.GUARD_PROTECT,
+      sourceCardId: 'A4',
+      targetCardId: 'A2',
+    });
+
+    expect(getGameResolutionEffect(guardResolution)).toBeNull();
+    expect(getPresentationDurationMs(guardResolution)).toBe(2_200);
   });
 
   it('keeps ordinary structured notifications on the shorter presentation beat', () => {
