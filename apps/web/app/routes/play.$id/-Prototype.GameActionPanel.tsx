@@ -48,18 +48,13 @@ export interface PrototypeGameInteractionProviderProps {
 
 type InteractionState =
   | { readonly kind: 'IDLE' }
-  | { readonly kind: 'DAY_SOURCE'; readonly actionType: DayAbilityActionType }
   | { readonly kind: 'DAY_TARGET'; readonly actionType: DayAbilityActionType; readonly sourceId: CardId }
-  | { readonly kind: 'NIGHT_SOURCE'; readonly abilityId: NightAbilityId }
   | { readonly kind: 'NIGHT_TARGET'; readonly abilityId: NightAbilityId; readonly sourceId: CardId }
   | { readonly kind: 'BLOOD_MOON_TARGET' }
-  | { readonly kind: 'DEFENSE_SOURCE' }
   | { readonly kind: 'DEFENSE_TARGET'; readonly sourceId: CardId }
   | { readonly kind: 'COUNCIL_VOTERS'; readonly voterIds: readonly CardId[] }
   | { readonly kind: 'COUNCIL_TARGET'; readonly voterIds: readonly CardId[] }
   | { readonly kind: 'COUNCIL_GUESS'; readonly voterIds: readonly CardId[]; readonly targetId: CardId }
-  | { readonly kind: 'REACTION_SOURCE' }
-  | { readonly kind: 'PURGE_OWN' }
   | { readonly kind: 'PURGE_OPPONENT'; readonly ownTargetId: CardId };
 
 const DAY_CARD_ACTIONS = ['SHOOT', 'MARK', 'PURIFY', 'REVIVE'] as const;
@@ -68,6 +63,15 @@ const NIGHT_CARD_ABILITIES = [
   AbilityId.SEER_INSPECT,
   AbilityId.WITCH_POISON,
 ] as const;
+const COUNCIL_VOTER_ROLES = new Set<CardRole>([
+  CardRole.VILLAGER,
+  CardRole.SEER,
+  CardRole.GUARD,
+  CardRole.WITCH,
+  CardRole.SHOOTER,
+  CardRole.AVENGER,
+  CardRole.PRIEST,
+]);
 const IDLE_INTERACTION: InteractionState = { kind: 'IDLE' };
 
 interface ScopedInteractionState {
@@ -140,23 +144,14 @@ export function PrototypeGameInteractionProvider({
   const selectCard = React.useCallback((cardId: CardId) => {
     if (!selectableCardIds.has(cardId) || !canSubmit) return;
     switch (interaction.kind) {
-      case 'DAY_SOURCE':
-        setInteraction({ kind: 'DAY_TARGET', actionType: interaction.actionType, sourceId: cardId });
-        return;
       case 'DAY_TARGET':
         submit(createDayAbilityAction(view.self.id, interaction.actionType, interaction.sourceId, cardId));
-        return;
-      case 'NIGHT_SOURCE':
-        setInteraction({ kind: 'NIGHT_TARGET', abilityId: interaction.abilityId, sourceId: cardId });
         return;
       case 'NIGHT_TARGET':
         submit(createNightAbilityAction(view.self.id, interaction.abilityId, interaction.sourceId, cardId));
         return;
       case 'BLOOD_MOON_TARGET':
         submit(createBloodMoonAction(view.self.id, cardId));
-        return;
-      case 'DEFENSE_SOURCE':
-        setInteraction({ kind: 'DEFENSE_TARGET', sourceId: cardId });
         return;
       case 'DEFENSE_TARGET':
         submit(createDefenseProtectAction(view.self.id, interaction.sourceId, cardId));
@@ -167,7 +162,11 @@ export function PrototypeGameInteractionProvider({
           : interaction.voterIds.length < 3
             ? [...interaction.voterIds, cardId]
             : interaction.voterIds;
-        setInteraction({ kind: 'COUNCIL_VOTERS', voterIds: selected });
+        setInteraction(
+          getCouncilVotePower(view, selected) >= 3
+            ? { kind: 'COUNCIL_TARGET', voterIds: selected }
+            : { kind: 'COUNCIL_VOTERS', voterIds: selected }
+        );
         return;
       }
       case 'COUNCIL_TARGET': {
@@ -179,26 +178,6 @@ export function PrototypeGameInteractionProvider({
         }
         return;
       }
-      case 'REACTION_SOURCE':
-        submit(createCouncilReactionAction(view.self.id, cardId));
-        return;
-      case 'PURGE_OWN': {
-        const rule = getPurgeRuleForRound(view.round);
-        if (rule === 'SWAP') {
-          setInteraction({ kind: 'PURGE_OPPONENT', ownTargetId: cardId });
-          return;
-        }
-        if (rule === 'CUT') {
-          submit(createPurgeAction(view.self.id, { rule, targetId: cardId }));
-          return;
-        }
-        if (rule === 'REVEAL') {
-          submit(createPurgeAction(view.self.id, { rule, targetId: cardId }));
-          return;
-        }
-        submit(createPurgeAction(view.self.id, { rule: 'LOCK', targetId: cardId }));
-        return;
-      }
       case 'PURGE_OPPONENT':
         submit(createPurgeAction(view.self.id, {
           rule: 'SWAP',
@@ -207,8 +186,9 @@ export function PrototypeGameInteractionProvider({
         }));
         return;
       case 'IDLE': {
-        const nextInteraction = getCardFirstInteraction(view, cardId);
-        if (nextInteraction) setInteraction(nextInteraction);
+        const selection = getCardFirstSelection(view, cardId);
+        if (selection?.kind === 'ACTION') submit(selection.action);
+        else if (selection) setInteraction(selection.interaction);
         return;
       }
       case 'COUNCIL_GUESS':
@@ -287,7 +267,6 @@ function PhaseControls({ context }: { readonly context: GameInteractionContextVa
       return (
         <div className="flex flex-wrap items-center justify-center gap-2">
           <Prompt text={`Chọn tối đa 3 voter · tổng trọng số ${votePower}/3`} />
-          <ActionButton label="Chọn mục tiêu" disabled={disabled || votePower < 3} onClick={() => setInteraction({ kind: 'COUNCIL_TARGET', voterIds: interaction.voterIds })} />
           <CancelButton onClick={cancel} />
         </div>
       );
@@ -333,7 +312,7 @@ function PhaseControls({ context }: { readonly context: GameInteractionContextVa
       );
     case 'COUNCIL_PLAN':
       if (!view.self.submissions.council.accusation) {
-        return <div className="flex flex-wrap items-center justify-center gap-2"><Prompt text="Lập Hội đồng với tổng trọng số ít nhất 3" /><ActionButton label="Chọn voter" disabled={disabled} onClick={() => setInteraction({ kind: 'COUNCIL_VOTERS', voterIds: [] })} /><ActionButton label="Bỏ qua Hội đồng" tone="quiet" disabled={disabled} onClick={() => submit(createCouncilPassAction(view.self.id))} /></div>;
+        return <div className="flex flex-wrap items-center justify-center gap-2"><Prompt text="Chọn trực tiếp voter đang phát sáng · đủ 3 phiếu sẽ chọn mục tiêu" /><ActionButton label="Bỏ qua Hội đồng" tone="quiet" disabled={disabled} onClick={() => submit(createCouncilPassAction(view.self.id))} /></div>;
       }
       return <Prompt text="Hội đồng đã khóa · đang chờ đối thủ" />;
     case 'COUNCIL_REACTION': {
@@ -345,7 +324,7 @@ function PhaseControls({ context }: { readonly context: GameInteractionContextVa
       }
       const canSacrifice = getAbilitySources(view, AbilityId.SUBSTITUTE_SACRIFICE)
         .some((card) => card.id !== view.self.submissions.council.pendingTargetId);
-      return <div className="flex flex-wrap items-center justify-center gap-2"><Prompt text="Kẻ Thế Mạng có chết thay cho lá vừa bị kết tội?" /><ActionButton label="Chết thay" disabled={disabled || !canSacrifice} onClick={() => setInteraction({ kind: 'REACTION_SOURCE' })} /><ActionButton label="Từ chối" tone="quiet" disabled={disabled} onClick={() => submit(createCouncilReactionPassAction(view.self.id))} /></div>;
+      return <div className="flex flex-wrap items-center justify-center gap-2"><Prompt text={canSacrifice ? 'Chọn trực tiếp Kẻ Thế Mạng đang phát sáng để chết thay' : 'Không có Kẻ Thế Mạng hợp lệ để chết thay'} /><ActionButton label="Từ chối" tone="quiet" disabled={disabled} onClick={() => submit(createCouncilReactionPassAction(view.self.id))} /></div>;
     }
     case 'PURGE_PLAN': {
       if (view.self.submissions.purge) return <Prompt text="Thanh trừng đã khóa · đang chờ đối thủ" />;
@@ -355,7 +334,7 @@ function PhaseControls({ context }: { readonly context: GameInteractionContextVa
       return (
         <div className="flex flex-wrap items-center justify-center gap-2">
           <Prompt text={`Thanh trừng ${rule} · chọn trực tiếp lá phát sáng`} />
-          {canSkip ? <ActionButton label="Xác nhận không có mục tiêu" disabled={disabled} onClick={() => submit(rule === 'SWAP' ? createPurgeAction(view.self.id, { rule, ownTargetId: null, opponentTargetId: null }) : createPurgeAction(view.self.id, { rule: 'REVEAL', targetId: null }))} /> : <ActionButton label="Bắt đầu chọn" disabled={disabled} onClick={() => setInteraction({ kind: 'PURGE_OWN' })} />}
+          {canSkip ? <ActionButton label="Xác nhận không có mục tiêu" disabled={disabled} onClick={() => submit(rule === 'SWAP' ? createPurgeAction(view.self.id, { rule, ownTargetId: null, opponentTargetId: null }) : createPurgeAction(view.self.id, { rule: 'REVEAL', targetId: null }))} /> : null}
         </div>
       );
     }
@@ -377,12 +356,9 @@ function PhaseControls({ context }: { readonly context: GameInteractionContextVa
 function getSelectableCardIds(view: GamePlayerViewV2, interaction: InteractionState, canSubmit: boolean): ReadonlySet<CardId> {
   if (!canSubmit) return new Set();
   switch (interaction.kind) {
-    case 'DAY_SOURCE': return cardIdSet(getAbilitySources(view, DAY_ACTION_ABILITY[interaction.actionType]));
     case 'DAY_TARGET': return cardIdSet(getDayAbilityTargets(view, interaction.actionType));
-    case 'NIGHT_SOURCE': return cardIdSet(getAbilitySources(view, interaction.abilityId));
     case 'NIGHT_TARGET': return cardIdSet(view.opponent.board.filter(isLivingCard));
     case 'BLOOD_MOON_TARGET': return cardIdSet(view.opponent.board.filter((card) => isLivingCard(card) && card.state.visibility === 'REVEALED'));
-    case 'DEFENSE_SOURCE': return cardIdSet(getAbilitySources(view, AbilityId.GUARD_PROTECT));
     case 'DEFENSE_TARGET': {
       const source = view.self.board.find((card) => card.id === interaction.sourceId);
       const guard = source?.role.abilities.find((ability) => ability.abilityId === AbilityId.GUARD_PROTECT);
@@ -393,10 +369,8 @@ function getSelectableCardIds(view: GamePlayerViewV2, interaction: InteractionSt
         && card.instanceId !== lastTarget
       ));
     }
-    case 'COUNCIL_VOTERS': return cardIdSet(view.self.board.filter((card) => isLivingCard(card) && !card.effects.some((effect) => effect.kind === 'COUNCIL_LOCK' || effect.kind === 'PURGE_LOCK' || effect.kind === 'ROUND_EXHAUSTED')));
+    case 'COUNCIL_VOTERS': return cardIdSet(getCouncilEligibleVoters(view));
     case 'COUNCIL_TARGET': return cardIdSet(view.opponent.board.filter(isLivingCard));
-    case 'REACTION_SOURCE': return cardIdSet(getAbilitySources(view, AbilityId.SUBSTITUTE_SACRIFICE).filter((card) => card.id !== view.self.submissions.council.pendingTargetId));
-    case 'PURGE_OWN': return cardIdSet(getPurgeOwnTargets(view, getPurgeRuleForRound(view.round)));
     case 'PURGE_OPPONENT': return cardIdSet(view.opponent.board.filter(isLivingCard));
     case 'IDLE': return getIdleSelectableCardIds(view);
     case 'COUNCIL_GUESS': return new Set();
@@ -421,15 +395,31 @@ function getIdleSelectableCardIds(view: GamePlayerViewV2): ReadonlySet<CardId> {
     case 'DUSK_DEFENSE':
       if (view.self.submissions.defense) return new Set();
       return cardIdSet(getAbilitySources(view, AbilityId.GUARD_PROTECT));
+    case 'COUNCIL_PLAN':
+      if (view.self.submissions.council.accusation) return new Set();
+      return cardIdSet(getCouncilEligibleVoters(view));
+    case 'COUNCIL_REACTION':
+      if (
+        view.self.submissions.council.pendingTargetId === null
+        || view.self.submissions.council.reaction
+      ) return new Set();
+      return cardIdSet(getAvailableSubstitutes(view));
+    case 'PURGE_PLAN':
+      if (view.self.submissions.purge) return new Set();
+      return cardIdSet(getPurgeOwnTargets(view, getPurgeRuleForRound(view.round)));
     default:
       return new Set();
   }
 }
 
-function getCardFirstInteraction(
+type CardFirstSelection =
+  | { readonly kind: 'INTERACTION'; readonly interaction: InteractionState }
+  | { readonly kind: 'ACTION'; readonly action: PlayerGameAction };
+
+export function getCardFirstSelection(
   view: GamePlayerViewV2,
   sourceId: CardId
-): InteractionState | null {
+): CardFirstSelection | null {
   switch (view.phase.type) {
     case 'DAY_A':
     case 'DAY_B': {
@@ -437,18 +427,66 @@ function getCardFirstInteraction(
         canStartDayAbility(view, candidate)
         && getAbilitySources(view, DAY_ACTION_ABILITY[candidate]).some((card) => card.id === sourceId)
       );
-      return actionType ? { kind: 'DAY_TARGET', actionType, sourceId } : null;
+      return actionType
+        ? { kind: 'INTERACTION', interaction: { kind: 'DAY_TARGET', actionType, sourceId } }
+        : null;
     }
     case 'NIGHT_PLAN': {
       const abilityId = NIGHT_CARD_ABILITIES.find((candidate) =>
         getAbilitySources(view, candidate).some((card) => card.id === sourceId)
       );
-      return abilityId ? { kind: 'NIGHT_TARGET', abilityId, sourceId } : null;
+      return abilityId
+        ? { kind: 'INTERACTION', interaction: { kind: 'NIGHT_TARGET', abilityId, sourceId } }
+        : null;
     }
     case 'DUSK_DEFENSE':
       return getAbilitySources(view, AbilityId.GUARD_PROTECT).some((card) => card.id === sourceId)
-        ? { kind: 'DEFENSE_TARGET', sourceId }
+        ? { kind: 'INTERACTION', interaction: { kind: 'DEFENSE_TARGET', sourceId } }
         : null;
+    case 'COUNCIL_PLAN':
+      return getCouncilEligibleVoters(view).some((card) => card.id === sourceId)
+        ? {
+            kind: 'INTERACTION',
+            interaction: getCouncilVotePower(view, [sourceId]) >= 3
+              ? { kind: 'COUNCIL_TARGET', voterIds: [sourceId] }
+              : { kind: 'COUNCIL_VOTERS', voterIds: [sourceId] },
+          }
+        : null;
+    case 'COUNCIL_REACTION':
+      return getAvailableSubstitutes(view).some((card) => card.id === sourceId)
+        ? {
+            kind: 'ACTION',
+            action: createCouncilReactionAction(view.self.id, sourceId),
+          }
+        : null;
+    case 'PURGE_PLAN': {
+      const rule = getPurgeRuleForRound(view.round);
+      if (!getPurgeOwnTargets(view, rule).some((card) => card.id === sourceId)) {
+        return null;
+      }
+      if (rule === 'SWAP') {
+        return {
+          kind: 'INTERACTION',
+          interaction: { kind: 'PURGE_OPPONENT', ownTargetId: sourceId },
+        };
+      }
+      if (rule === 'CUT') {
+        return {
+          kind: 'ACTION',
+          action: createPurgeAction(view.self.id, { rule, targetId: sourceId }),
+        };
+      }
+      if (rule === 'REVEAL') {
+        return {
+          kind: 'ACTION',
+          action: createPurgeAction(view.self.id, { rule, targetId: sourceId }),
+        };
+      }
+      return {
+        kind: 'ACTION',
+        action: createPurgeAction(view.self.id, { rule: 'LOCK', targetId: sourceId }),
+      };
+    }
     default:
       return null;
   }
@@ -485,6 +523,23 @@ function getPurgeOwnTargets(view: GamePlayerViewV2, rule: ReturnType<typeof getP
   return view.self.board.filter((card) => isLivingCard(card) && (rule !== 'REVEAL' || card.state.visibility === 'HIDDEN'));
 }
 
+function getCouncilEligibleVoters(view: GamePlayerViewV2) {
+  return view.self.board.filter((card) =>
+    isLivingCard(card)
+    && COUNCIL_VOTER_ROLES.has(card.role.id)
+    && !card.effects.some((effect) =>
+      effect.kind === 'COUNCIL_LOCK'
+      || effect.kind === 'PURGE_LOCK'
+      || effect.kind === 'ROUND_EXHAUSTED'
+    )
+  );
+}
+
+function getAvailableSubstitutes(view: GamePlayerViewV2) {
+  return getAbilitySources(view, AbilityId.SUBSTITUTE_SACRIFICE)
+    .filter((card) => card.id !== view.self.submissions.council.pendingTargetId);
+}
+
 function cardIdSet(cards: readonly { readonly id: CardId }[]): ReadonlySet<CardId> {
   return new Set(cards.map((card) => card.id));
 }
@@ -497,16 +552,11 @@ function useGameInteraction(): GameInteractionContextValue {
 
 function interactionPrompt(interaction: InteractionState): string {
   switch (interaction.kind) {
-    case 'DAY_SOURCE':
-    case 'NIGHT_SOURCE': return 'Bước 1 · Chọn lá nguồn đang phát sáng';
     case 'DAY_TARGET':
     case 'NIGHT_TARGET': return `Bước 2 · ${interaction.sourceId} đã chọn, nhấp lá mục tiêu`;
     case 'BLOOD_MOON_TARGET': return 'Chọn một role đối thủ đã lộ';
-    case 'DEFENSE_SOURCE': return 'Bước 1 · Chọn Bảo vệ đang phát sáng';
     case 'DEFENSE_TARGET': return `Bước 2 · Chọn lá nhận khiên từ ${interaction.sourceId}`;
     case 'COUNCIL_TARGET': return 'Đủ trọng số · chọn một lá đối thủ';
-    case 'REACTION_SOURCE': return 'Chọn Kẻ Thế Mạng sẽ chết thay';
-    case 'PURGE_OWN': return 'Chọn một lá phe mình đang phát sáng';
     case 'PURGE_OPPONENT': return `${interaction.ownTargetId} đã chọn · chọn lá đối thủ để SWAP`;
     default: return '';
   }

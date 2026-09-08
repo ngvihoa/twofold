@@ -14,6 +14,7 @@ import {
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  getCardFirstSelection,
   PrototypeGameActionPanel,
   PrototypeGameInteractionProvider,
 } from './-Prototype.GameActionPanel';
@@ -353,7 +354,7 @@ describe('PrototypeGameBoard', () => {
 
   it.each([
     ['DAY_A', 1, 'Chọn lá đang phát sáng để dùng kỹ năng'],
-    ['COUNCIL_PLAN', 2, 'Chọn voter'],
+    ['COUNCIL_PLAN', 2, 'Chọn trực tiếp voter đang phát sáng'],
     ['NIGHT_PLAN', 2, 'Chọn lá đang phát sáng để khóa lệnh đêm'],
     ['DUSK_DEFENSE', 2, 'Chọn Bảo vệ đang phát sáng để đặt khiên'],
     ['PURGE_PLAN', 6, 'Thanh trừng CUT'],
@@ -378,5 +379,102 @@ describe('PrototypeGameBoard', () => {
       </PrototypeGameInteractionProvider>
     );
     expect(html).toContain(expected);
+  });
+
+  it('starts Council from eligible voter cards without an action-mode button', () => {
+    const view = GamePlayerViewV2Schema.parse({
+      ...createView(),
+      round: 2,
+      phase: { type: 'COUNCIL_PLAN' },
+      activePlayer: null,
+    });
+    const html = renderToStaticMarkup(
+      <PrototypeGameBoard
+        view={view}
+        pendingAction={null}
+        error={null}
+        canSubmit
+        onSubmit={vi.fn()}
+      />
+    );
+
+    expect(html).not.toMatch(/<button[^>]*>Chọn voter<\/button>/u);
+    expect(html.match(/<button[^>]*data-card-id="A1"[^>]*>/u)?.[0]).not.toContain('disabled');
+    expect(html.match(/<button[^>]*data-card-id="A2"[^>]*>/u)?.[0]).toContain('disabled');
+    expect(getCardFirstSelection(view, 'A1')).toEqual({
+      kind: 'INTERACTION',
+      interaction: { kind: 'COUNCIL_VOTERS', voterIds: ['A1'] },
+    });
+    expect(getCardFirstSelection(view, 'A2')).toBeNull();
+  });
+
+  it('starts Purge from cards without a start-selection button', () => {
+    const view = GamePlayerViewV2Schema.parse({
+      ...createView(),
+      round: 6,
+      phase: { type: 'PURGE_PLAN' },
+      activePlayer: null,
+    });
+    const html = renderToStaticMarkup(
+      <PrototypeGameBoard
+        view={view}
+        pendingAction={null}
+        error={null}
+        canSubmit
+        onSubmit={vi.fn()}
+      />
+    );
+
+    expect(html).not.toContain('Bắt đầu chọn');
+    expect(html.match(/<button[^>]*data-card-id="A1"[^>]*>/u)?.[0]).not.toContain('disabled');
+    expect(html.match(/<button[^>]*data-card-id="B1"[^>]*>/u)?.[0]).toContain('disabled');
+    expect(getCardFirstSelection(view, 'A1')).toEqual({
+      kind: 'ACTION',
+      action: {
+        type: 'PURGE_SUBMIT',
+        playerId: PlayerId.PLAYER_A,
+        order: { rule: 'CUT', targetId: 'A1' },
+      },
+    });
+  });
+
+  it('selects Kẻ Thế Mạng directly during Council reaction', () => {
+    const base = createView();
+    const view = GamePlayerViewV2Schema.parse({
+      ...base,
+      round: 2,
+      phase: { type: 'COUNCIL_REACTION' },
+      activePlayer: null,
+      self: {
+        ...base.self,
+        submissions: {
+          ...base.self.submissions,
+          council: {
+            ...base.self.submissions.council,
+            pendingTargetId: 'A1',
+          },
+        },
+      },
+    });
+    const html = renderToStaticMarkup(
+      <PrototypeGameBoard
+        view={view}
+        pendingAction={null}
+        error={null}
+        canSubmit
+        onSubmit={vi.fn()}
+      />
+    );
+
+    expect(html).not.toMatch(/<button[^>]*>Chết thay<\/button>/u);
+    expect(html.match(/<button[^>]*data-card-id="A10"[^>]*>/u)?.[0]).not.toContain('disabled');
+    expect(getCardFirstSelection(view, 'A10')).toEqual({
+      kind: 'ACTION',
+      action: {
+        type: 'COUNCIL_REACTION_SUBMIT',
+        playerId: PlayerId.PLAYER_A,
+        order: { type: 'SUBSTITUTE_SACRIFICE', sourceId: 'A10' },
+      },
+    });
   });
 });
