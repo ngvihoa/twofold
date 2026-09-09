@@ -41,3 +41,6 @@ temp/
 work/
 outputs/
 .claude/
+
+*storybook.log
+storybook-static
