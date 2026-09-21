@@ -3,6 +3,7 @@ export default {
   content: [
     './app/**/*.{js,ts,jsx,tsx}',
     './server/**/*.{js,ts,jsx,tsx}',
+    './.storybook/**/*.{js,ts,jsx,tsx}',
   ],
   darkMode: 'class',
   theme: {
